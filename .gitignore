@@ -10,15 +10,12 @@
 .history
 .svn/
 .swiftpm/
-migrate_working_dir/
 
-# IntelliJ / Android Studio
+# IDE & Editors
 *.iml
 *.ipr
 *.iws
 .idea/
-
-# Visual Studio Code
 .vscode/
 
 # Flutter / Dart / Pub
@@ -56,7 +53,3 @@ ios/Flutter/flutter_export_environment.sh
 .env
 .env*.local
 !.env.example
-
-# Antigravity & Agentic scratch logs
-.system_generated/
-scratch/
