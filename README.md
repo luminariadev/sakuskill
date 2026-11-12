@@ -1,15 +1,31 @@
 # SakuSkill Monorepo
 
-Platform Marketplace Jasa Mikro Lokal dan Barter Jasa Berbasis Keterampilan Antar-Mahasiswa dan Warga Sekitar Kampus.
-
-## Struktur Direktori (Branch: develop)
-- `mobile/` — Aplikasi klien Flutter + Dart (Frontend)
-- `backend/` — REST API Node.js + Express & migrasi PostgreSQL/PostGIS (Backend)
-- `docs/` — Dokumen SKPL, ERD Ringkas (`docs/ERD_RINGKAS.md`), dan API Contract (`docs/API_CONTRACT.md`)
+> Platform Marketplace Jasa Mikro Lokal dan Barter Jasa Berbasis Keterampilan Antar-Mahasiswa dan Warga Sekitar Kampus.
 
 ---
 
-## Cara Menjalankan Backend API & Database (Lokal)
+## 📌 Status Repositori & Cabang
+- **`main`**: Cabang rilis utama (versi bersih dan stabil).
+- **`develop`**: Cabang aktif integrasi seluruh fitur Monorepo (FE, BE, QA).
+- **[`referensi`](https://github.com/luminariadev/sakuskill/tree/referensi)**: Cabang arsip yang menyimpan seluruh kode awal, blueprint arsitektur, dan implementasi sebelumnya sebagai rujukan teknis.
+
+---
+
+## 🏗️ Struktur Direktori Monorepo (Branch: develop)
+```text
+sakuskill/
+├── mobile/         # Aplikasi klien Flutter + Dart (Frontend)
+├── backend/        # REST API Node.js + Express & migrasi PostgreSQL/PostGIS (Backend)
+├── docs/           # Dokumen SKPL, ERD Ringkas, API Contract, dan Pengujian
+│   ├── API_CONTRACT.md
+│   ├── ERD_RINGKAS.md
+│   └── qa/         # Dokumen Test Plan, Test Cases, & Bug Report Template
+└── .github/        # Konfigurasi Issue template & Pull Request template
+```
+
+---
+
+## ⚙️ Cara Menjalankan Backend API & Database (Lokal)
 
 ### 1. Masuk ke Direktori Backend & Siapkan Environment
 ```bash
@@ -48,6 +64,23 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/v1/health" | ConvertTo-Json -D
 
 ---
 
-## Dokumentasi Teknis Backend
+## 📚 Dokumentasi Teknis Backend
 - **ERD Ringkas:** Lihat [`docs/ERD_RINGKAS.md`](./docs/ERD_RINGKAS.md)
 - **API Contract:** Lihat [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)
+
+---
+
+## 🧪 Panduan Quality Assurance (QA) & Alur Kontribusi
+1. **Aturan Cabang:** Pengembang membuat branch fitur baru dari `develop` (contoh: `feat/fe-setup` atau `feat/be-auth`).
+2. **Pull Request:** Setiap integrasi wajib melalui Pull Request ke `develop` menggunakan [PR Template](.github/pull_request_template.md).
+3. **Dokumentasi Pengujian:** Rencana pengujian dan matriks skenario pengujian dapat ditinjau pada:
+   - [QA Test Plan](docs/qa/TEST_PLAN.md)
+   - [QA Test Cases](docs/qa/TEST_CASES.md)
+   - [Bug Report Template](docs/qa/BUG_REPORT_TEMPLATE.md)
+
+---
+
+## 📄 Lisensi
+Didistribusikan di bawah lisensi [MIT](LICENSE).
+
+<!-- Daily commit: Fri, Nov 13, 2026  02:08:00 AM -->
