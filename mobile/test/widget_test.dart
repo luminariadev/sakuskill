@@ -1,30 +1,68 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-
-import 'package:sakuskill/main.dart';
+import 'package:sakuskill/app.dart';
+import 'package:sakuskill/core/di/app_dependencies.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  Future<void> pumpApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      SakuSkillApp(dependencies: AppDependencies.offline()),
+    );
+    await tester.pumpAndSettle();
+  }
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('Home Discovery menampilkan sapaan, banner & feed terdekat',
+      (tester) async {
+    await pumpApp(tester);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Hi Salma,'), findsOneWidget);
+    expect(find.text('Transaksi Aman & Terlindungi'), findsOneWidget);
+    expect(find.text('Keahlian di sekitarmu'), findsOneWidget);
+    expect(find.text('Rifqi Hamdani'), findsOneWidget);
+    expect(find.text('Ahmad Fauzi'), findsOneWidget);
+
+    // Navigasi utama: 5 tab.
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
+  });
+
+  testWidgets('Filter Smart Barter menyembunyikan jasa berbayar saja',
+      (tester) async {
+    await pumpApp(tester);
+    expect(find.text('Sarah Aulia'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('filter-barter')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sarah Aulia'), findsNothing);
+    expect(find.text('Rifqi Hamdani'), findsOneWidget);
+  });
+
+  testWidgets('Filter kategori Fotografi', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byKey(const Key('category-Fotografi')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dina Rahmawati'), findsOneWidget);
+    expect(find.text('Ahmad Fauzi'), findsNothing);
+  });
+
+  testWidgets('Halaman pencarian memfilter berdasarkan kata kunci',
+      (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byKey(const Key('home-search-field')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('search-input')), 'laptop');
+    await tester.pump(const Duration(milliseconds: 350)); // debounce
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rifqi Hamdani'), findsOneWidget);
+    expect(find.text('Dina Rahmawati'), findsNothing);
   });
 }
