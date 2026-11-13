@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../features/discovery/domain/entities/discovery_filter.dart';
 import '../../features/discovery/domain/entities/service_listing.dart';

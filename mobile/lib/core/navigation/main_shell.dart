@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../features/auth/presentation/profile_placeholder_page.dart';
 import '../../features/barter/presentation/barter_placeholder_page.dart';

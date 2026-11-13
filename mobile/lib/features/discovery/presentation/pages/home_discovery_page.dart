@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/main_shell.dart';
@@ -122,8 +122,8 @@ class _FeedSliver extends StatelessWidget {
         padding: AppSpacing.screen,
         sliver: SliverList.separated(
           itemCount: 3,
-          separatorBuilder: (_, _) => const SizedBox(height: 14),
-          itemBuilder: (_, _) => const ServiceCardSkeleton(),
+          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          itemBuilder: (_, __) => const ServiceCardSkeleton(),
         ),
       );
     }
@@ -157,7 +157,7 @@ class _FeedSliver extends StatelessWidget {
       padding: AppSpacing.screen,
       sliver: SliverList.separated(
         itemCount: listings.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 14),
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
         itemBuilder: (context, i) {
           final listing = listings[i];
           return ServiceCard(

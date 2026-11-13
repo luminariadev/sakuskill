@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 /// Token warna SakuSkill — sumber: Figma "00 · SakuSkill design system".
 ///

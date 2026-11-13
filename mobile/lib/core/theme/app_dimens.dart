@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 /// Geometri dari design system: radius 4 / 8 / 14 / pill, spacing kelipatan 4.
 abstract final class AppRadius {

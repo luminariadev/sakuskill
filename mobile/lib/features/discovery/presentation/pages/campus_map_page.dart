@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/navigation/app_router.dart';
@@ -115,7 +115,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   _mapReady = true;
                   _fitRadius(DiscoveryScope.read(context).filter);
                 },
-                onTap: (_, _) => FocusScope.of(context).unfocus(),
+                onTap: (_, __) => FocusScope.of(context).unfocus(),
               ),
               children: [
                 TileLayer(

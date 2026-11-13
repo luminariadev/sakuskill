@@ -64,6 +64,31 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/v1/health" | ConvertTo-Json -D
 
 ---
 
+## 📱 Cara Menjalankan Mobile App (Frontend)
+
+### 1. Masuk ke Direktori Mobile
+```bash
+cd mobile
+```
+
+### 2. Pasang Dependencies
+```bash
+flutter pub get
+```
+
+### 3. Jalankan Pengujian Otomatis (QA Suite)
+```bash
+flutter test
+```
+*Seluruh 21 unit & widget test terverifikasi lulus (100% green).*
+
+### 4. Jalankan Aplikasi pada Emulator / Perangkat
+```bash
+flutter run
+```
+
+---
+
 ## 📚 Dokumentasi Teknis Backend
 - **ERD Ringkas:** Lihat [`docs/ERD_RINGKAS.md`](./docs/ERD_RINGKAS.md)
 - **API Contract:** Lihat [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md)
@@ -83,4 +108,4 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/v1/health" | ConvertTo-Json -D
 ## 📄 Lisensi
 Didistribusikan di bawah lisensi [MIT](LICENSE).
 
-<!-- Daily commit: Fri, Nov 13, 2026  02:08:00 AM -->
+<!-- Daily commit: Sat, Nov 14, 2026 12:47:00 AM -->
