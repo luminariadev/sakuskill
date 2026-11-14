@@ -63,7 +63,20 @@ Untuk memfasilitasi pengujian transaksi dua arah (Penyedia vs Pelanggan) dan ske
 ---
 
 ## 5. Rencana Jadwal Eksekusi Pengujian (QA Schedule)
-1. **12–13 Nov 2026:** Finalisasi Test Plan, Test Case Matrix, dan Bug Report Template.
-2. **14–15 Nov 2026:** Smoke Testing dan Component Functional Testing (saat FE & BE push modul awal).
+1. **12–13 Nov 2026:** Finalisasi Test Plan, Test Case Matrix, dan Bug Report Template. *(Selesai)*
+2. **14–15 Nov 2026:** Smoke Testing, Component Functional Testing, dan Audit Keselarasan Desain UI Figma. *(Selesai)*
 3. **16 Nov 2026:** Integration Testing & End-to-End Regression Testing (Alur transaksi pembayaran & barter).
 4. **17 Nov 2026:** Sign-off QA & Persiapan Demo Rilis MVP.
+
+---
+
+## 6. Status Eksekusi & Audit Kesiapan MVP (Per 15 Nov 2026)
+- **Komponen Frontend Mobile (`mobile/`):**
+  - Discovery Feed & Hyperlocal Peta Kampus Cibiru: ✅ Terverifikasi lolos (21/21 Unit & Widget Test 100% Green).
+  - Escrow Ledger UI & Stepper Timeline: ✅ Terverifikasi pada `orders_placeholder_page.dart`.
+  - Smart Barter Hub: ✅ Terverifikasi pada `barter_placeholder_page.dart` (Kontrak `#BTR-012`).
+  - Audit Keselarasan Figma: Desain UI *Finall Design* 95% selaras dengan komponen FE.
+- **Komponen Backend API (`backend/`):**
+  - Skema Database (PostgreSQL + PostGIS): ✅ Terverifikasi (`001_init_sakuskill_schema.sql`).
+  - Endpoint Health & Hyperlocal Listings: ✅ Terverifikasi (`GET /api/v1/health`, `GET /api/v1/listings`).
+  - Endpoint Pemesanan & Escrow: ⏳ Dalam tahap integrasi modul `orders` oleh tim Backend.
