@@ -1,10 +1,10 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 
 // Warna utama Barter diambil dari tema tim. Widget yang memakainya sengaja
 // tidak di-const, supaya aman walau AppColors.barter bukan konstanta.
-final _purple = AppColors.barter;
+const _purple = AppColors.barter;
 final _purpleSoft = _purple.withValues(alpha: 0.1);
 final _purpleBox = _purple.withValues(alpha: 0.06);
 

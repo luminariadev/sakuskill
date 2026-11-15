@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/navigation/app_router.dart';
@@ -192,7 +192,7 @@ class _Results extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: listings.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, i) {
         final listing = listings[i];
         return ServiceCard(
