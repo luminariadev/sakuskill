@@ -15,18 +15,48 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Home Discovery menampilkan sapaan, banner & feed terdekat',
+  testWidgets('Beranda menampilkan lokasi, saldo, banner & feed terdekat',
       (tester) async {
     await pumpApp(tester);
 
-    expect(find.text('Hi Salma,'), findsOneWidget);
-    expect(find.text('Transaksi Aman & Terlindungi'), findsOneWidget);
+    expect(find.text('Cibiru, Bandung'), findsOneWidget);
+    expect(find.text('Saldo Rp 150.000'), findsOneWidget);
+    expect(find.textContaining('Aman dari awal'), findsOneWidget);
     expect(find.text('Keahlian di sekitarmu'), findsOneWidget);
     expect(find.text('Rifqi Hamdani'), findsOneWidget);
     expect(find.text('Ahmad Fauzi'), findsOneWidget);
 
-    // Navigasi utama: 5 tab.
-    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    // Navigasi utama: 5 tab sesuai Figma.
+    for (final tab in ['home', 'explore', 'orders', 'barter', 'profile']) {
+      expect(find.byKey(Key('nav-$tab')), findsOneWidget);
+    }
+    expect(find.text('Beranda'), findsOneWidget);
+  });
+
+  testWidgets('Chip 4.8+ menyembunyikan penyedia dengan rating < 4.8',
+      (tester) async {
+    await pumpApp(tester);
+    expect(find.text('Sarah Aulia'), findsOneWidget); // rating 4.7
+
+    await tester.tap(find.byKey(const Key('filter-rating')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sarah Aulia'), findsNothing);
+    expect(find.text('Rifqi Hamdani'), findsOneWidget); // rating 4.9
+  });
+
+  testWidgets('Kartu layanan membuka Detail layanan dengan bar aksi',
+      (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Ahmad Fauzi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tentang layanan'), findsOneWidget);
+    expect(find.text('Menerima Barter'), findsOneWidget);
+    expect(find.byKey(const Key('detail-chat')), findsOneWidget);
+    expect(find.byKey(const Key('detail-barter')), findsOneWidget);
+    expect(find.textContaining('Order via Escrow'), findsOneWidget);
   });
 
   testWidgets('Filter Smart Barter menyembunyikan jasa berbayar saja',

@@ -33,6 +33,9 @@ abstract final class AppConfig {
   static const List<int> radiusOptions = [500, 1000, 2000, 3000];
   static const int defaultRadiusMeters = 2000;
 
+  /// Ambang chip "4.8+" (rating penyedia) di Beranda.
+  static const double topRatedThreshold = 4.8;
+
   /// Tile peta: data OpenStreetMap dengan gaya CARTO Voyager (warna lembut,
   /// paling mirip ilustrasi peta di Figma). Ganti ke [osmStandardTileUrl]
   /// bila ingin tile OSM standar.

@@ -8,7 +8,7 @@ import '../entities/service_listing.dart';
 ///    (bila koordinat tersedia), jika tidak pakai jarak dari server.
 /// 2. Buang listing di luar radius.
 /// 3. Cocokkan kata kunci (judul, keahlian, kategori, penyedia, deskripsi).
-/// 4. Saring kategori & Smart Barter.
+/// 4. Saring kategori, Smart Barter & rating minimum.
 /// 5. Urutkan dari yang terdekat.
 abstract final class ListingFilter {
   static List<ServiceListing> apply(
@@ -28,6 +28,8 @@ abstract final class ListingFilter {
         continue;
       }
       if (filter.barterOnly && !listing.offerType.acceptsBarter) continue;
+      final minRating = filter.minRating;
+      if (minRating != null && (listing.rating ?? 0) < minRating) continue;
       if (keywords.isNotEmpty && !_matches(listing, keywords)) continue;
 
       result.add(listing.copyWith(distanceMeters: distance));

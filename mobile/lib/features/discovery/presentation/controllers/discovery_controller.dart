@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../domain/entities/discovery_filter.dart';
 import '../../domain/entities/service_category.dart';
 import '../../domain/entities/service_listing.dart';
@@ -88,6 +89,13 @@ class DiscoveryController extends ChangeNotifier {
   }
 
   void toggleBarterOnly() => setBarterOnly(!_filter.barterOnly);
+
+  /// Chip "4.8+" di Beranda: aktifkan/matikan filter rating minimum.
+  void toggleTopRated() => _applyFilter(
+        _filter.minRating == null
+            ? _filter.copyWith(minRating: AppConfig.topRatedThreshold)
+            : _filter.copyWith(clearMinRating: true),
+      );
 
   void selectListing(String? id) {
     if (id == _selectedListingId) return;

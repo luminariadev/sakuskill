@@ -52,6 +52,17 @@ void main() {
       expect(names(result), ['Rifqi Hamdani', 'Fajar Nugraha']);
     });
 
+    test('rating minimum 4.8 (chip "4.8+")', () {
+      final result = ListingFilter.apply(
+        all,
+        const DiscoveryFilter(radiusMeters: 3000, minRating: 4.8),
+      );
+      expect(result.every((l) => (l.rating ?? 0) >= 4.8), isTrue);
+      expect(names(result), isNot(contains('Sarah Aulia'))); // 4.7
+      expect(names(result), isNot(contains('Zikri Maulana'))); // 4.6
+      expect(names(result), contains('Mulyana')); // 5.0
+    });
+
     test('kata kunci tidak peka huruf besar & semua kata harus cocok', () {
       final poster = ListingFilter.apply(
         all,

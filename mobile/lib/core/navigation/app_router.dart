@@ -22,6 +22,9 @@ abstract final class AppRoutes {
   /// Anggota 4 (Smart Barter): argumen = [ServiceListing].
   static const String proposeBarter = '/barter/propose';
 
+  /// Anggota 4 (Chat & negosiasi sebelum escrow): argumen = [ServiceListing].
+  static const String chat = '/escrow/chat';
+
   /// Anggota 6 (AI Price Estimator).
   static const String priceEstimator = '/ai/price-estimator';
 }
@@ -70,6 +73,15 @@ abstract final class AppRouter {
           icon: Icons.swap_horiz_rounded,
           owner: 'Anggota 4 — Frontend Feature (Smart Barter)',
           accent: AppColors.barter,
+        );
+
+      case AppRoutes.chat:
+        return _placeholder(
+          settings,
+          title: 'Chat & Nego',
+          subtitle: 'Negosiasi harga & lingkup kerja sebelum escrow',
+          icon: Icons.chat_bubble_outline_rounded,
+          owner: 'Anggota 4 — Frontend Feature (Escrow)',
         );
 
       case AppRoutes.priceEstimator:

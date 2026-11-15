@@ -4,7 +4,6 @@ import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/main_shell.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../controllers/discovery_controller.dart';
 import '../controllers/discovery_scope.dart';
@@ -12,12 +11,17 @@ import '../widgets/discovery_filters.dart';
 import '../widgets/home_sections.dart';
 import '../widgets/service_card.dart';
 
-/// Figma "01 · Home discovery".
+/// Figma "Beranda" (section Menu).
 class HomeDiscoveryPage extends StatelessWidget {
   const HomeDiscoveryPage({super.key});
 
-  // TODO(anggota-5): ganti dengan nama pengguna dari sesi autentikasi.
+  // TODO(anggota-5): ganti dengan data pengguna dari sesi autentikasi.
   static const String _demoUserName = 'Salma';
+  static const String _demoLocation = 'Cibiru, Bandung';
+  static const num _demoBalance = 150000;
+
+  /// Padding horizontal konten atas Beranda (Figma: 24).
+  static const EdgeInsets _pad = EdgeInsets.symmetric(horizontal: 24);
 
   @override
   Widget build(BuildContext context) {
@@ -38,49 +42,47 @@ class HomeDiscoveryPage extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                sliver: SliverList.list(
-                  children: [
-                    BrandHeader(
-                      userName: _demoUserName,
-                      onAvatarTap: () => MainShell.goTo(context, MainTab.profile),
+                padding: const EdgeInsets.fromLTRB(24, 10, 18, 0),
+                sliver: SliverToBoxAdapter(
+                  child: BrandHeader(
+                    userName: _demoUserName,
+                    onAvatarTap: () => MainShell.goTo(context, MainTab.profile),
+                    onNotificationsTap: () =>
+                        ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Belum ada notifikasi baru.')),
                     ),
-                    const SizedBox(height: 18),
-                    const Text('Hi $_demoUserName,', style: AppTypography.display),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Layanan keahlian apa yang kamu butuhkan hari ini?',
-                      style: AppTypography.body,
-                    ),
-                    const SizedBox(height: 14),
-                    SearchEntryField(
-                      onTap: () => Navigator.of(context).pushNamed(
-                        AppRoutes.search,
-                        arguments: controller.filter.copyWith(query: ''),
-                      ),
-                      onLocationTap: () =>
-                          MainShell.goTo(context, MainTab.explore),
-                    ),
-                    const SizedBox(height: 14),
-                    QuickFilterBar(controller: controller),
-                    const SizedBox(height: 14),
-                  ],
-                ),
-              ),
-              if (controller.categories.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: CategoryChipsRow(
-                    categories: controller.categories,
-                    selectedId: controller.filter.categoryId,
-                    onSelected: controller.setCategory,
                   ),
                 ),
+              ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                padding: const EdgeInsets.fromLTRB(24, 8, 17, 0),
+                sliver: const SliverToBoxAdapter(
+                  child: LocationBalanceRow(
+                    locationLabel: _demoLocation,
+                    balance: _demoBalance,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 25, 24, 16),
+                sliver: SliverToBoxAdapter(
+                  child: SearchEntryField(
+                    onTap: () => Navigator.of(context).pushNamed(
+                      AppRoutes.search,
+                      arguments: controller.filter.copyWith(query: ''),
+                    ),
+                    onLocationTap: () =>
+                        MainShell.goTo(context, MainTab.explore),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(child: HomeFilterChips(controller: controller)),
+              SliverPadding(
+                padding: _pad.copyWith(top: 23),
                 sliver: SliverList.list(
                   children: [
                     const EscrowPromiseBanner(),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 25),
                     SectionHeader(
                       title: 'Keahlian di sekitarmu',
                       actionLabel: 'Lihat semua',
@@ -93,7 +95,7 @@ class HomeDiscoveryPage extends StatelessWidget {
                       const SizedBox(height: 8),
                       const OfflineDataBanner(),
                     ],
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
@@ -146,13 +148,14 @@ class _FeedSliver extends StatelessWidget {
           icon: Icons.travel_explore_rounded,
           title: 'Belum ada jasa di radius ini',
           message:
-              'Coba perluas jangkauan atau ubah kategori & filter Smart Barter.',
+              'Coba perluas jangkauan atau ubah kategori, rating & filter Smart Barter.',
           actionLabel: 'Perluas radius',
           onAction: () => showRadiusSheet(context, controller),
         ),
       );
     }
 
+    // Kartu feed memakai inset 16 (Figma: x=16, lebar 361).
     return SliverPadding(
       padding: AppSpacing.screen,
       sliver: SliverList.separated(

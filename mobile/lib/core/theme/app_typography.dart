@@ -2,22 +2,27 @@ import 'package:material_ui/material_ui.dart';
 
 import 'app_colors.dart';
 
-/// Skala tipografi dari Figma "Panduan visual":
-/// Display 28/800 · Heading 20/700 · Subheading 16/600 · Body 14/500 ·
-/// Body 13/400 · Caption 11/600 · Badge 9.
+/// Skala tipografi dari Figma "Design guide" (03 / Tipografi):
+/// Display 32/800 · Title 24/800 · Heading 20/700 · Subtitle 16/600 ·
+/// Body large 14/500 · Body 13/400 · Caption 11/600.
 ///
-/// Font desain: Plus Jakarta Sans. Selama file font belum ditambahkan ke
-/// `assets/fonts/` + `pubspec.yaml`, Flutter memakai font default platform
-/// (fallback aman — layout tetap sama).
+/// Font desain: Inter (alternatif Plus Jakarta Sans). Selama file font belum
+/// ditambahkan ke `assets/fonts/` + `pubspec.yaml`, Flutter memakai font
+/// default platform (fallback aman — layout tetap sama).
 abstract final class AppTypography {
-  static const String fontFamily = 'PlusJakartaSans';
+  static const String fontFamily = 'Inter';
 
   static const TextStyle display = TextStyle(
-    fontSize: 28,
-    height: 34 / 28,
+    fontSize: 32,
+    height: 45 / 32,
     fontWeight: FontWeight.w800,
     color: AppColors.textPrimary,
-    letterSpacing: -0.5,
+  );
+  static const TextStyle title = TextStyle(
+    fontSize: 24,
+    height: 34 / 24,
+    fontWeight: FontWeight.w800,
+    color: AppColors.textPrimary,
   );
   static const TextStyle heading = TextStyle(
     fontSize: 20,
@@ -45,7 +50,7 @@ abstract final class AppTypography {
   );
   static const TextStyle caption = TextStyle(
     fontSize: 11,
-    height: 16 / 11,
+    height: 15 / 11,
     fontWeight: FontWeight.w600,
     color: AppColors.textSecondary,
   );
@@ -59,6 +64,7 @@ abstract final class AppTypography {
 
   static TextTheme get textTheme => const TextTheme(
         displaySmall: display,
+        headlineMedium: title,
         headlineSmall: heading,
         titleMedium: subheading,
         titleSmall: bodyLarge,

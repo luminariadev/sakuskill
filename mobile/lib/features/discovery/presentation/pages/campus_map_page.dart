@@ -9,6 +9,7 @@ import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../domain/entities/discovery_filter.dart';
 import '../../domain/entities/service_listing.dart';
@@ -55,7 +56,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           LatLng(origin.latitude - dLat, origin.longitude - dLng),
           LatLng(origin.latitude + dLat, origin.longitude + dLng),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 140, 24, 220),
+        padding: const EdgeInsets.fromLTRB(24, 150, 24, 230),
       ),
     );
   }
@@ -141,21 +142,21 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   markers: [
                     Marker(
                       point: LatLng(origin.latitude + 0.0032, origin.longitude),
-                      width: 200,
-                      height: 50,
+                      width: 150,
+                      height: 52,
                       child: const CampusMapLabel(),
                     ),
                     Marker(
                       point: origin,
-                      width: 20,
-                      height: 20,
+                      width: 17,
+                      height: 17,
                       child: const OriginDot(),
                     ),
                     for (final l in visible)
                       Marker(
                         point: _toLatLng(l.location!),
-                        width: 190,
-                        height: 76,
+                        width: talentMarkerSize.width,
+                        height: talentMarkerSize.height,
                         child: TalentMarker(
                           listing: l,
                           selected: l.id == selected?.id,
@@ -172,73 +173,95 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ),
           ),
 
-          // ---- Kontrol atas: pencarian + radius ---------------------------
+          // ---- Kontrol atas: pencarian + radius (Figma "Explore Cibiru")
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DecoratedBox(
-                    decoration: const BoxDecoration(
-                      borderRadius: AppRadius.pillBr,
-                      boxShadow: AppShadows.flat,
-                    ),
-                    child: TextField(
-                      controller: _search,
-                      onChanged: (_) => setState(() {}),
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
-                        hintText: 'Cari mahasiswa di sekitar Cibiru...',
-                        contentPadding: EdgeInsets.symmetric(vertical: 18),
-                        prefixIcon: Icon(Icons.search_rounded,
-                            color: AppColors.primary, size: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: AppRadius.pillBr,
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.pillBr,
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.pillBr,
-                          borderSide: BorderSide(color: AppColors.primary),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DecoratedBox(
+                      decoration: const BoxDecoration(
+                        borderRadius: AppRadius.pillBr,
+                        boxShadow: AppShadows.flat,
+                      ),
+                      child: SizedBox(
+                        height: 46,
+                        child: TextField(
+                          key: const Key('map-search-input'),
+                          controller: _search,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(fontSize: 12),
+                          // expands: dekorasi (border pill) mengisi tinggi 46.
+                          expands: true,
+                          maxLines: null,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: const InputDecoration(
+                            hintText: 'Cari keahlian di sekitar Anda...',
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.only(left: 13, right: 11),
+                              child: SakuIcon(
+                                SakuIcons.search,
+                                size: 20,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            prefixIconConstraints:
+                                BoxConstraints(minWidth: 44, minHeight: 20),
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.pillBr,
+                              borderSide:
+                                  BorderSide(color: AppColors.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: AppRadius.pillBr,
+                              borderSide:
+                                  BorderSide(color: AppColors.borderLight),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: AppRadius.pillBr,
+                              borderSide: BorderSide(color: AppColors.primary),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      RadiusSegmented(
+                    const SizedBox(height: 18),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: RadiusPills(
                         value: filter.radiusMeters,
                         onChanged: controller.setRadius,
                       ),
-                      const Spacer(),
-                      if (controller.isLoading)
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary,
-                          ),
+                    ),
+                    if (controller.isLoading) ...[
+                      const SizedBox(height: 8),
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
                         ),
+                      ),
                     ],
-                  ),
-                  if (controller.isFallback) ...[
-                    const SizedBox(height: 8),
-                    const OfflineDataBanner(),
+                    if (controller.isFallback) ...[
+                      const SizedBox(height: 8),
+                      const OfflineDataBanner(),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
             ),
           ),
 

@@ -1,20 +1,20 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/initials_avatar.dart';
+import '../../../../core/widgets/saku_buttons.dart';
+import '../../../../core/widgets/saku_icon.dart';
 import '../../domain/entities/service_listing.dart';
-import '../pages/service_detail_page.dart';
+import 'service_card.dart';
 
-/// Label keahlian singkat untuk marker, mis. "IT Support", "Jasa Desain".
+/// Label keahlian singkat untuk marker, mis. "Servis Laptop", "Desain".
 String shortSkillLabel(ServiceListing l) {
   switch (l.category) {
     case 'Jasa Teknis':
-      return 'IT Support';
-    case 'Desain':
-      return 'Jasa Desain';
+      return 'Servis Laptop';
     case 'Fotografi':
       return 'Foto & Video';
     case 'Bimbingan Belajar':
@@ -24,8 +24,15 @@ String shortSkillLabel(ServiceListing l) {
   }
 }
 
-/// Marker talenta (Figma 02 · Explore): avatar ber-ring hijau + label pill
-/// putih "Nama · Keahlian (jarak)".
+/// Jarak ringkas tanpa spasi, mis. "600m" / "1.2km".
+String compactDistance(double meters) =>
+    formatDistance(meters).replaceAll(' ', '');
+
+/// Ukuran marker talenta (Figma: 163 × 41).
+const Size talentMarkerSize = Size(163, 41);
+
+/// Marker talenta (Figma "Explore Cibiru"): pill putih ber-border mint,
+/// ikon pin + "Nama · Keahlian" + jarak.
 class TalentMarker extends StatelessWidget {
   const TalentMarker({
     super.key,
@@ -41,84 +48,97 @@ class TalentMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = listing.providerName.split(' ').first;
+    final label = '$firstName · ${shortSkillLabel(listing)}';
     final distance = listing.distanceMeters;
-    final label = '$firstName · ${shortSkillLabel(listing)}'
-        '${distance != null ? ' (${formatDistance(distance).replaceAll(' ', '')})' : ''}';
 
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Penyedia $label',
+      label: 'Penyedia $label'
+          '${distance != null ? ', ${compactDistance(distance)}' : ''}',
+      excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedScale(
-              scale: selected ? 1.15 : 1,
-              duration: const Duration(milliseconds: 180),
-              child: Container(
-                padding: const EdgeInsets.all(2.5),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: selected ? AppShadows.emeraldGlow : AppShadows.flat,
-                ),
-                child: InitialsAvatar(name: listing.providerName, size: 40),
-              ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(8, 0, 10, 0),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: const BorderRadius.all(Radius.circular(20)),
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.markerBorder,
+              width: selected ? 1.5 : 1,
             ),
-            const SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.cardSurface,
-                borderRadius: AppRadius.pillBr,
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.borderLight,
+            boxShadow: selected ? AppShadows.emeraldGlow : AppShadows.flat,
+          ),
+          child: Row(
+            children: [
+              const SakuIcon(SakuIcons.pin, size: 20, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        height: 14 / 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if (distance != null)
+                      Text(
+                        compactDistance(distance),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          height: 13 / 9,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                  ],
                 ),
-                boxShadow: AppShadows.flat,
               ),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Label nama kampus di atas peta ("UIN SGD Kampus 1 / Cibiru").
+/// Label area kampus di atas peta ("KAMPUS UIN SUNAN GUNUNG DJATI").
 class CampusMapLabel extends StatelessWidget {
   const CampusMapLabel({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
-      child: Text(
-        'UIN SGD Kampus 1\nCibiru',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 16,
-          height: 1.3,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF4D7C4A),
-          shadows: [Shadow(color: Colors.white, blurRadius: 6)],
+    return IgnorePointer(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.mapCampus.withValues(alpha: 0.92),
+          borderRadius: const BorderRadius.all(Radius.circular(24)),
+        ),
+        child: const Text(
+          'KAMPUS UIN\nSUNAN GUNUNG DJATI',
+          style: TextStyle(
+            fontSize: 10,
+            height: 14 / 10,
+            fontWeight: FontWeight.w600,
+            color: AppColors.mapCampusLabel,
+          ),
         ),
       ),
     );
   }
 }
 
-/// Titik lokasi pengguna / pusat kampus.
+/// Titik biru "Lokasi Anda" (17px, border putih).
 class OriginDot extends StatelessWidget {
   const OriginDot({super.key});
 
@@ -128,16 +148,18 @@ class OriginDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.escrow,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
+        border: Border.all(color: Colors.white, width: 1.5),
         boxShadow: const [
-          BoxShadow(color: Color(0x553B82F6), blurRadius: 10, spreadRadius: 4),
+          BoxShadow(color: Color(0x553B82F6), blurRadius: 8, spreadRadius: 3),
         ],
       ),
     );
   }
 }
 
-/// Kartu pratinjau talenta terpilih (Figma 02 · Explore campus).
+/// Kartu talenta terdekat (Figma "Salma terdekat"): avatar 42, nama 15/700,
+/// harga 18/700, meta jarak + rating, tombol Chat Langsung / Lihat Profil &
+/// Order.
 class TalentPreviewCard extends StatelessWidget {
   const TalentPreviewCard({
     super.key,
@@ -152,80 +174,106 @@ class TalentPreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final distance = listing.distanceMeters;
     final meta = [
-      listing.providerMajor?.split('•').first.trim() ?? listing.category,
+      if (distance != null) '${compactDistance(distance)} dari Anda',
       if (listing.rating != null)
-        '★ ${listing.rating!.toStringAsFixed(1)} (${listing.reviewCount} Ulasan)',
-    ].join(' • ');
+        'Rating ${listing.rating!.toStringAsFixed(1)} ★',
+    ].join(' · ');
 
-    return Material(
-      color: AppColors.cardSurface,
-      elevation: 6,
-      shadowColor: const Color(0x1F0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBr,
-        side: BorderSide(color: AppColors.borderLight),
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: const BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+        border: Border.fromBorderSide(BorderSide(color: AppColors.borderLight)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x140F172A),
+            offset: Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
       ),
-      child: InkWell(
-        borderRadius: AppRadius.cardBr,
-        onTap: onOpenDetail,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  InitialsAvatar(name: listing.providerName, size: 42),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          listing.providerName,
-                          style: AppTypography.subheading,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          meta,
-                          style: AppTypography.caption
-                              .copyWith(fontWeight: FontWeight.w400),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+              InitialsAvatar(name: listing.providerName, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      listing.providerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 21 / 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              if (distance != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '${formatDistance(distance)}'
-                  '${listing.landmark != null ? ' dari ${listing.landmark}' : ''}'
-                  ' • Jalan Kaki ~${walkingMinutes(distance)} Menit',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      listing.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 15 / 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-              const SizedBox(height: 6),
-              Text(
-                listing.title,
-                style: AppTypography.bodyLarge
-                    .copyWith(fontWeight: FontWeight.w700, fontSize: 15),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 10),
-              ServiceActionButtons(listing: listing),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          PriceLabel(listing: listing, fontSize: 18, color: AppColors.primary),
+          if (meta.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              meta,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 15 / 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Expanded(
+                flex: 146,
+                child: SakuButton(
+                  key: const Key('map-chat'),
+                  label: 'Chat Langsung',
+                  variant: SakuButtonVariant.outline,
+                  height: 34,
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRoutes.chat,
+                    arguments: listing,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 171,
+                child: SakuButton(
+                  key: const Key('map-open-detail'),
+                  label: 'Lihat Profil & Order',
+                  height: 34,
+                  onPressed: onOpenDetail,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

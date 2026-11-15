@@ -9,10 +9,21 @@ import '../../features/discovery/presentation/pages/home_discovery_page.dart';
 import '../../features/escrow/presentation/orders_placeholder_page.dart';
 import '../di/app_dependencies.dart';
 import '../theme/app_colors.dart';
+import '../widgets/saku_icon.dart';
 
-/// Urutan tab bottom navigation (sesuai Figma: Home · Explore · Orders ·
+/// Urutan tab bottom navigation (sesuai Figma: Beranda · Explore · Orders ·
 /// Barter · Profil).
-enum MainTab { home, explore, orders, barter, profile }
+enum MainTab {
+  home('Beranda', SakuIcons.home),
+  explore('Explore', SakuIcons.compass),
+  orders('Orders', SakuIcons.orders),
+  barter('Barter', SakuIcons.swap),
+  profile('Profil', SakuIcons.user);
+
+  const MainTab(this.label, this.icon);
+  final String label;
+  final SakuIcons icon;
+}
 
 /// Kerangka navigasi utama: 5 tab dengan [IndexedStack] agar state tiap tab
 /// (scroll, posisi peta) tidak hilang saat berpindah tab.
@@ -83,40 +94,94 @@ class _MainShellState extends State<MainShell> {
           index: _tab.index,
           children: [for (final tab in MainTab.values) _page(tab)],
         ),
-        bottomNavigationBar: DecoratedBox(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: AppColors.borderLight)),
-          ),
-          child: NavigationBar(
-            selectedIndex: _tab.index,
-            onDestinationSelected: (i) => _select(MainTab.values[i]),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: 'Home',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.map_outlined),
-                selectedIcon: Icon(Icons.map_rounded),
-                label: 'Explore',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.assignment_outlined),
-                selectedIcon: Icon(Icons.assignment_rounded),
-                label: 'Orders',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.swap_horiz_rounded),
-                label: 'Barter',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded),
-                label: 'Profil',
-              ),
+        bottomNavigationBar: SakuBottomNav(
+          current: _tab,
+          onSelected: _select,
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom navigation Figma "Navigation / Beranda": putih, garis atas
+/// #E2E8F0, tinggi 64, ikon 22px, label 10px. Tab aktif #047857 semibold.
+class SakuBottomNav extends StatelessWidget {
+  const SakuBottomNav({
+    super.key,
+    required this.current,
+    required this.onSelected,
+  });
+
+  final MainTab current;
+  final ValueChanged<MainTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.cardSurface,
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              for (final tab in MainTab.values)
+                Expanded(
+                  child: _NavItem(
+                    tab: tab,
+                    selected: tab == current,
+                    onTap: () => onSelected(tab),
+                  ),
+                ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final MainTab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.primaryPressed : AppColors.textSecondary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: tab.label,
+      excludeSemantics: true,
+      child: InkWell(
+        key: Key('nav-${tab.name}'),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            SakuIcon(tab.icon, size: 22, color: color),
+            const SizedBox(height: 7),
+            Text(
+              tab.label,
+              style: TextStyle(
+                fontSize: 10,
+                height: 14 / 10,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
     );
