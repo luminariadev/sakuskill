@@ -54,9 +54,9 @@ class HomeDiscoveryPage extends StatelessWidget {
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 17, 0),
-                sliver: const SliverToBoxAdapter(
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(24, 8, 17, 0),
+                sliver: SliverToBoxAdapter(
                   child: LocationBalanceRow(
                     locationLabel: _demoLocation,
                     balance: _demoBalance,

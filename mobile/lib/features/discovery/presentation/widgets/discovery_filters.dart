@@ -149,7 +149,7 @@ class HomeFilterChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: padding,
         itemCount: chips.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) => chips[i],
       ),
     );
@@ -212,7 +212,7 @@ class RadiusPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = AppConfig.radiusOptions;
+    const options = AppConfig.radiusOptions;
     return Row(
       children: [
         for (var i = 0; i < options.length; i++) ...[
