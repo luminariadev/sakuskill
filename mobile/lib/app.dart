@@ -1,13 +1,20 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'core/di/app_dependencies.dart';
 import 'core/navigation/app_router.dart';
 import 'core/theme/app_theme.dart';
 
 class SakuSkillApp extends StatelessWidget {
-  const SakuSkillApp({super.key, required this.dependencies});
+  const SakuSkillApp({
+    super.key,
+    required this.dependencies,
+    this.initialRoute = AppRoutes.welcome,
+  });
 
   final AppDependencies dependencies;
+
+  /// Layar pembuka. Default "Awalan"; test memakai [AppRoutes.shell].
+  final String initialRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +24,7 @@ class SakuSkillApp extends StatelessWidget {
         title: 'SakuSkill',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        initialRoute: AppRoutes.shell,
+        initialRoute: initialRoute,
         onGenerateRoute: AppRouter.onGenerateRoute,
       ),
     );

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Token warna SakuSkill — sumber: Figma "Design guide" (v1.0, Nov 2026).
 ///
@@ -34,11 +34,28 @@ abstract final class AppColors {
   static const Color barterBorder = Color(0xFFD8B4FE);
   static const Color escrow = Color(0xFF3B82F6); // Escrow Ledger
   static const Color escrowSurface = Color(0xFFEFF6FF);
+  static const Color escrowText = Color(0xFF2563EB); // teks info escrow
   static const Color dispute = Color(0xFFEF4444); // Sidang etik
   static const Color disputeSurface = Color(0xFFFEF2F2);
+  static const Color danger = Color(0xFFDC2626); // tombol destruktif & error
+
+  // Peringatan tenggat (< 6 jam) — Warning Amber
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color warningSurface = Color(0xFFFFFBEB);
+  static const Color warningText = Color(0xFFB45309);
+
+  // Gelembung chat (Figma "Chat & service molecules")
+  static const Color bubbleClient = Color(0xFFF1F5F9);
+  static const Color bubbleProvider = Color(0xFFECFDF5);
+  static const Color bubbleProviderText = Color(0xFF065F46);
+  static const Color bubbleBarterText = Color(0xFF6B21A8); // chat barter
+  static const Color dashedBorder = Color(0xFFCBD5E1);
+  static const Color scrim = Color(0x8C0F172A); // latar bottom sheet
 
   // Peta kampus (fallback bila tile OSM tidak termuat)
   static const Color mapGreen = Color(0xFFEAF0E8);
+  static const Color mapGreenDesign = Color(0xFFE8EFE9); // "Peta simulasi"
+  static const Color mapBlock = Color(0xFFD5E3D7);
   static const Color mapCampus = Color(0xFFCDE3D2); // area kampus
   static const Color mapCampusLabel = Color(0xFF63806B);
   static const Color markerBorder = Color(0xFFA7F3D0); // pill marker talenta

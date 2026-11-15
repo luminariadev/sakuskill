@@ -92,6 +92,14 @@ class DiscoveryController extends ChangeNotifier {
 
   void toggleBarterOnly() => setBarterOnly(!_filter.barterOnly);
 
+  /// Chip "Jasa Tersedia" / "Kebutuhan Proyek" (null = semua jenis).
+  void setKind(ListingKind? kind) {
+    if (kind == _filter.kind) return;
+    _applyFilter(kind == null
+        ? _filter.copyWith(clearKind: true)
+        : _filter.copyWith(kind: kind));
+  }
+
   /// Chip "4.8+" di Beranda: aktifkan/matikan filter rating minimum.
   void toggleTopRated() => _applyFilter(
         _filter.minRating == null

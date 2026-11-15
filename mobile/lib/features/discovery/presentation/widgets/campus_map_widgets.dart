@@ -1,38 +1,27 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/demo/demo_assets.dart';
+import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/geo.dart';
-import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_buttons.dart';
-import '../../../../core/widgets/saku_icon.dart';
+import '../../../../core/widgets/saku_surfaces.dart';
 import '../../domain/entities/service_listing.dart';
 import 'service_card.dart';
-
-/// Label keahlian singkat untuk marker, mis. "Servis Laptop", "Desain".
-String shortSkillLabel(ServiceListing l) {
-  switch (l.category) {
-    case 'Jasa Teknis':
-      return 'Servis Laptop';
-    case 'Fotografi':
-      return 'Foto & Video';
-    case 'Bimbingan Belajar':
-      return 'Tutor';
-    default:
-      return l.category;
-  }
-}
 
 /// Jarak ringkas tanpa spasi, mis. "600m" / "1.2km".
 String compactDistance(double meters) =>
     formatDistance(meters).replaceAll(' ', '');
 
-/// Ukuran marker talenta (Figma: 163 × 41).
-const Size talentMarkerSize = Size(163, 41);
+/// Ukuran marker talenta (Figma "Salma · 300m": 128 × 34).
+const Size talentMarkerSize = Size(128, 34);
 
-/// Marker talenta (Figma "Explore Cibiru"): pill putih ber-border mint,
-/// ikon pin + "Nama · Keahlian" + jarak.
+/// Marker pill di peta (Figma "6 · Explore Cibiru"): hijau untuk penyedia
+/// jasa, biru untuk permintaan kebutuhan; teks putih 11/700 "Nama · jarak".
+/// Marker terpilih sedikit membesar dengan bayangan.
 class TalentMarker extends StatelessWidget {
   const TalentMarker({
     super.key,
@@ -48,62 +37,56 @@ class TalentMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = listing.providerName.split(' ').first;
-    final label = '$firstName · ${shortSkillLabel(listing)}';
-    final distance = listing.distanceMeters;
+    final d = listing.distanceMeters;
+    final label = d != null ? '$firstName · ${compactDistance(d)}' : firstName;
+    final color = listing.isRequest ? AppColors.escrow : AppColors.primary;
 
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Penyedia $label'
-          '${distance != null ? ', ${compactDistance(distance)}' : ''}',
+      label: '${listing.isRequest ? 'Permintaan' : 'Penyedia'} $label',
       excludeSemantics: true,
       child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.fromLTRB(8, 0, 10, 0),
-          decoration: BoxDecoration(
-            color: AppColors.cardSurface,
-            borderRadius: const BorderRadius.all(Radius.circular(20)),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.markerBorder,
-              width: selected ? 1.5 : 1,
-            ),
-            boxShadow: selected ? AppShadows.emeraldGlow : AppShadows.flat,
-          ),
-          child: Row(
-            children: [
-              const SakuIcon(SakuIcons.pin, size: 20, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        height: 14 / 10,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    if (distance != null)
-                      Text(
-                        compactDistance(distance),
-                        style: const TextStyle(
-                          fontSize: 9,
-                          height: 13 / 9,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                  ],
-                ),
+        onTap: () {
+          SakuMotion.tick();
+          onTap();
+        },
+        child: AnimatedScale(
+          scale: selected ? 1.06 : 1,
+          duration: SakuMotion.base,
+          curve: SakuMotion.curve,
+          child: AnimatedContainer(
+            duration: SakuMotion.base,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.centerLeft,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: selected ? Colors.white : color,
+                width: selected ? 2 : 0,
               ),
-            ],
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : AppShadows.flat,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 15 / 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
       ),
@@ -111,26 +94,22 @@ class TalentMarker extends StatelessWidget {
   }
 }
 
-/// Label area kampus di atas peta ("KAMPUS UIN SUNAN GUNUNG DJATI").
+/// Label area kampus di atas peta ("UIN SUNAN GUNUNG DJATI").
 class CampusMapLabel extends StatelessWidget {
   const CampusMapLabel({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.mapCampus.withValues(alpha: 0.92),
-          borderRadius: const BorderRadius.all(Radius.circular(24)),
-        ),
-        child: const Text(
-          'KAMPUS UIN\nSUNAN GUNUNG DJATI',
+    return const IgnorePointer(
+      child: Center(
+        child: Text(
+          'UIN SUNAN GUNUNG DJATI',
           style: TextStyle(
             fontSize: 10,
             height: 14 / 10,
-            fontWeight: FontWeight.w600,
-            color: AppColors.mapCampusLabel,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+            shadows: [Shadow(color: Colors.white, blurRadius: 6)],
           ),
         ),
       ),
@@ -157,9 +136,8 @@ class OriginDot extends StatelessWidget {
   }
 }
 
-/// Kartu talenta terdekat (Figma "Salma terdekat"): avatar 42, nama 15/700,
-/// harga 18/700, meta jarak + rating, tombol Chat Langsung / Lihat Profil &
-/// Order.
+/// Kartu talenta terpilih (Figma "Selected talent card"): padding 16,
+/// radius 14, avatar 40, harga 16/700, tombol 42 px.
 class TalentPreviewCard extends StatelessWidget {
   const TalentPreviewCard({
     super.key,
@@ -172,51 +150,44 @@ class TalentPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final distance = listing.distanceMeters;
+    final d = listing.distanceMeters;
     final meta = [
-      if (distance != null) '${compactDistance(distance)} dari Anda',
+      if (d != null) '${compactDistance(d)} dari lokasi Anda',
       if (listing.rating != null)
-        'Rating ${listing.rating!.toStringAsFixed(1)} ★',
+        '${listing.rating!.toStringAsFixed(1)} ★ (${listing.reviewCount} Ulasan)',
     ].join(' · ');
 
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: const BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: AppColors.borderLight)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x140F172A),
-            offset: Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
+    return SakuCard(
+      padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
         children: [
           Row(
             children: [
-              InitialsAvatar(name: listing.providerName, size: 42),
+              PhotoAvatar(
+                name: listing.providerName,
+                asset: DemoAssets.portraitFor(listing.providerName),
+                size: 40,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 5,
                   children: [
                     Text(
                       listing.providerName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
-                        height: 21 / 15,
+                        fontSize: 13,
+                        height: 18 / 13,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 5),
                     Text(
                       listing.title,
                       maxLines: 1,
@@ -232,10 +203,21 @@ class TalentPreviewCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          PriceLabel(listing: listing, fontSize: 18, color: AppColors.primary),
-          if (meta.isNotEmpty) ...[
-            const SizedBox(height: 3),
+          if (listing.isRequest)
+            Text(
+              listing.price != null
+                  ? 'Budget ${formatRupiah(listing.price!)}'
+                  : 'Budget nego',
+              style: const TextStyle(
+                fontSize: 16,
+                height: 22 / 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            )
+          else
+            PriceLabel(listing: listing, fontSize: 16, color: AppColors.primary),
+          if (meta.isNotEmpty)
             Text(
               meta,
               style: const TextStyle(
@@ -244,30 +226,26 @@ class TalentPreviewCard extends StatelessWidget {
                 color: AppColors.textSecondary,
               ),
             ),
-          ],
-          const SizedBox(height: 9),
           Row(
+            spacing: 10,
             children: [
               Expanded(
-                flex: 146,
                 child: SakuButton(
                   key: const Key('map-chat'),
                   label: 'Chat Langsung',
                   variant: SakuButtonVariant.outline,
-                  height: 34,
+                  height: 42,
                   onPressed: () => Navigator.of(context).pushNamed(
                     AppRoutes.chat,
                     arguments: listing,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
               Expanded(
-                flex: 171,
                 child: SakuButton(
                   key: const Key('map-open-detail'),
-                  label: 'Lihat Profil & Order',
-                  height: 34,
+                  label: listing.isRequest ? 'Lihat Kebutuhan' : 'Lihat Detail Jasa',
+                  height: 42,
                   onPressed: onOpenDetail,
                 ),
               ),

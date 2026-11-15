@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/motion/saku_motion.dart';
 import '../../domain/entities/service_category.dart';
+import '../../domain/entities/service_listing.dart';
 import '../controllers/discovery_controller.dart';
 
 IconData categoryIcon(String iconKey) {
@@ -28,8 +30,9 @@ String radiusLabel(int meters) => meters < 1000
 
 enum FilterChipTone { neutral, barter }
 
-/// Chip filter Figma "Beranda" / "Explore": tinggi 28, radius pill,
-/// teks 10/600. Aktif = #047857 + teks putih.
+/// Chip filter Figma "Scrollable filters": tinggi 32, radius pill, border
+/// 1 #E2E8F0, teks 11/600. Aktif = emerald penuh + teks putih.
+/// Transisi warna 160 ms + skala tekan halus.
 class FilterChipPill extends StatelessWidget {
   const FilterChipPill({
     super.key,
@@ -48,42 +51,43 @@ class FilterChipPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (Color bg, Color fg) = switch ((tone, selected)) {
-      (FilterChipTone.barter, false) => (
-          AppColors.barterSurface,
-          AppColors.barterText
-        ),
-      (FilterChipTone.barter, true) => (AppColors.barter, Colors.white),
-      (FilterChipTone.neutral, true) => (AppColors.primaryPressed, Colors.white),
-      (FilterChipTone.neutral, false) => (
-          AppColors.cardSurface,
-          AppColors.textSecondary
-        ),
-    };
+    final activeColor =
+        tone == FilterChipTone.barter ? AppColors.barter : AppColors.primary;
+    final bg = selected ? activeColor : AppColors.cardSurface;
+    final border = selected ? activeColor : AppColors.borderLight;
+    final fg = selected ? Colors.white : AppColors.textSecondary;
 
     return Semantics(
       button: true,
       selected: selected,
-      child: Material(
-        color: bg,
-        shape: const StadiumBorder(),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: minWidth, minHeight: 28),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 14 / 10,
-                  fontWeight: FontWeight.w600,
-                  color: fg,
-                ),
-              ),
+      label: label,
+      excludeSemantics: true,
+      child: PressableScale(
+        scale: 0.95,
+        onTap: () {
+          SakuMotion.tick();
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: SakuMotion.curve,
+          height: 32,
+          constraints: BoxConstraints(minWidth: minWidth),
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: AppRadius.pillBr,
+            border: Border.all(color: border),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              height: 15 / 11,
+              fontWeight: FontWeight.w600,
+              color: fg,
             ),
           ),
         ),
@@ -92,13 +96,13 @@ class FilterChipPill extends StatelessWidget {
   }
 }
 
-/// Baris chip Beranda: Semua · ⇄ Bisa Barter · Terdekat < radius · 4.8+,
-/// lalu kategori dari repository (bisa digeser horizontal).
+/// Baris chip Beranda: Semua · Jasa Tersedia · Kebutuhan Proyek ·
+/// Smart Barter · < 2 km Cibiru (bisa digeser horizontal).
 class HomeFilterChips extends StatelessWidget {
   const HomeFilterChips({
     super.key,
     required this.controller,
-    this.padding = const EdgeInsets.symmetric(horizontal: 24),
+    this.padding = const EdgeInsets.symmetric(horizontal: 20),
   });
 
   final DiscoveryController controller;
@@ -107,50 +111,55 @@ class HomeFilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filter = controller.filter;
-    final rating = AppConfig.topRatedThreshold.toStringAsFixed(1);
+    final all = filter.kind == null && !filter.barterOnly;
     final chips = <Widget>[
       FilterChipPill(
-        key: const Key('category-all'),
+        key: const Key('filter-all'),
         label: 'Semua',
-        selected: filter.categoryId == null,
-        onTap: () => controller.setCategory(null),
+        selected: all,
+        onTap: () {
+          controller.setKind(null);
+          controller.setBarterOnly(false);
+        },
+      ),
+      FilterChipPill(
+        key: const Key('filter-offer'),
+        label: 'Jasa Tersedia',
+        selected: filter.kind == ListingKind.offer,
+        onTap: () => controller.setKind(
+          filter.kind == ListingKind.offer ? null : ListingKind.offer,
+        ),
+      ),
+      FilterChipPill(
+        key: const Key('filter-request'),
+        label: 'Kebutuhan Proyek',
+        selected: filter.kind == ListingKind.request,
+        onTap: () => controller.setKind(
+          filter.kind == ListingKind.request ? null : ListingKind.request,
+        ),
       ),
       FilterChipPill(
         key: const Key('filter-barter'),
-        label: '⇄ Bisa Barter',
-        tone: FilterChipTone.barter,
+        label: 'Smart Barter',
         selected: filter.barterOnly,
+        tone: FilterChipTone.barter,
         onTap: controller.toggleBarterOnly,
       ),
       FilterChipPill(
         key: const Key('filter-radius'),
-        label: 'Terdekat < ${radiusLabel(filter.radiusMeters)}',
+        label: '< ${radiusLabel(filter.radiusMeters)} ${AppConfig.campusLabel}',
         onTap: () => showRadiusSheet(context, controller),
       ),
-      FilterChipPill(
-        key: const Key('filter-rating'),
-        label: '$rating+',
-        selected: filter.minRating != null,
-        onTap: controller.toggleTopRated,
-      ),
-      for (final c in controller.categories)
-        FilterChipPill(
-          key: Key('category-${c.id}'),
-          label: c.label,
-          selected: filter.categoryId == c.id,
-          onTap: () => controller
-              .setCategory(filter.categoryId == c.id ? null : c.id),
-        ),
     ];
 
     return SizedBox(
-      height: 28,
+      height: 34,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: padding,
         itemCount: chips.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => chips[i],
+        itemBuilder: (_, i) => Center(child: chips[i]),
       ),
     );
   }
@@ -199,7 +208,7 @@ class CategoryChipsRow extends StatelessWidget {
   }
 }
 
-/// Pilihan radius Figma "Explore Cibiru": pill terpisah, sama lebar.
+/// Pilihan radius Figma "6 · Explore Cibiru": chip 32 px lebar 65.
 class RadiusPills extends StatelessWidget {
   const RadiusPills({
     super.key,
@@ -212,24 +221,21 @@ class RadiusPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const options = AppConfig.radiusOptions;
-    return Row(
-      children: [
-        for (var i = 0; i < options.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(
-            child: Semantics(
-              label: 'Radius ${radiusLabel(options[i])}',
-              child: FilterChipPill(
-                key: Key('radius-${options[i]}'),
-                label: radiusLabel(options[i]),
-                selected: options[i] == value,
-                onTap: () => onChanged(options[i]),
-              ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        spacing: 8,
+        children: [
+          for (final r in AppConfig.radiusOptions)
+            FilterChipPill(
+              key: Key('radius-$r'),
+              label: radiusLabel(r),
+              minWidth: 65,
+              selected: r == value,
+              onTap: () => onChanged(r),
             ),
-          ),
         ],
-      ],
+      ),
     );
   }
 }

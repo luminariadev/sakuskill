@@ -2,13 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../domain/entities/discovery_filter.dart';
@@ -108,7 +109,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 initialZoom: 15.5,
                 minZoom: 12,
                 maxZoom: 19,
-                backgroundColor: AppColors.mapGreen,
+                backgroundColor: AppColors.mapGreenDesign,
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),
@@ -180,9 +181,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DecoratedBox(
                       decoration: const BoxDecoration(
@@ -201,18 +203,20 @@ class _CampusMapPageState extends State<CampusMapPage> {
                           maxLines: null,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: const InputDecoration(
-                            hintText: 'Cari keahlian di sekitar Anda...',
+                            hintText: 'Cari talenta atau lowongan sekitar Anda...',
                             hintStyle: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textMuted,
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
                             ),
+                            filled: true,
+                            fillColor: AppColors.cardSurface,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                             prefixIcon: Padding(
                               padding: EdgeInsets.only(left: 13, right: 11),
                               child: SakuIcon(
                                 SakuIcons.search,
-                                size: 20,
+                                size: 22,
                                 color: AppColors.textSecondary,
                               ),
                             ),
@@ -220,13 +224,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
                                 BoxConstraints(minWidth: 44, minHeight: 20),
                             border: OutlineInputBorder(
                               borderRadius: AppRadius.pillBr,
-                              borderSide:
-                                  BorderSide(color: AppColors.borderLight),
+                              borderSide: BorderSide.none,
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: AppRadius.pillBr,
-                              borderSide:
-                                  BorderSide(color: AppColors.borderLight),
+                              borderSide: BorderSide.none,
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: AppRadius.pillBr,
@@ -236,13 +238,36 @@ class _CampusMapPageState extends State<CampusMapPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: RadiusPills(
-                        value: filter.radiusMeters,
-                        onChanged: controller.setRadius,
-                      ),
+                    const SizedBox(height: 16),
+                    RadiusPills(
+                      value: filter.radiusMeters,
+                      onChanged: controller.setRadius,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      spacing: 8,
+                      children: [
+                        FilterChipPill(
+                          key: const Key('map-kind-offer'),
+                          label: 'Talenta Penyedia Jasa',
+                          selected: filter.kind == ListingKind.offer,
+                          onTap: () => controller.setKind(
+                            filter.kind == ListingKind.offer
+                                ? null
+                                : ListingKind.offer,
+                          ),
+                        ),
+                        FilterChipPill(
+                          key: const Key('map-kind-request'),
+                          label: 'Permintaan Kebutuhan',
+                          selected: filter.kind == ListingKind.request,
+                          onTap: () => controller.setKind(
+                            filter.kind == ListingKind.request
+                                ? null
+                                : ListingKind.request,
+                          ),
+                        ),
+                      ],
                     ),
                     if (controller.isLoading) ...[
                       const SizedBox(height: 8),
@@ -267,9 +292,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
 
           // ---- Kontrol bawah: recenter + kartu pratinjau -------------------
           Positioned(
-            left: 16,
-            right: 16,
-            bottom: 12,
+            left: 20,
+            right: 20,
+            bottom: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -280,8 +305,20 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   onPressed: () => _fitRadius(filter),
                 ),
                 const SizedBox(height: 10),
+                // Kartu talenta berganti dengan fade + geser naik 8%.
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
+                  duration: SakuMotion.base,
+                  switchInCurve: SakuMotion.curve,
+                  transitionBuilder: (child, a) => FadeTransition(
+                    opacity: a,
+                    child: SlideTransition(
+                      position: Tween(
+                        begin: const Offset(0, 0.08),
+                        end: Offset.zero,
+                      ).animate(a),
+                      child: child,
+                    ),
+                  ),
                   child: _bottomContent(controller, visible, selected),
                 ),
               ],

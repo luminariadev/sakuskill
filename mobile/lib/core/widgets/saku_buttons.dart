@@ -1,14 +1,15 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 
-/// Varian tombol dari Figma "UI component library":
-/// Button / Primary · Button / Outline · Button / Barter.
-enum SakuButtonVariant { primary, outline, barter }
+/// Varian tombol dari Figma "00B · Component library / SakuSkill / Button":
+/// Primary · Outline · Warning · Destructive · Barter · Disabled.
+enum SakuButtonVariant { primary, outline, warning, destructive, barter, disabled }
 
-/// Tombol teks 12/700, radius 8. Tinggi mengikuti konteks layar
-/// (34 di kartu peta, 52 di bar aksi detail layanan).
+/// Tombol teks 13/700, radius 8, tinggi default 48.
+/// Micro-interaction: skala 0.97 saat ditekan + transisi warna 200 ms.
 class SakuButton extends StatelessWidget {
   const SakuButton({
     super.key,
@@ -16,70 +17,133 @@ class SakuButton extends StatelessWidget {
     required this.onPressed,
     this.variant = SakuButtonVariant.primary,
     this.height = 48,
+    this.fontSize = 13,
+    this.expand = true,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final SakuButtonVariant variant;
   final double height;
+  final double fontSize;
 
-  static const TextStyle _text = TextStyle(
-    fontSize: 12,
-    height: 17 / 12,
-    fontWeight: FontWeight.w700,
-  );
+  /// Lebar penuh (default) atau seukuran konten.
+  final bool expand;
+
+  (Color bg, Color fg, Color? border) _colors(bool enabled) {
+    if (!enabled) {
+      return (AppColors.borderLight, AppColors.textSecondary, null);
+    }
+    return switch (variant) {
+      SakuButtonVariant.primary => (AppColors.primary, Colors.white, null),
+      SakuButtonVariant.outline => (
+          AppColors.cardSurface,
+          AppColors.primary,
+          AppColors.primary
+        ),
+      SakuButtonVariant.warning => (
+          AppColors.warningSurface,
+          AppColors.warningText,
+          AppColors.warningText
+        ),
+      SakuButtonVariant.destructive => (AppColors.danger, Colors.white, null),
+      SakuButtonVariant.barter => (AppColors.barter, Colors.white, null),
+      SakuButtonVariant.disabled => (
+          AppColors.borderLight,
+          AppColors.textSecondary,
+          null
+        ),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final child = Text(
-      label,
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-    final size = WidgetStatePropertyAll(Size(0, height));
-    const padding = WidgetStatePropertyAll(
-      EdgeInsets.symmetric(horizontal: 12),
-    );
-    const shape = WidgetStatePropertyAll(
-      RoundedRectangleBorder(borderRadius: AppRadius.inputBr),
+    final enabled =
+        onPressed != null && variant != SakuButtonVariant.disabled;
+    final (bg, fg, border) = _colors(enabled);
+
+    final body = AnimatedContainer(
+      duration: SakuMotion.base,
+      curve: SakuMotion.curve,
+      height: height,
+      width: expand ? double.infinity : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: AppRadius.inputBr,
+        border: border == null ? null : Border.all(color: border, width: 1.5),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: fontSize,
+          height: 18 / 13,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
+      ),
     );
 
-    switch (variant) {
-      case SakuButtonVariant.outline:
-        return OutlinedButton(
-          onPressed: onPressed,
-          style: ButtonStyle(
-            minimumSize: size,
-            padding: padding,
-            shape: shape,
-            textStyle: const WidgetStatePropertyAll(_text),
-            backgroundColor: const WidgetStatePropertyAll(AppColors.cardSurface),
-            foregroundColor: const WidgetStatePropertyAll(AppColors.primary),
-            side: const WidgetStatePropertyAll(
-              BorderSide(color: AppColors.primary, width: 1.5),
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      child: PressableScale(
+        enabled: enabled,
+        onTap: enabled ? onPressed : null,
+        child: MouseRegion(
+          cursor:
+              enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          child: body,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tautan teks hijau 12/600 ("Lupa Kata Sandi?", "Masuk di sini").
+class SakuTextLink extends StatelessWidget {
+  const SakuTextLink(
+    this.label, {
+    super.key,
+    required this.onTap,
+    this.color = AppColors.primary,
+    this.fontSize = 12,
+    this.align = TextAlign.start,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+  final double fontSize;
+  final TextAlign align;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      link: true,
+      child: PressableScale(
+        onTap: onTap,
+        scale: 0.98,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            label,
+            textAlign: align,
+            style: TextStyle(
+              fontSize: fontSize,
+              height: 17 / 12,
+              fontWeight: FontWeight.w600,
+              color: color,
             ),
           ),
-          child: child,
-        );
-      case SakuButtonVariant.primary:
-      case SakuButtonVariant.barter:
-        return FilledButton(
-          onPressed: onPressed,
-          style: ButtonStyle(
-            minimumSize: size,
-            padding: padding,
-            shape: shape,
-            textStyle: const WidgetStatePropertyAll(_text),
-            foregroundColor: const WidgetStatePropertyAll(Colors.white),
-            backgroundColor: WidgetStatePropertyAll(
-              variant == SakuButtonVariant.barter
-                  ? AppColors.barter
-                  : AppColors.primary,
-            ),
-          ),
-          child: child,
-        );
-    }
+        ),
+      ),
+    );
   }
 }

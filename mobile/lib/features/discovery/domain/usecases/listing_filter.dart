@@ -28,6 +28,7 @@ abstract final class ListingFilter {
         continue;
       }
       if (filter.barterOnly && !listing.offerType.acceptsBarter) continue;
+      if (filter.kind != null && listing.kind != filter.kind) continue;
       final minRating = filter.minRating;
       if (minRating != null && (listing.rating ?? 0) < minRating) continue;
       if (keywords.isNotEmpty && !_matches(listing, keywords)) continue;

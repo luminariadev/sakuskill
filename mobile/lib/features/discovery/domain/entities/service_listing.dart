@@ -18,6 +18,19 @@ enum OfferType {
       );
 }
 
+/// Jenis postingan di marketplace: penawaran jasa oleh penyedia, atau
+/// "Kebutuhan Proyek" (permintaan) yang diposting klien.
+enum ListingKind {
+  offer('penawaran'),
+  request('permintaan');
+
+  const ListingKind(this.apiValue);
+  final String apiValue;
+
+  static ListingKind fromApi(String? value) =>
+      value == ListingKind.request.apiValue ? request : offer;
+}
+
 /// Entitas layanan/jasa yang tampil di Discovery.
 ///
 /// Field dibuat selaras dengan respons `GET /api/v1/listings`
@@ -38,6 +51,12 @@ class ServiceListing {
     this.landmark,
     this.rating,
     this.reviewCount = 0,
+    this.kind = ListingKind.offer,
+    this.coverAsset,
+    this.barterWant,
+    this.deliveryDays,
+    this.scopeItems = const [],
+    this.galleryAssets = const [],
   });
 
   final String id;
@@ -65,6 +84,26 @@ class ServiceListing {
   final double? rating;
   final int reviewCount;
 
+  /// Penawaran jasa atau "Kebutuhan Proyek" (permintaan klien).
+  final ListingKind kind;
+
+  /// Gambar sampul. Sementara aset lokal demo; nanti URL dari backend.
+  final String? coverAsset;
+
+  /// Keahlian yang diinginkan sebagai tukaran, mis. "Tukar Jasa Desain Web".
+  final String? barterWant;
+
+  /// Lama pengerjaan (penawaran) / tenggat yang dibutuhkan (permintaan).
+  final int? deliveryDays;
+
+  /// Poin "Deskripsi & Cakupan Brief" (mis. "Format PDF & JPG").
+  final List<String> scopeItems;
+
+  /// Foto portofolio untuk slider detail (aset demo; nanti URL).
+  final List<String> galleryAssets;
+
+  bool get isRequest => kind == ListingKind.request;
+
   ServiceListing copyWith({double? distanceMeters}) => ServiceListing(
         id: id,
         title: title,
@@ -80,5 +119,11 @@ class ServiceListing {
         landmark: landmark,
         rating: rating,
         reviewCount: reviewCount,
+        kind: kind,
+        coverAsset: coverAsset,
+        barterWant: barterWant,
+        deliveryDays: deliveryDays,
+        scopeItems: scopeItems,
+        galleryAssets: galleryAssets,
       );
 }

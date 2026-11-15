@@ -14,7 +14,8 @@ void main() {
   group('ListingFilter', () {
     test('radius 2 km membuang listing > 2 km dan urut dari terdekat', () {
       final result = ListingFilter.apply(all, const DiscoveryFilter());
-      expect(result, hasLength(7));
+      // 7 data awal + 3 persona Figma (Salma, Dimas, Rizkia).
+      expect(result, hasLength(10));
       expect(names(result), isNot(contains('Fajar Nugraha'))); // ≈ 2,67 km
       expect(result.first.providerName, 'Rifqi Hamdani'); // ≈ 243 m
       for (var i = 1; i < result.length; i++) {
@@ -30,7 +31,13 @@ void main() {
           ListingFilter.apply(all, const DiscoveryFilter(radiusMeters: 500));
       expect(
         names(result),
-        ['Rifqi Hamdani', 'Ahmad Fauzi', 'Sarah Aulia'],
+        [
+          'Rifqi Hamdani', // ≈ 243 m
+          'Salma Nur Oktavia', // ≈ 300 m
+          'Ahmad Fauzi',
+          'Dimas', // ≈ 400 m (Kebutuhan Proyek)
+          'Sarah Aulia',
+        ],
       );
     });
 

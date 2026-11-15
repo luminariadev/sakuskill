@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../motion/saku_motion.dart';
 import 'app_colors.dart';
 import 'app_dimens.dart';
 import 'app_typography.dart';
@@ -34,6 +35,17 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: AppColors.canvasLight,
       textTheme: AppTypography.textTheme,
       splashFactory: InkRipple.splashFactory,
+      // Transisi halaman halus (fade + geser 4%) di semua platform.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: SakuPageTransitionsBuilder(),
+          TargetPlatform.iOS: SakuPageTransitionsBuilder(),
+          TargetPlatform.macOS: SakuPageTransitionsBuilder(),
+          TargetPlatform.windows: SakuPageTransitionsBuilder(),
+          TargetPlatform.linux: SakuPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: SakuPageTransitionsBuilder(),
+        },
+      ),
       dividerTheme: const DividerThemeData(
         color: AppColors.borderLight,
         thickness: 1,

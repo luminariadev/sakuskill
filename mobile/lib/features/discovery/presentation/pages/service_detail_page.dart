@@ -1,382 +1,344 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/demo/demo_assets.dart';
+import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_buttons.dart';
-import '../../../../core/widgets/saku_icon.dart';
+import '../../../../core/widgets/saku_screen.dart';
+import '../../../../core/widgets/saku_surfaces.dart';
 import '../../domain/entities/service_listing.dart';
 import '../widgets/campus_map_widgets.dart';
 import '../widgets/discovery_filters.dart';
 
-/// Figma "Detail layanan" (section Proses Layanan) — titik masuk ke alur
-/// Chat & Nego, Smart Barter, dan Order via Escrow (Anggota 4).
-class ServiceDetailPage extends StatelessWidget {
+/// Figma "10 · Detail layanan" — titik masuk ke Chat Diskusi dan
+/// Buat Pesanan (escrow) / Ajukan Barter.
+class ServiceDetailPage extends StatefulWidget {
   const ServiceDetailPage({super.key, required this.listing});
 
   final ServiceListing listing;
 
-  void _soon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature segera hadir.')),
-    );
+  @override
+  State<ServiceDetailPage> createState() => _ServiceDetailPageState();
+}
+
+class _ServiceDetailPageState extends State<ServiceDetailPage> {
+  bool _saved = false;
+
+  ServiceListing get listing => widget.listing;
+
+  String get _priceText {
+    final price = listing.price;
+    if (listing.isRequest) {
+      return price != null ? 'Budget ${formatRupiah(price)}' : 'Budget nego';
+    }
+    if (price == null || !listing.offerType.acceptsPayment) {
+      return 'Tukar Keahlian';
+    }
+    return '${formatRupiah(price)} / Proyek';
   }
 
   @override
   Widget build(BuildContext context) {
-    final distance = listing.distanceMeters;
-    final providerMeta = [
+    final d = listing.distanceMeters;
+    final meta = [
       if (listing.rating != null)
         '${listing.rating!.toStringAsFixed(1)} ★ (${listing.reviewCount} Ulasan)',
-      if (distance != null) '${compactDistance(distance)} dari Anda',
+      if (d != null) '${compactDistance(d)} dari Anda',
     ].join(' · ');
+    final scope = listing.scopeItems.isNotEmpty
+        ? listing.scopeItems
+        : [
+            listing.description,
+            if (listing.deliveryDays != null)
+              'Estimasi pengerjaan: ${listing.deliveryDays} Hari',
+          ];
 
-    return Scaffold(
-      backgroundColor: AppColors.cardSurface,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
+    return SakuScreen(
+      showBack: true,
+      bottomBar: _ActionBar(listing: listing),
+      children: [
+        Text(
+          listing.isRequest ? 'Detail Kebutuhan Proyek' : 'Detail Layanan Jasa',
+          style: const TextStyle(
+            fontSize: 24,
+            height: 34 / 24,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Kembali',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const SakuIcon(
-                      SakuIcons.back,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Bagikan',
-                    onPressed: () => _soon(context, 'Bagikan layanan'),
-                    icon: const SakuIcon(
-                      SakuIcons.share,
-                      color: AppColors.textBody,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Simpan',
-                    onPressed: () => _soon(context, 'Simpan layanan'),
-                    icon: const SakuIcon(
-                      SakuIcons.bookmark,
-                      color: AppColors.textBody,
-                    ),
-                  ),
-                ],
+            _MetaAction(
+              label: 'Bagikan   ↗',
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tautan layanan disalin.')),
               ),
             ),
+            const SizedBox(width: 96),
+            _MetaAction(
+              key: const Key('detail-save'),
+              label: _saved ? 'Tersimpan   ✓' : 'Simpan   ♡',
+              color: _saved ? AppColors.primary : AppColors.textSecondary,
+              onTap: () {
+                SakuMotion.tick();
+                setState(() => _saved = !_saved);
+              },
+            ),
+          ],
+        ),
+        _Gallery(listing: listing),
+        Text(
+          listing.title,
+          style: const TextStyle(
+            fontSize: 21,
+            height: 29 / 21,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        Text(
+          _priceText,
+          style: TextStyle(
+            fontSize: 23,
+            height: 32 / 23,
+            fontWeight: FontWeight.w800,
+            color: !listing.isRequest && !listing.offerType.acceptsPayment
+                ? AppColors.barterText
+                : AppColors.primary,
+          ),
+        ),
+        Row(
+          children: [
+            PhotoAvatar(
+              name: listing.providerName,
+              asset: DemoAssets.portraitFor(listing.providerName),
+              size: 40,
+            ),
+            const SizedBox(width: 12),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 5,
                 children: [
-                  ServiceMediaBanner(listing: listing),
-                  const SizedBox(height: 23),
-                  Text(listing.title, style: AppTypography.title),
-                  const SizedBox(height: 12),
-                  _PriceRow(listing: listing),
-                  const SizedBox(height: 22),
-                  Row(
-                    children: [
-                      InitialsAvatar(name: listing.providerName, size: 44),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              listing.providerName,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                height: 20 / 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            if (providerMeta.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                providerMeta,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  height: 15 / 11,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  const Text(
-                    'Tentang layanan',
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 22 / 16,
+                  Text(
+                    listing.providerName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 18 / 13,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 11),
-                  Text(
-                    listing.description,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 18 / 13,
-                      color: AppColors.textBody,
+                  if (meta.isNotEmpty)
+                    Text(
+                      meta,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 15 / 11,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
-                  if (listing.offerType.acceptsBarter) ...[
-                    const SizedBox(height: 26),
-                    const _BarterInfoBox(),
-                  ],
                 ],
               ),
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: _DetailActionBar(listing: listing),
+        const Text(
+          'Deskripsi & Cakupan Brief',
+          style: TextStyle(
+            fontSize: 16,
+            height: 22 / 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        Text(
+          scope.map((s) => '• $s').join('\n'),
+          style: const TextStyle(
+            fontSize: 13,
+            height: 18 / 13,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        if (!listing.isRequest && listing.offerType.acceptsBarter)
+          InfoBox(
+            tone: SakuTone.barter,
+            child: Text(
+              listing.barterWant != null
+                  ? 'Menerima Barter dengan Jasa ${listing.barterWant}'
+                  : 'Menerima Barter dengan keahlian Anda',
+              style: const TextStyle(
+                fontSize: 12,
+                height: 17 / 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.barterText,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MetaAction extends StatelessWidget {
+  const _MetaAction({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.color = AppColors.textSecondary,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableScale(
+      onTap: onTap,
+      child: AnimatedSwitcher(
+        duration: SakuMotion.base,
+        child: Text(
+          label,
+          key: ValueKey(label),
+          style: TextStyle(
+            fontSize: 11,
+            height: 15 / 11,
+            fontWeight: FontWeight.w500,
+            color: color,
+          ),
         ),
       ),
     );
   }
 }
 
-/// Banner media layanan (194px, radius 12). Selama backend belum
-/// menyediakan foto portofolio, tampil sebagai sampul tipografis dari
-/// nama keahlian & kategori.
-class ServiceMediaBanner extends StatelessWidget {
-  const ServiceMediaBanner({super.key, required this.listing});
+/// Slider portofolio 150 px + indikator titik (● ○ ○) yang bergeser halus.
+class _Gallery extends StatefulWidget {
+  const _Gallery({required this.listing});
 
   final ServiceListing listing;
 
-  static String _iconKey(String category) => switch (category) {
-        'Desain' => 'design',
-        'Jasa Teknis' => 'tech',
-        'Fotografi' => 'photo',
-        'Bimbingan Belajar' => 'tutor',
-        _ => '',
-      };
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 194,
-      clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
-        color: AppColors.mediaGreen,
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -18,
-            bottom: -18,
-            child: Icon(
-              categoryIcon(_iconKey(listing.category)),
-              size: 170,
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 18, 14, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 200,
-                  child: Text(
-                    listing.skillName.toUpperCase(),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      height: 30 / 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.mediaHighlight,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  listing.category.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 8,
-                    height: 11 / 8,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primarySurface,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  listing.providerName,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    height: 14 / 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<_Gallery> createState() => _GalleryState();
 }
 
-class _PriceRow extends StatelessWidget {
-  const _PriceRow({required this.listing});
-
-  final ServiceListing listing;
+class _GalleryState extends State<_Gallery> {
+  int _page = 0;
 
   @override
   Widget build(BuildContext context) {
-    final price = listing.price;
-    if (price == null || !listing.offerType.acceptsPayment) {
-      return const Text(
-        'Tukar keahlian',
-        style: TextStyle(
-          fontSize: 24,
-          height: 34 / 24,
-          fontWeight: FontWeight.w700,
-          color: AppColors.barterText,
+    final images = widget.listing.galleryAssets.isNotEmpty
+        ? widget.listing.galleryAssets
+        : [if (widget.listing.coverAsset != null) widget.listing.coverAsset!];
+
+    if (images.isEmpty) {
+      return Container(
+        height: 150,
+        width: double.infinity,
+        color: AppColors.mediaGreen,
+        alignment: Alignment.center,
+        child: Icon(
+          categoryIcon(''),
+          size: 56,
+          color: Colors.white.withValues(alpha: 0.4),
         ),
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
+
+    return Column(
+      spacing: 16,
       children: [
-        Text(
-          formatRupiah(price),
-          style: const TextStyle(
-            fontSize: 24,
-            height: 34 / 24,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+        SizedBox(
+          height: 150,
+          child: PageView.builder(
+            itemCount: images.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (_, i) => Semantics(
+              image: true,
+              label: 'Foto portofolio ${i + 1} dari ${images.length}',
+              child: Image.asset(images[i], fit: BoxFit.cover),
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        const Text(
-          '/ Proyek',
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
+        if (images.length > 1)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 6,
+            children: [
+              for (var i = 0; i < images.length; i++)
+                AnimatedContainer(
+                  duration: SakuMotion.base,
+                  curve: SakuMotion.curve,
+                  width: i == _page ? 16 : 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: i == _page ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.primary, width: 1.2),
+                  ),
+                ),
+            ],
+          ),
       ],
     );
   }
 }
 
-/// Kotak ungu "Menerima Barter".
-class _BarterInfoBox extends StatelessWidget {
-  const _BarterInfoBox();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(11, 11, 11, 14),
-      decoration: BoxDecoration(
-        color: AppColors.barterSurface,
-        borderRadius: const BorderRadius.all(Radius.circular(10)),
-        border: Border.all(color: AppColors.barterBorder),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SakuIcon(SakuIcons.swap, size: 20, color: AppColors.barter),
-              SizedBox(width: 10),
-              Text(
-                'Menerima Barter',
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 18 / 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.barterText,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 11),
-          Text(
-            'Penyedia bersedia menukar jasa ini dengan keahlianmu\n'
-            'melalui Smart Barter.',
-            style: TextStyle(
-              fontSize: 11,
-              height: 15 / 11,
-              color: AppColors.barterText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Bar aksi bawah: Chat & Nego · Ajak Barter · Order via Escrow (tinggi 52).
-class _DetailActionBar extends StatelessWidget {
-  const _DetailActionBar({required this.listing});
+/// "Sticky service actions": Chat Diskusi (120) + aksi utama (223).
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({required this.listing});
 
   final ServiceListing listing;
 
   @override
   Widget build(BuildContext context) {
-    final price = listing.price;
-    final canPay = listing.offerType.acceptsPayment && price != null;
     void go(String route) =>
         Navigator.of(context).pushNamed(route, arguments: listing);
+    final price = listing.price;
+    final canPay =
+        !listing.isRequest && listing.offerType.acceptsPayment && price != null;
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 106,
-          child: SakuButton(
-            key: const Key('detail-chat'),
-            label: 'Chat & Nego',
-            variant: SakuButtonVariant.outline,
-            height: 52,
-            onPressed: () => go(AppRoutes.chat),
-          ),
-        ),
-        if (listing.offerType.acceptsBarter) ...[
-          const SizedBox(width: 8),
+    final (label, variant, route) = listing.isRequest
+        ? ('Kirim Penawaran Jasa', SakuButtonVariant.primary, AppRoutes.chat)
+        : canPay
+            ? (
+                'Buat Pesanan (${formatRupiah(price)})',
+                SakuButtonVariant.primary,
+                AppRoutes.orderService,
+              )
+            : (
+                'Ajukan Tawaran Barter',
+                SakuButtonVariant.barter,
+                AppRoutes.proposeBarter,
+              );
+
+    return StickyActionBar(
+      child: Row(
+        spacing: 10,
+        children: [
           Expanded(
-            flex: 100,
+            flex: 120,
             child: SakuButton(
-              key: const Key('detail-barter'),
-              label: 'Ajak Barter',
-              variant: SakuButtonVariant.barter,
-              height: 52,
-              onPressed: () => go(AppRoutes.proposeBarter),
+              key: const Key('detail-chat'),
+              label: 'Chat Diskusi',
+              variant: SakuButtonVariant.outline,
+              onPressed: () => go(AppRoutes.chat),
             ),
           ),
-        ],
-        if (canPay) ...[
-          const SizedBox(width: 8),
           Expanded(
-            flex: 139,
+            flex: 223,
             child: SakuButton(
               key: const Key('detail-order'),
-              label: 'Order via Escrow\n${formatRupiah(price)}',
-              height: 52,
-              onPressed: () => go(AppRoutes.orderService),
+              label: label,
+              variant: variant,
+              onPressed: () => go(route),
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
