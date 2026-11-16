@@ -113,9 +113,9 @@ Catatan peran: Figma memakai satu akun yang berperan ganda (Beranda menampilkan 
 ### 6.1 Ringkasan
 | Area | Kondisi |
 | :--- | :--- |
-| Branch kerja | `feat/fe-core-foundation` (di-push, PR ke `develop`): T-03, T-08, T-01. `feat/fe-core-network` (di atasnya, belum di-push): T-06 |
+| Branch kerja | `develop` sudah memuat PR #3 (T-03, T-08, T-01) dan #4 (layar User Design). `feat/fe-core-network` (dari `develop`, belum di-push): T-06, T-07 |
 | Ukuran kode FE | sekitar 11,4 ribu baris Dart, 68 file di `mobile/lib` |
-| Kualitas | `flutter analyze`: **0 issue**. `flutter test`: **81 tes lulus** (per 16 Nov 2026) |
+| Kualitas | `flutter analyze`: **0 issue**. `flutter test`: **93 tes lulus** (per 16 Nov 2026) |
 | Arsitektur | Clean Architecture feature-first; DI manual (`AppDependencies` + `AppScope`); state `ChangeNotifier` + `InheritedNotifier` |
 | Data nyata | Hanya **Discovery** (`GET /listings`) dengan fallback data contoh. Semua modul lain memakai `core/demo/demo_data.dart` |
 | Backend | Express + PostgreSQL/PostGIS. Endpoint yang ada: `GET /health`, `GET /listings`. Skema DB 13 entitas dan enum status sudah sesuai SKPL |
@@ -176,7 +176,7 @@ Legenda: ✅ UI selesai + data nyata · 🟡 UI selesai, data demo/statis · ⬜
 | T-04 | Font Plus Jakarta Sans belum dibundel | UI berbeda dari Figma | Tambah `assets/fonts/` + `pubspec.yaml` |
 | T-05 | Lokasi pengguna hardcode `AppConfig.campusCenter` | FR-24 belum terpenuhi | `geolocator` + izin + fallback |
 | T-06 | Belum ada HTTP client bersama (token, envelope, error mapping) | Setiap modul akan menduplikasi logika | ✅ **Selesai** (`77af1c0`): `ApiClient` + `ApiException` (envelope, fieldErrors, timeout, 401 → `unauthorizedEvents`, HTTPS rilis, aman untuk Web). Discovery sudah memakainya; token menunggu T-07 |
-| T-07 | Belum ada penyimpanan sesi dan SQLite | FR-16, FR-46, persistensi login | `flutter_secure_storage` (token) + `sqflite` (draf/cache) |
+| T-07 | Belum ada penyimpanan sesi dan SQLite | FR-16, FR-46, persistensi login | 🟡 **Token selesai**: `core/storage/session_store.dart` (`SecureSessionStore` dengan `flutter_secure_storage ^11.2.0`, `InMemorySessionStore` untuk tes), dimuat sebelum `runApp`, token otomatis ke `ApiClient`, 401 menghapus sesi. **Belum**: `sqflite` untuk draf/cache (FR-16, FR-46) |
 | T-08 | Label status ditulis bebas per layar | Risiko melanggar NFR-22 | ✅ **Selesai** (`7b19898`): `core/domain/status.dart` + `StatusPill`; tes mencocokkan langsung dengan migrasi 001. Layar Anggota 4 belum memakai (masih teks bebas) |
 | T-09 | Tidak ada CI | PR tidak tervalidasi otomatis | GitHub Actions `analyze` + `test` + build APK (Anggota 7) |
 | T-10 | README menyebut 21 tes | Dokumentasi usang | ✅ **Selesai**: README memuat jumlah tes aktual, prasyarat Flutter, dan mode demo |
@@ -367,7 +367,7 @@ FE menampilkan aksi berdasarkan **status + peran pengguna pada transaksi**, dan 
 | FN-10 | Token desain dari `core/theme` (AppColors, AppTypography, AppRadius); tidak ada warna/ukuran hardcode di fitur | FRONTEND_DISCOVERY §6 |
 | FN-11 | Tile OSM wajib atribusi dan User-Agent aplikasi | Kebijakan OSM |
 | FN-12 | SQLite hanya untuk draf dan cache, bukan sumber kebenaran | NFR-40 |
-| FN-13 | Platform prioritas: Android (minSdk 23) untuk MVP; Web untuk admin; iOS opsional (menunggu OD-32) | NFR-30 |
+| FN-13 | Platform prioritas: Android (minSdk 23) untuk MVP; Web untuk admin; iOS opsional (menunggu OD-32). **Catatan:** Flutter 3.50 dan `flutter_secure_storage` 11 mensyaratkan minSdk **24**; target 23 perlu diperbarui PM | NFR-30 |
 
 ---
 
