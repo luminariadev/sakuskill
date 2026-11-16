@@ -8,35 +8,46 @@ import '../../features/discovery/domain/repositories/discovery_repository.dart';
 import '../../features/discovery/domain/usecases/discovery_usecases.dart';
 import '../../features/discovery/presentation/controllers/discovery_controller.dart';
 import '../config/app_config.dart';
+import '../network/api_client.dart';
 
 /// Composition root (dependency injection manual, tanpa paket tambahan).
 ///
 /// Anggota lain menambahkan repository/use case modulnya di sini, mis.
 /// `escrowRepository`, `barterRepository`, `authRepository`.
 class AppDependencies {
-  AppDependencies({required this.discoveryRepository});
+  AppDependencies({required this.api, required this.discoveryRepository});
 
   factory AppDependencies.production() {
+    // TODO(T-07): tokenProvider dari SessionStore + dengarkan
+    // api.unauthorizedEvents untuk logout otomatis.
+    final api = ApiClient();
     return AppDependencies(
+      api: api,
       discoveryRepository: DiscoveryRepositoryImpl(
-        remote: DiscoveryRemoteDataSource(),
+        remote: DiscoveryRemoteDataSource(api),
         local: const DiscoveryLocalDataSource(),
         forceLocal: AppConfig.useMockData,
       ),
     );
   }
 
-  /// Dipakai widget test: selalu data lokal, tanpa jaringan.
+  /// Dipakai widget test: selalu data lokal, tanpa jaringan sama sekali
+  /// (ApiClient offline langsung gagal bila tetap dipanggil).
   factory AppDependencies.offline() {
+    final api = ApiClient.offline();
     return AppDependencies(
+      api: api,
       discoveryRepository: DiscoveryRepositoryImpl(
-        remote: DiscoveryRemoteDataSource(),
+        remote: DiscoveryRemoteDataSource(api),
         local: const DiscoveryLocalDataSource(),
         forceLocal: true,
       ),
     );
   }
 
+  /// Klien REST bersama. Repository modul lain menerima instance ini, mis.
+  /// `OrderRemoteDataSource(api)`.
+  final ApiClient api;
   final DiscoveryRepository discoveryRepository;
 
   DiscoveryController createDiscoveryController({
