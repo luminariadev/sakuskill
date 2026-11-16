@@ -2,13 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../domain/entities/discovery_filter.dart';
 import '../../domain/entities/service_listing.dart';
@@ -55,7 +57,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           LatLng(origin.latitude - dLat, origin.longitude - dLng),
           LatLng(origin.latitude + dLat, origin.longitude + dLng),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 140, 24, 220),
+        padding: const EdgeInsets.fromLTRB(24, 150, 24, 230),
       ),
     );
   }
@@ -107,7 +109,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 initialZoom: 15.5,
                 minZoom: 12,
                 maxZoom: 19,
-                backgroundColor: AppColors.mapGreen,
+                backgroundColor: AppColors.mapGreenDesign,
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),
@@ -141,21 +143,21 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   markers: [
                     Marker(
                       point: LatLng(origin.latitude + 0.0032, origin.longitude),
-                      width: 200,
-                      height: 50,
+                      width: 150,
+                      height: 52,
                       child: const CampusMapLabel(),
                     ),
                     Marker(
                       point: origin,
-                      width: 20,
-                      height: 20,
+                      width: 17,
+                      height: 17,
                       child: const OriginDot(),
                     ),
                     for (final l in visible)
                       Marker(
                         point: _toLatLng(l.location!),
-                        width: 190,
-                        height: 76,
+                        width: talentMarkerSize.width,
+                        height: talentMarkerSize.height,
                         child: TalentMarker(
                           listing: l,
                           selected: l.id == selected?.id,
@@ -172,81 +174,127 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ),
           ),
 
-          // ---- Kontrol atas: pencarian + radius ---------------------------
+          // ---- Kontrol atas: pencarian + radius (Figma "Explore Cibiru")
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DecoratedBox(
-                    decoration: const BoxDecoration(
-                      borderRadius: AppRadius.pillBr,
-                      boxShadow: AppShadows.flat,
-                    ),
-                    child: TextField(
-                      controller: _search,
-                      onChanged: (_) => setState(() {}),
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
-                        hintText: 'Cari mahasiswa di sekitar Cibiru...',
-                        contentPadding: EdgeInsets.symmetric(vertical: 18),
-                        prefixIcon: Icon(Icons.search_rounded,
-                            color: AppColors.primary, size: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: AppRadius.pillBr,
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.pillBr,
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.pillBr,
-                          borderSide: BorderSide(color: AppColors.primary),
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DecoratedBox(
+                      decoration: const BoxDecoration(
+                        borderRadius: AppRadius.pillBr,
+                        boxShadow: AppShadows.flat,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      RadiusSegmented(
-                        value: filter.radiusMeters,
-                        onChanged: controller.setRadius,
-                      ),
-                      const Spacer(),
-                      if (controller.isLoading)
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary,
+                      child: SizedBox(
+                        height: 46,
+                        child: TextField(
+                          key: const Key('map-search-input'),
+                          controller: _search,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(fontSize: 12),
+                          // expands: dekorasi (border pill) mengisi tinggi 46.
+                          expands: true,
+                          maxLines: null,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: const InputDecoration(
+                            hintText: 'Cari talenta atau lowongan sekitar Anda...',
+                            hintStyle: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                            filled: true,
+                            fillColor: AppColors.cardSurface,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.only(left: 13, right: 11),
+                              child: SakuIcon(
+                                SakuIcons.search,
+                                size: 22,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            prefixIconConstraints:
+                                BoxConstraints(minWidth: 44, minHeight: 20),
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.pillBr,
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: AppRadius.pillBr,
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: AppRadius.pillBr,
+                              borderSide: BorderSide(color: AppColors.primary),
+                            ),
                           ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    RadiusPills(
+                      value: filter.radiusMeters,
+                      onChanged: controller.setRadius,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      spacing: 8,
+                      children: [
+                        FilterChipPill(
+                          key: const Key('map-kind-offer'),
+                          label: 'Talenta Penyedia Jasa',
+                          selected: filter.kind == ListingKind.offer,
+                          onTap: () => controller.setKind(
+                            filter.kind == ListingKind.offer
+                                ? null
+                                : ListingKind.offer,
+                          ),
+                        ),
+                        FilterChipPill(
+                          key: const Key('map-kind-request'),
+                          label: 'Permintaan Kebutuhan',
+                          selected: filter.kind == ListingKind.request,
+                          onTap: () => controller.setKind(
+                            filter.kind == ListingKind.request
+                                ? null
+                                : ListingKind.request,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (controller.isLoading) ...[
+                      const SizedBox(height: 8),
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ],
-                  ),
-                  if (controller.isFallback) ...[
-                    const SizedBox(height: 8),
-                    const OfflineDataBanner(),
+                    if (controller.isFallback) ...[
+                      const SizedBox(height: 8),
+                      const OfflineDataBanner(),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
             ),
           ),
 
           // ---- Kontrol bawah: recenter + kartu pratinjau -------------------
           Positioned(
-            left: 16,
-            right: 16,
-            bottom: 12,
+            left: 20,
+            right: 20,
+            bottom: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -257,8 +305,20 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   onPressed: () => _fitRadius(filter),
                 ),
                 const SizedBox(height: 10),
+                // Kartu talenta berganti dengan fade + geser naik 8%.
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
+                  duration: SakuMotion.base,
+                  switchInCurve: SakuMotion.curve,
+                  transitionBuilder: (child, a) => FadeTransition(
+                    opacity: a,
+                    child: SlideTransition(
+                      position: Tween(
+                        begin: const Offset(0, 0.08),
+                        end: Offset.zero,
+                      ).animate(a),
+                      child: child,
+                    ),
+                  ),
                   child: _bottomContent(controller, visible, selected),
                 ),
               ],

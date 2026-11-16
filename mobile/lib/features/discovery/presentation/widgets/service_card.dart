@@ -1,16 +1,14 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/initials_avatar.dart';
-import '../../../../core/widgets/saku_pill.dart';
 import '../../domain/entities/service_listing.dart';
 
-/// Kartu layanan pada feed "Keahlian di sekitarmu" (Figma 01 · Home).
+/// Kartu layanan pada feed "Keahlian di sekitarmu"
+/// (Figma "Ahmad Fauzi service": padding 14, jarak antar-baris 10).
 class ServiceCard extends StatelessWidget {
   const ServiceCard({super.key, required this.listing, this.onTap});
 
@@ -24,13 +22,14 @@ class ServiceCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(15),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  InitialsAvatar(name: listing.providerName),
+                  // TODO(anggota-5): pakai foto profil bila backend menyediakan.
+                  InitialsAvatar(name: listing.providerName, size: 32),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -38,15 +37,21 @@ class ServiceCard extends StatelessWidget {
                       children: [
                         Text(
                           listing.providerName,
-                          style: AppTypography.bodyLarge
-                              .copyWith(fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           listing.providerMajor ?? listing.category,
-                          style: AppTypography.caption.copyWith(
-                            fontWeight: FontWeight.w400,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            height: 1.4,
+                            color: AppColors.textSecondary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -54,14 +59,21 @@ class ServiceCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (listing.distanceMeters != null)
+                  if (listing.distanceMeters != null) ...[
+                    const SizedBox(width: 8),
                     DistanceLabel(meters: listing.distanceMeters!),
+                  ],
                 ],
               ),
               const SizedBox(height: 10),
               Text(
                 listing.title,
-                style: AppTypography.subheading.copyWith(fontSize: 15),
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -69,11 +81,10 @@ class ServiceCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(child: PriceLabel(listing: listing)),
-                  if (listing.offerType.acceptsBarter)
-                    const SakuPill(
-                      label: 'Bisa Barter',
-                      tone: SakuPillTone.barter,
-                    ),
+                  if (listing.offerType.acceptsBarter) ...[
+                    const SizedBox(width: 8),
+                    const BarterBadge(),
+                  ],
                 ],
               ),
             ],
@@ -84,6 +95,32 @@ class ServiceCard extends StatelessWidget {
   }
 }
 
+/// Badge ungu "Bisa Barter" (padding 7, teks 10/600 #7E22CE).
+class BarterBadge extends StatelessWidget {
+  const BarterBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(7),
+      decoration: const BoxDecoration(
+        color: AppColors.barterSurface,
+        borderRadius: AppRadius.pillBr,
+      ),
+      child: const Text(
+        'Bisa Barter',
+        style: TextStyle(
+          fontSize: 10,
+          height: 1.4,
+          fontWeight: FontWeight.w600,
+          color: AppColors.barterText,
+        ),
+      ),
+    );
+  }
+}
+
+/// "0.3 km / Cibiru" di kanan atas kartu.
 class DistanceLabel extends StatelessWidget {
   const DistanceLabel({super.key, required this.meters});
 
@@ -92,39 +129,45 @@ class DistanceLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      '${formatDistance(meters)}\n${AppConfig.campusLabel}',
+      // Figma menampilkan km satu desimal, mis. "0.3 km".
+      '${(meters / 1000).toStringAsFixed(1)} km\n${AppConfig.campusLabel}',
       textAlign: TextAlign.right,
       style: const TextStyle(
-        fontSize: 10,
-        height: 13 / 10,
-        fontWeight: FontWeight.w600,
-        color: AppColors.primary,
+        fontSize: 9,
+        height: 1.4,
+        fontWeight: FontWeight.w500,
+        color: AppColors.primaryPressed,
       ),
     );
   }
 }
 
+/// "Mulai Rp 35.000" — atau "Tukar keahlian" untuk listing murni barter.
 class PriceLabel extends StatelessWidget {
-  const PriceLabel({super.key, required this.listing, this.fontSize = 15});
+  const PriceLabel({
+    super.key,
+    required this.listing,
+    this.fontSize = 13,
+    this.color = AppColors.primaryPressed,
+  });
 
   final ServiceListing listing;
   final double fontSize;
 
+  /// Warna harga berbayar (kartu feed #047857, kartu peta #059669).
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
     final price = listing.price;
-    final text = (price == null || !listing.offerType.acceptsPayment)
-        ? 'Tukar keahlian'
-        : 'Mulai ${formatRupiah(price)}';
-    final color = (price == null || !listing.offerType.acceptsPayment)
-        ? AppColors.barter
-        : AppColors.primary;
+    final barterOnly = price == null || !listing.offerType.acceptsPayment;
     return Text(
-      text,
+      barterOnly ? 'Tukar keahlian' : 'Mulai ${formatRupiah(price)}',
       style: TextStyle(
         fontSize: fontSize,
+        height: 1.4,
         fontWeight: FontWeight.w700,
-        color: color,
+        color: barterOnly ? AppColors.barterText : color,
       ),
     );
   }
@@ -147,7 +190,7 @@ class ServiceCardSkeleton extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

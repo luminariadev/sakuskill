@@ -33,13 +33,17 @@ abstract final class AppConfig {
   static const List<int> radiusOptions = [500, 1000, 2000, 3000];
   static const int defaultRadiusMeters = 2000;
 
-  /// Tile peta: data OpenStreetMap dengan gaya CARTO Voyager (warna lembut,
-  /// paling mirip ilustrasi peta di Figma). Ganti ke [osmStandardTileUrl]
-  /// bila ingin tile OSM standar.
-  static const String mapTileUrl =
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-  static const List<String> mapTileSubdomains = ['a', 'b', 'c', 'd'];
-  static const String mapAttribution = '© OpenStreetMap contributors © CARTO';
+  /// Ambang chip "4.8+" (rating penyedia) di Beranda.
+  static const double topRatedThreshold = 4.8;
+
+  /// Tile peta: OpenStreetMap standar (user agent diisi sesuai kebijakan
+  /// tile OSM).
+  ///
+  /// Catatan: CARTO kini meminta API key (tile tampil "API KEY REQUIRED"),
+  /// jadi default memakai tile OSM standar.
+  static const String mapTileUrl = osmStandardTileUrl;
+  static const List<String> mapTileSubdomains = <String>[];
+  static const String mapAttribution = '© OpenStreetMap contributors';
 
   static const String osmStandardTileUrl =
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png';

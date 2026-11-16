@@ -1,23 +1,26 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/demo/demo_assets.dart';
+import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/main_shell.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/state_views.dart';
+import '../../domain/entities/service_listing.dart';
 import '../controllers/discovery_controller.dart';
 import '../controllers/discovery_scope.dart';
 import '../widgets/discovery_filters.dart';
 import '../widgets/home_sections.dart';
+import '../widgets/market_card.dart';
 import '../widgets/service_card.dart';
 
-/// Figma "01 · Home discovery".
+/// Figma "5 · Beranda marketplace".
 class HomeDiscoveryPage extends StatelessWidget {
   const HomeDiscoveryPage({super.key});
 
-  // TODO(anggota-5): ganti dengan nama pengguna dari sesi autentikasi.
-  static const String _demoUserName = 'Salma';
+  // TODO(anggota-5): ganti dengan data pengguna & saldo dari sesi login.
+  static const String _demoUserName = 'Salma Nur Oktavia';
+  static const num _demoBalance = 250000;
 
   @override
   Widget build(BuildContext context) {
@@ -25,10 +28,6 @@ class HomeDiscoveryPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.canvasLight,
-      floatingActionButton: AiEstimatorButton(
-        onPressed: () =>
-            Navigator.of(context).pushNamed(AppRoutes.priceEstimator),
-      ),
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -38,67 +37,47 @@ class HomeDiscoveryPage extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 sliver: SliverList.list(
                   children: [
-                    BrandHeader(
+                    MarketplaceHeader(
                       userName: _demoUserName,
-                      onAvatarTap: () => MainShell.goTo(context, MainTab.profile),
+                      balance: _demoBalance,
+                      avatarAsset: DemoAssets.salma,
+                      onBalanceTap: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.wallet),
+                      onAvatarTap: () => Navigator.of(context)
+                          .pushNamed(AppRoutes.profileSetup),
                     ),
-                    const SizedBox(height: 18),
-                    const Text('Hi $_demoUserName,', style: AppTypography.display),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Layanan keahlian apa yang kamu butuhkan hari ini?',
-                      style: AppTypography.body,
-                    ),
-                    const SizedBox(height: 14),
-                    SearchEntryField(
+                    const SizedBox(height: 16),
+                    SearchPill(
+                      hint: 'Cari jasa desain, video, les, servis...',
                       onTap: () => Navigator.of(context).pushNamed(
                         AppRoutes.search,
                         arguments: controller.filter.copyWith(query: ''),
                       ),
-                      onLocationTap: () =>
-                          MainShell.goTo(context, MainTab.explore),
+                      onMapTap: () => MainShell.goTo(context, MainTab.explore),
                     ),
-                    const SizedBox(height: 14),
-                    QuickFilterBar(controller: controller),
-                    const SizedBox(height: 14),
                   ],
                 ),
               ),
-              if (controller.categories.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: CategoryChipsRow(
-                    categories: controller.categories,
-                    selectedId: controller.filter.categoryId,
-                    onSelected: controller.setCategory,
-                  ),
-                ),
+              SliverToBoxAdapter(child: HomeFilterChips(controller: controller)),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 sliver: SliverList.list(
                   children: [
-                    const EscrowPromiseBanner(),
-                    const SizedBox(height: 18),
-                    SectionHeader(
-                      title: 'Keahlian di sekitarmu',
-                      actionLabel: 'Lihat semua',
-                      onAction: () => Navigator.of(context).pushNamed(
-                        AppRoutes.search,
-                        arguments: controller.filter,
-                      ),
-                    ),
+                    const EscrowSecurityBanner(),
+                    const SizedBox(height: 16),
+                    const SectionTitle('Temukan keahlian di sekitarmu'),
                     if (controller.isFallback) ...[
                       const SizedBox(height: 8),
                       const OfflineDataBanner(),
                     ],
-                    const SizedBox(height: 10),
                   ],
                 ),
               ),
               _FeedSliver(controller: controller),
-              const SliverToBoxAdapter(child: SizedBox(height: 96)),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           ),
         ),
@@ -119,7 +98,7 @@ class _FeedSliver extends StatelessWidget {
     if (controller.status == DiscoveryStatus.initial ||
         (controller.isLoading && listings.isEmpty)) {
       return SliverPadding(
-        padding: AppSpacing.screen,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         sliver: SliverList.separated(
           itemCount: 3,
           separatorBuilder: (_, __) => const SizedBox(height: 14),
@@ -144,32 +123,52 @@ class _FeedSliver extends StatelessWidget {
       return SliverToBoxAdapter(
         child: EmptyStateView(
           icon: Icons.travel_explore_rounded,
-          title: 'Belum ada jasa di radius ini',
-          message:
-              'Coba perluas jangkauan atau ubah kategori & filter Smart Barter.',
+          title: 'Belum ada yang cocok di radius ini',
+          message: 'Coba perluas jangkauan atau ubah filter jenis & Smart Barter.',
           actionLabel: 'Perluas radius',
           onAction: () => showRadiusSheet(context, controller),
         ),
       );
     }
 
+    // Feed 2 kolom ala masonry: item genap kiri, ganjil kanan (Figma: kolom
+    // 170 px, jarak 13). Tiap kartu muncul bertahap.
+    Widget column(int parity) => Expanded(
+          child: Column(
+            spacing: 14,
+            children: [
+              for (var i = parity; i < listings.length; i += 2)
+                FadeSlideIn(
+                  key: ValueKey('feed-${listings[i].id}'),
+                  index: i,
+                  child: _card(context, listings[i]),
+                ),
+            ],
+          ),
+        );
+
     return SliverPadding(
-      padding: AppSpacing.screen,
-      sliver: SliverList.separated(
-        itemCount: listings.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 14),
-        itemBuilder: (context, i) {
-          final listing = listings[i];
-          return ServiceCard(
-            key: ValueKey('service-${listing.id}'),
-            listing: listing,
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.serviceDetail,
-              arguments: listing,
-            ),
-          );
-        },
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      sliver: SliverToBoxAdapter(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 13,
+          children: [column(0), column(1)],
+        ),
       ),
     );
   }
+
+  Widget _card(BuildContext context, ServiceListing listing) => MarketCard(
+        key: ValueKey('service-${listing.id}'),
+        listing: listing,
+        onTap: () => Navigator.of(context).pushNamed(
+          AppRoutes.serviceDetail,
+          arguments: listing,
+        ),
+        onChat: () => Navigator.of(context).pushNamed(
+          AppRoutes.chat,
+          arguments: listing,
+        ),
+      );
 }

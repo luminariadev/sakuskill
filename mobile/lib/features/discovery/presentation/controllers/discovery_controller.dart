@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../domain/entities/discovery_filter.dart';
 import '../../domain/entities/service_category.dart';
 import '../../domain/entities/service_listing.dart';
@@ -15,12 +16,12 @@ enum DiscoveryStatus { initial, loading, success, failure }
 /// "bocor" ke feed Home.
 class DiscoveryController extends ChangeNotifier {
   DiscoveryController({
-    required SearchNearbyServices searchNearby,
-    required GetServiceCategories getCategories,
+    // Private named parameter (Dart 3.13+): tetap dipanggil dengan
+    // `searchNearby:` / `getCategories:`.
+    required this._searchNearby,
+    required this._getCategories,
     DiscoveryFilter initialFilter = const DiscoveryFilter(),
-  })  : _searchNearby = searchNearby,
-        _getCategories = getCategories,
-        _filter = initialFilter;
+  }) : _filter = initialFilter;
 
   final SearchNearbyServices _searchNearby;
   final GetServiceCategories _getCategories;
@@ -90,6 +91,21 @@ class DiscoveryController extends ChangeNotifier {
   }
 
   void toggleBarterOnly() => setBarterOnly(!_filter.barterOnly);
+
+  /// Chip "Jasa Tersedia" / "Kebutuhan Proyek" (null = semua jenis).
+  void setKind(ListingKind? kind) {
+    if (kind == _filter.kind) return;
+    _applyFilter(kind == null
+        ? _filter.copyWith(clearKind: true)
+        : _filter.copyWith(kind: kind));
+  }
+
+  /// Chip "4.8+" di Beranda: aktifkan/matikan filter rating minimum.
+  void toggleTopRated() => _applyFilter(
+        _filter.minRating == null
+            ? _filter.copyWith(minRating: AppConfig.topRatedThreshold)
+            : _filter.copyWith(clearMinRating: true),
+      );
 
   void selectListing(String? id) {
     if (id == _selectedListingId) return;

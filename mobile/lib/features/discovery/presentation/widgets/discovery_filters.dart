@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/saku_pill.dart';
+import '../../../../core/motion/saku_motion.dart';
 import '../../domain/entities/service_category.dart';
+import '../../domain/entities/service_listing.dart';
 import '../controllers/discovery_controller.dart';
 
 IconData categoryIcon(String iconKey) {
@@ -27,49 +28,144 @@ String radiusLabel(int meters) => meters < 1000
     ? '${meters}m'
     : '${(meters / 1000).toStringAsFixed(meters % 1000 == 0 ? 0 : 1)} km';
 
-/// Baris filter cepat Home: Smart Barter · Radius · Bebas Joki.
-class QuickFilterBar extends StatelessWidget {
-  const QuickFilterBar({super.key, required this.controller});
+enum FilterChipTone { neutral, barter }
 
-  final DiscoveryController controller;
+/// Chip filter Figma "Scrollable filters": tinggi 32, radius pill, border
+/// 1 #E2E8F0, teks 11/600. Aktif = emerald penuh + teks putih.
+/// Transisi warna 160 ms + skala tekan halus.
+class FilterChipPill extends StatelessWidget {
+  const FilterChipPill({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+    this.tone = FilterChipTone.neutral,
+    this.minWidth = 0,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+  final FilterChipTone tone;
+  final double minWidth;
 
   @override
   Widget build(BuildContext context) {
-    final filter = controller.filter;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          SakuPill(
-            key: const Key('filter-barter'),
-            label: 'Smart Barter',
-            icon: Icons.swap_horiz_rounded,
-            tone: SakuPillTone.barter,
-            selected: filter.barterOnly,
-            onTap: controller.toggleBarterOnly,
+    final activeColor =
+        tone == FilterChipTone.barter ? AppColors.barter : AppColors.primary;
+    final bg = selected ? activeColor : AppColors.cardSurface;
+    final border = selected ? activeColor : AppColors.borderLight;
+    final fg = selected ? Colors.white : AppColors.textSecondary;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: PressableScale(
+        scale: 0.95,
+        onTap: () {
+          SakuMotion.tick();
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: SakuMotion.curve,
+          height: 32,
+          constraints: BoxConstraints(minWidth: minWidth),
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: AppRadius.pillBr,
+            border: Border.all(color: border),
           ),
-          const SizedBox(width: 6),
-          SakuPill(
-            key: const Key('filter-radius'),
-            label:
-                '< ${radiusLabel(filter.radiusMeters)} ${AppConfig.campusLabel}',
-            tone: SakuPillTone.primary,
-            trailingIcon: Icons.expand_more_rounded,
-            onTap: () => showRadiusSheet(context, controller),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              height: 15 / 11,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
           ),
-          const SizedBox(width: 6),
-          const SakuPill(
-            label: 'Bebas Joki 100%',
-            icon: Icons.verified_outlined,
-            tone: SakuPillTone.integrity,
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Chip kategori horizontal ("Semua" + kategori dari repository).
+/// Baris chip Beranda: Semua · Jasa Tersedia · Kebutuhan Proyek ·
+/// Smart Barter · < 2 km Cibiru (bisa digeser horizontal).
+class HomeFilterChips extends StatelessWidget {
+  const HomeFilterChips({
+    super.key,
+    required this.controller,
+    this.padding = const EdgeInsets.symmetric(horizontal: 20),
+  });
+
+  final DiscoveryController controller;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final filter = controller.filter;
+    final all = filter.kind == null && !filter.barterOnly;
+    final chips = <Widget>[
+      FilterChipPill(
+        key: const Key('filter-all'),
+        label: 'Semua',
+        selected: all,
+        onTap: () {
+          controller.setKind(null);
+          controller.setBarterOnly(false);
+        },
+      ),
+      FilterChipPill(
+        key: const Key('filter-offer'),
+        label: 'Jasa Tersedia',
+        selected: filter.kind == ListingKind.offer,
+        onTap: () => controller.setKind(
+          filter.kind == ListingKind.offer ? null : ListingKind.offer,
+        ),
+      ),
+      FilterChipPill(
+        key: const Key('filter-request'),
+        label: 'Kebutuhan Proyek',
+        selected: filter.kind == ListingKind.request,
+        onTap: () => controller.setKind(
+          filter.kind == ListingKind.request ? null : ListingKind.request,
+        ),
+      ),
+      FilterChipPill(
+        key: const Key('filter-barter'),
+        label: 'Smart Barter',
+        selected: filter.barterOnly,
+        tone: FilterChipTone.barter,
+        onTap: controller.toggleBarterOnly,
+      ),
+      FilterChipPill(
+        key: const Key('filter-radius'),
+        label: '< ${radiusLabel(filter.radiusMeters)} ${AppConfig.campusLabel}',
+        onTap: () => showRadiusSheet(context, controller),
+      ),
+    ];
+
+    return SizedBox(
+      height: 34,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: padding,
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => Center(child: chips[i]),
+      ),
+    );
+  }
+}
+
+/// Chip kategori horizontal ("Semua" + kategori) — dipakai halaman pencarian.
 class CategoryChipsRow extends StatelessWidget {
   const CategoryChipsRow({
     super.key,
@@ -85,7 +181,7 @@ class CategoryChipsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 34,
+      height: 28,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: AppSpacing.screen,
@@ -93,18 +189,16 @@ class CategoryChipsRow extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           if (i == 0) {
-            return SakuPill(
+            return FilterChipPill(
               label: 'Semua',
-              icon: Icons.apps_rounded,
               selected: selectedId == null,
               onTap: () => onSelected(null),
             );
           }
           final c = categories[i - 1];
-          return SakuPill(
+          return FilterChipPill(
             key: Key('category-${c.id}'),
             label: c.label,
-            icon: categoryIcon(c.iconKey),
             selected: selectedId == c.id,
             onTap: () => onSelected(selectedId == c.id ? null : c.id),
           );
@@ -114,7 +208,39 @@ class CategoryChipsRow extends StatelessWidget {
   }
 }
 
-/// Segmented control radius (500m · 1 km · 2 km · 3 km) — gaya Figma Explore.
+/// Pilihan radius Figma "6 · Explore Cibiru": chip 32 px lebar 65.
+class RadiusPills extends StatelessWidget {
+  const RadiusPills({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        spacing: 8,
+        children: [
+          for (final r in AppConfig.radiusOptions)
+            FilterChipPill(
+              key: Key('radius-$r'),
+              label: radiusLabel(r),
+              minWidth: 65,
+              selected: r == value,
+              onTap: () => onChanged(r),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Segmented control radius (500m · 1 km · 2 km · 3 km) — halaman pencarian.
 class RadiusSegmented extends StatelessWidget {
   const RadiusSegmented({
     super.key,
@@ -173,7 +299,7 @@ class _RadiusOption extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primary : Colors.transparent,
+            color: selected ? AppColors.primaryPressed : Colors.transparent,
             borderRadius: AppRadius.pillBr,
           ),
           child: Text(
@@ -190,7 +316,7 @@ class _RadiusOption extends StatelessWidget {
   }
 }
 
-/// Bottom sheet pemilih radius untuk Home.
+/// Bottom sheet pemilih radius untuk Beranda.
 Future<void> showRadiusSheet(
   BuildContext context,
   DiscoveryController controller,
