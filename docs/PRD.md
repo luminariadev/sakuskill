@@ -113,9 +113,9 @@ Catatan peran: Figma memakai satu akun yang berperan ganda (Beranda menampilkan 
 ### 6.1 Ringkasan
 | Area | Kondisi |
 | :--- | :--- |
-| Branch kerja | `feat/fe-core-foundation` (bercabang dari `feat/fe-discovery`, belum di-push): M1 butir T-03, T-08, T-01 |
+| Branch kerja | `feat/fe-core-foundation` (di-push, PR ke `develop`): T-03, T-08, T-01. `feat/fe-core-network` (di atasnya, belum di-push): T-06 |
 | Ukuran kode FE | sekitar 11,4 ribu baris Dart, 68 file di `mobile/lib` |
-| Kualitas | `flutter analyze`: **0 issue**. `flutter test`: **64 tes lulus** (per 16 Nov 2026) |
+| Kualitas | `flutter analyze`: **0 issue**. `flutter test`: **81 tes lulus** (per 16 Nov 2026) |
 | Arsitektur | Clean Architecture feature-first; DI manual (`AppDependencies` + `AppScope`); state `ChangeNotifier` + `InheritedNotifier` |
 | Data nyata | Hanya **Discovery** (`GET /listings`) dengan fallback data contoh. Semua modul lain memakai `core/demo/demo_data.dart` |
 | Backend | Express + PostgreSQL/PostGIS. Endpoint yang ada: `GET /health`, `GET /listings`. Skema DB 13 entitas dan enum status sudah sesuai SKPL |
@@ -175,7 +175,7 @@ Legenda: ✅ UI selesai + data nyata · 🟡 UI selesai, data demo/statis · ⬜
 | T-03 | Dependensi `material_ui: any` dipakai di 60 file sebagai pengganti `package:flutter/material.dart` | Versi tidak dikunci; paket pihak ketiga di jalur kritis UI | ✅ **Selesai** (`39e543b`): `material_ui` adalah library Material resmi tim Flutter (deprecated-nya `flutter/material.dart` sejak 3.47), bukan halusinasi. Dikunci `^1.11.0`, environment Dart ^3.13 / Flutter ≥ 3.47, versi tim 3.50 di README. Semua anggota wajib Flutter ≥ 3.47 |
 | T-04 | Font Plus Jakarta Sans belum dibundel | UI berbeda dari Figma | Tambah `assets/fonts/` + `pubspec.yaml` |
 | T-05 | Lokasi pengguna hardcode `AppConfig.campusCenter` | FR-24 belum terpenuhi | `geolocator` + izin + fallback |
-| T-06 | Belum ada HTTP client bersama (token, envelope, error mapping) | Setiap modul akan menduplikasi logika | `core/network/api_client.dart` |
+| T-06 | Belum ada HTTP client bersama (token, envelope, error mapping) | Setiap modul akan menduplikasi logika | ✅ **Selesai** (`77af1c0`): `ApiClient` + `ApiException` (envelope, fieldErrors, timeout, 401 → `unauthorizedEvents`, HTTPS rilis, aman untuk Web). Discovery sudah memakainya; token menunggu T-07 |
 | T-07 | Belum ada penyimpanan sesi dan SQLite | FR-16, FR-46, persistensi login | `flutter_secure_storage` (token) + `sqflite` (draf/cache) |
 | T-08 | Label status ditulis bebas per layar | Risiko melanggar NFR-22 | ✅ **Selesai** (`7b19898`): `core/domain/status.dart` + `StatusPill`; tes mencocokkan langsung dengan migrasi 001. Layar Anggota 4 belum memakai (masih teks bebas) |
 | T-09 | Tidak ada CI | PR tidak tervalidasi otomatis | GitHub Actions `analyze` + `test` + build APK (Anggota 7) |
