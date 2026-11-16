@@ -12,6 +12,10 @@ const env = {
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || '',
   },
+  jwt: {
+    secret: process.env.JWT_SECRET || 'sakuskill_dev_secret_key_minimal_32_chars',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
   hyperlocal: {
     defaultLat: parseFloat(process.env.DEFAULT_CAMPUS_LAT || '-6.9311'),
     defaultLng: parseFloat(process.env.DEFAULT_CAMPUS_LNG || '107.7175'),
