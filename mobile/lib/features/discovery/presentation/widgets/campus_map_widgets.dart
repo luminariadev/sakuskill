@@ -1,31 +1,27 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/demo/demo_assets.dart';
+import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/geo.dart';
-import '../../../../core/widgets/initials_avatar.dart';
+import '../../../../core/widgets/saku_buttons.dart';
+import '../../../../core/widgets/saku_surfaces.dart';
 import '../../domain/entities/service_listing.dart';
-import '../pages/service_detail_page.dart';
+import 'service_card.dart';
 
-/// Label keahlian singkat untuk marker, mis. "IT Support", "Jasa Desain".
-String shortSkillLabel(ServiceListing l) {
-  switch (l.category) {
-    case 'Jasa Teknis':
-      return 'IT Support';
-    case 'Desain':
-      return 'Jasa Desain';
-    case 'Fotografi':
-      return 'Foto & Video';
-    case 'Bimbingan Belajar':
-      return 'Tutor';
-    default:
-      return l.category;
-  }
-}
+/// Jarak ringkas tanpa spasi, mis. "600m" / "1.2km".
+String compactDistance(double meters) =>
+    formatDistance(meters).replaceAll(' ', '');
 
-/// Marker talenta (Figma 02 · Explore): avatar ber-ring hijau + label pill
-/// putih "Nama · Keahlian (jarak)".
+/// Ukuran marker talenta (Figma "Salma · 300m": 128 × 34).
+const Size talentMarkerSize = Size(128, 34);
+
+/// Marker pill di peta (Figma "6 · Explore Cibiru"): hijau untuk penyedia
+/// jasa, biru untuk permintaan kebutuhan; teks putih 11/700 "Nama · jarak".
+/// Marker terpilih sedikit membesar dengan bayangan.
 class TalentMarker extends StatelessWidget {
   const TalentMarker({
     super.key,
@@ -41,84 +37,87 @@ class TalentMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = listing.providerName.split(' ').first;
-    final distance = listing.distanceMeters;
-    final label = '$firstName · ${shortSkillLabel(listing)}'
-        '${distance != null ? ' (${formatDistance(distance).replaceAll(' ', '')})' : ''}';
+    final d = listing.distanceMeters;
+    final label = d != null ? '$firstName · ${compactDistance(d)}' : firstName;
+    final color = listing.isRequest ? AppColors.escrow : AppColors.primary;
 
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Penyedia $label',
+      label: '${listing.isRequest ? 'Permintaan' : 'Penyedia'} $label',
+      excludeSemantics: true,
       child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedScale(
-              scale: selected ? 1.15 : 1,
-              duration: const Duration(milliseconds: 180),
-              child: Container(
-                padding: const EdgeInsets.all(2.5),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: selected ? AppShadows.emeraldGlow : AppShadows.flat,
-                ),
-                child: InitialsAvatar(name: listing.providerName, size: 40),
+        onTap: () {
+          SakuMotion.tick();
+          onTap();
+        },
+        child: AnimatedScale(
+          scale: selected ? 1.06 : 1,
+          duration: SakuMotion.base,
+          curve: SakuMotion.curve,
+          child: AnimatedContainer(
+            duration: SakuMotion.base,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.centerLeft,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: selected ? Colors.white : color,
+                width: selected ? 2 : 0,
+              ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : AppShadows.flat,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 15 / 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.cardSurface,
-                borderRadius: AppRadius.pillBr,
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.borderLight,
-                ),
-                boxShadow: AppShadows.flat,
-              ),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Label nama kampus di atas peta ("UIN SGD Kampus 1 / Cibiru").
+/// Label area kampus di atas peta ("UIN SUNAN GUNUNG DJATI").
 class CampusMapLabel extends StatelessWidget {
   const CampusMapLabel({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const IgnorePointer(
-      child: Text(
-        'UIN SGD Kampus 1\nCibiru',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 16,
-          height: 1.3,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF4D7C4A),
-          shadows: [Shadow(color: Colors.white, blurRadius: 6)],
+      child: Center(
+        child: Text(
+          'UIN SUNAN GUNUNG DJATI',
+          style: TextStyle(
+            fontSize: 10,
+            height: 14 / 10,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+            shadows: [Shadow(color: Colors.white, blurRadius: 6)],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Titik lokasi pengguna / pusat kampus.
+/// Titik biru "Lokasi Anda" (17px, border putih).
 class OriginDot extends StatelessWidget {
   const OriginDot({super.key});
 
@@ -128,16 +127,17 @@ class OriginDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.escrow,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
+        border: Border.all(color: Colors.white, width: 1.5),
         boxShadow: const [
-          BoxShadow(color: Color(0x553B82F6), blurRadius: 10, spreadRadius: 4),
+          BoxShadow(color: Color(0x553B82F6), blurRadius: 8, spreadRadius: 3),
         ],
       ),
     );
   }
 }
 
-/// Kartu pratinjau talenta terpilih (Figma 02 · Explore campus).
+/// Kartu talenta terpilih (Figma "Selected talent card"): padding 16,
+/// radius 14, avatar 40, harga 16/700, tombol 42 px.
 class TalentPreviewCard extends StatelessWidget {
   const TalentPreviewCard({
     super.key,
@@ -150,82 +150,108 @@ class TalentPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final distance = listing.distanceMeters;
+    final d = listing.distanceMeters;
     final meta = [
-      listing.providerMajor?.split('•').first.trim() ?? listing.category,
+      if (d != null) '${compactDistance(d)} dari lokasi Anda',
       if (listing.rating != null)
-        '★ ${listing.rating!.toStringAsFixed(1)} (${listing.reviewCount} Ulasan)',
-    ].join(' • ');
+        '${listing.rating!.toStringAsFixed(1)} ★ (${listing.reviewCount} Ulasan)',
+    ].join(' · ');
 
-    return Material(
-      color: AppColors.cardSurface,
-      elevation: 6,
-      shadowColor: const Color(0x1F0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.cardBr,
-        side: BorderSide(color: AppColors.borderLight),
-      ),
-      child: InkWell(
-        borderRadius: AppRadius.cardBr,
-        onTap: onOpenDetail,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return SakuCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  InitialsAvatar(name: listing.providerName, size: 42),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          listing.providerName,
-                          style: AppTypography.subheading,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          meta,
-                          style: AppTypography.caption
-                              .copyWith(fontWeight: FontWeight.w400),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+              PhotoAvatar(
+                name: listing.providerName,
+                asset: DemoAssets.portraitFor(listing.providerName),
+                size: 40,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 5,
+                  children: [
+                    Text(
+                      listing.providerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 18 / 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              if (distance != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '${formatDistance(distance)}'
-                  '${listing.landmark != null ? ' dari ${listing.landmark}' : ''}'
-                  ' • Jalan Kaki ~${walkingMinutes(distance)} Menit',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                    Text(
+                      listing.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 15 / 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-              const SizedBox(height: 6),
-              Text(
-                listing.title,
-                style: AppTypography.bodyLarge
-                    .copyWith(fontWeight: FontWeight.w700, fontSize: 15),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 10),
-              ServiceActionButtons(listing: listing),
             ],
           ),
-        ),
+          if (listing.isRequest)
+            Text(
+              listing.price != null
+                  ? 'Budget ${formatRupiah(listing.price!)}'
+                  : 'Budget nego',
+              style: const TextStyle(
+                fontSize: 16,
+                height: 22 / 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            )
+          else
+            PriceLabel(listing: listing, fontSize: 16, color: AppColors.primary),
+          if (meta.isNotEmpty)
+            Text(
+              meta,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 15 / 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: SakuButton(
+                  key: const Key('map-chat'),
+                  label: 'Chat Langsung',
+                  variant: SakuButtonVariant.outline,
+                  height: 42,
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRoutes.chat,
+                    arguments: listing,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SakuButton(
+                  key: const Key('map-open-detail'),
+                  label: listing.isRequest ? 'Lihat Kebutuhan' : 'Lihat Detail Jasa',
+                  height: 42,
+                  onPressed: onOpenDetail,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

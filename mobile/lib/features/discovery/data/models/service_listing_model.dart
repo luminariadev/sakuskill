@@ -6,7 +6,8 @@ import '../../domain/entities/service_listing.dart';
 /// Field wajib dari backend saat ini: listing_id, judul, deskripsi, harga,
 /// tipe_penawaran, nama_penyedia, nama_keterampilan, kategori, jarak_km.
 /// Field opsional (`lat`, `lng`, `prodi`, `patokan`, `rating`,
-/// `jumlah_ulasan`) akan otomatis terpakai begitu backend menambahkannya —
+/// `jumlah_ulasan`, `jenis` = penawaran|permintaan, `tukar_dengan`,
+/// `lama_hari`) akan otomatis terpakai begitu backend menambahkannya —
 /// `lat`/`lng` dibutuhkan agar listing bisa tampil sebagai marker di peta.
 abstract final class ServiceListingModel {
   static ServiceListing fromJson(Map<String, dynamic> json) {
@@ -29,6 +30,11 @@ abstract final class ServiceListingModel {
       landmark: json['patokan'] as String?,
       rating: _toDouble(json['rating']),
       reviewCount: _toDouble(json['jumlah_ulasan'])?.toInt() ?? 0,
+      kind: ListingKind.fromApi(json['jenis'] as String?),
+      barterWant: json['tukar_dengan'] as String?,
+      deliveryDays: _toDouble(json['lama_hari'])?.toInt(),
+      scopeItems: (json['cakupan'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
     );
   }
 

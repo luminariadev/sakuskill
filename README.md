@@ -66,6 +66,9 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/v1/health" | ConvertTo-Json -D
 
 ## 📱 Cara Menjalankan Mobile App (Frontend)
 
+> **Prasyarat: Flutter ≥ 3.47 (versi tim: 3.50 stable, Dart 3.13+).**
+> UI memakai [`material_ui`](https://pub.dev/packages/material_ui), library Material resmi tim Flutter yang dipisahkan dari framework sejak Flutter 3.47 (`package:flutter/material.dart` kini *deprecated*). Dengan Flutter lebih lama, `flutter pub get` akan gagal. Cek dengan `flutter --version`, lalu `flutter upgrade` bila perlu.
+
 ### 1. Masuk ke Direktori Mobile
 ```bash
 cd mobile
@@ -80,7 +83,7 @@ flutter pub get
 ```bash
 flutter test
 ```
-*Seluruh 21 unit & widget test terverifikasi lulus (100% green).*
+*Saat ini 64 unit & widget test lulus (per 16 Nov 2026). Mode demo tanpa backend: `flutter run --dart-define=USE_MOCK_DATA=true`.*
 
 ### 4. Jalankan Aplikasi pada Emulator / Perangkat
 ```bash

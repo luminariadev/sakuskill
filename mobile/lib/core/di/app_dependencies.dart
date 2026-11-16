@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../features/discovery/data/datasources/discovery_local_data_source.dart';
 import '../../features/discovery/data/datasources/discovery_remote_data_source.dart';

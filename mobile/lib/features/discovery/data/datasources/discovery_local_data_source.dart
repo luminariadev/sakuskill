@@ -1,4 +1,5 @@
 import '../../../../core/config/app_config.dart';
+import '../../../../core/demo/demo_assets.dart';
 import '../../../../core/utils/geo.dart';
 import '../../domain/entities/service_category.dart';
 import '../../domain/entities/service_listing.dart';
@@ -30,6 +31,81 @@ class DiscoveryLocalDataSource {
   List<ServiceCategory> getCategories() => categories;
 
   List<ServiceListing> getListings() => [
+        // ---- Persona Figma "User Design" -------------------------------
+        ServiceListing(
+          id: 'demo-salma',
+          title: 'Jasa Desain Feed IG & Spanduk Toko',
+          description: 'Paket termasuk 1 desain spanduk siap cetak, 2x revisi '
+              'minor, file PDF CMYK 300 DPI, dan pengerjaan 3 hari.',
+          price: 50000,
+          offerType: OfferType.paidAndBarter,
+          providerName: 'Salma Nur Oktavia',
+          providerMajor: 'Desain Komunikasi Visual • Sem 5',
+          skillName: 'Desain Grafis & Spanduk',
+          category: 'Desain',
+          location: _around(0.0027, 0),
+          landmark: 'Masjid Kampus',
+          rating: 4.9,
+          reviewCount: 19,
+          coverAsset: DemoAssets.portfolioInstagram,
+          barterWant: 'Video Editing / Web Frontend',
+          deliveryDays: 3,
+          scopeItems: [
+            'File siap cetak CMYK 300 DPI',
+            'Format PDF & JPG',
+            'Estimasi pengerjaan: 3 Hari',
+            'Revisi: 2x revisi minor',
+          ],
+          galleryAssets: [
+            DemoAssets.spandukBerkah,
+            DemoAssets.portfolioInstagram,
+            DemoAssets.portfolioWeb,
+          ],
+        ),
+        ServiceListing(
+          id: 'demo-dimas',
+          kind: ListingKind.request,
+          title: 'Dicari: Desain Spanduk 3×1 Meter Siap Cetak',
+          description: 'Butuh desain spanduk promosi Katering Berkah ukuran '
+              '3×1 meter, siap cetak, menampilkan menu ayam bakar & nomor '
+              'pemesanan.',
+          price: 50000,
+          offerType: OfferType.paid,
+          providerName: 'Dimas',
+          providerMajor: 'Katering Berkah',
+          skillName: 'Desain Spanduk',
+          category: 'Desain',
+          location: _around(0, 0.0036),
+          landmark: 'Jl. AH Nasution',
+          coverAsset: DemoAssets.spandukBerkah,
+          deliveryDays: 3,
+          scopeItems: [
+            'Ukuran 3×1 meter, siap cetak',
+            'Menampilkan menu ayam bakar & nomor pemesanan',
+            'Tenggat: 3 Hari',
+          ],
+          galleryAssets: [DemoAssets.spandukBerkah],
+        ),
+        ServiceListing(
+          id: 'demo-rizkia',
+          title: 'Editing Video Teaser Reels 30 Detik',
+          description: 'Editing reels/teaser 30 detik lengkap color grading, '
+              'subtitle, dan musik bebas royalti.',
+          offerType: OfferType.barter,
+          providerName: 'Rizkia Nuari',
+          providerMajor: 'Ilmu Komunikasi • Sem 6',
+          skillName: 'Video Editing',
+          category: 'Fotografi',
+          location: _around(-0.0054, 0),
+          landmark: 'Cipadung',
+          rating: 4.8,
+          reviewCount: 12,
+          coverAsset: DemoAssets.portfolioInstagram,
+          barterWant: 'Tukar Jasa Desain Web',
+          deliveryDays: 2,
+          galleryAssets: [DemoAssets.portfolioInstagram],
+        ),
+        // ---- Data contoh awal ----------------------------------------
         ServiceListing(
           id: 'demo-001',
           title: 'Jasa Desain Feed IG & Poster Acara Kampus UKM',

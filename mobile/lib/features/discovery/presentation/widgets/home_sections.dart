@@ -1,109 +1,141 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/initials_avatar.dart';
-import '../../../../core/widgets/saku_pill.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/saku_icon.dart';
+import '../../../../core/widgets/saku_surfaces.dart';
 
-/// Header brand: "sakuskill • UIN SGD" + avatar pengguna.
-class BrandHeader extends StatelessWidget {
-  const BrandHeader({super.key, required this.userName, this.onAvatarTap});
+/// Header Beranda (Figma "5 · Beranda marketplace / Marketplace header"):
+/// "sakuskill." 23/800 · saldo 12/700 emerald · avatar foto 36.
+class MarketplaceHeader extends StatelessWidget {
+  const MarketplaceHeader({
+    super.key,
+    required this.userName,
+    required this.balance,
+    this.avatarAsset,
+    this.onBalanceTap,
+    this.onAvatarTap,
+  });
 
   final String userName;
+  final num balance;
+  final String? avatarAsset;
+  final VoidCallback? onBalanceTap;
   final VoidCallback? onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Text(
-          'sakuskill',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-            color: AppColors.textPrimary,
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'sakuskill.',
+              style: TextStyle(
+                fontSize: 23,
+                height: 32 / 23,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        Container(
-          width: 6,
-          height: 6,
-          decoration: const BoxDecoration(
-            color: AppColors.accent,
-            shape: BoxShape.circle,
+          Semantics(
+            button: true,
+            label: 'Saldo dompet ${formatRupiah(balance)}',
+            excludeSemantics: true,
+            child: PressableScale(
+              key: const Key('home-balance'),
+              onTap: onBalanceTap,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Text(
+                  formatRupiah(balance),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 17 / 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        const SakuPill(label: 'UIN SGD', tone: SakuPillTone.primary),
-        const Spacer(),
-        Semantics(
-          button: true,
-          label: 'Profil',
-          child: GestureDetector(
-            onTap: onAvatarTap,
-            child: InitialsAvatar(name: userName),
+          const SizedBox(width: 30),
+          Semantics(
+            button: true,
+            label: 'Profil $userName',
+            excludeSemantics: true,
+            child: PressableScale(
+              scale: 0.94,
+              onTap: onAvatarTap,
+              child: PhotoAvatar(name: userName, asset: avatarAsset, size: 36),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-/// Kolom pencarian Home (bertindak sebagai tombol menuju halaman pencarian).
-class SearchEntryField extends StatelessWidget {
-  const SearchEntryField({
+/// Kolom pencarian pill (Figma "Search with map"): putih, border, tinggi 46,
+/// ikon cari 22 kiri, ikon pin emerald kanan (membuka peta).
+class SearchPill extends StatelessWidget {
+  const SearchPill({
     super.key,
+    required this.hint,
     required this.onTap,
-    required this.onLocationTap,
-    this.hint = 'Cari jasa, cth: ‘desain poster’...',
+    this.onMapTap,
+    this.border = true,
   });
 
-  final VoidCallback onTap;
-  final VoidCallback onLocationTap;
   final String hint;
+  final VoidCallback onTap;
+  final VoidCallback? onMapTap;
+  final bool border;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.cardSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.inputBr,
-        side: BorderSide(color: AppColors.borderLight),
-      ),
-      child: InkWell(
+    return Semantics(
+      button: true,
+      label: hint,
+      child: PressableScale(
+        scale: 0.985,
         key: const Key('home-search-field'),
-        borderRadius: AppRadius.inputBr,
         onTap: onTap,
-        child: SizedBox(
+        child: Container(
           height: 46,
+          padding: const EdgeInsets.only(left: 13, right: 4),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: AppRadius.pillBr,
+            border: border ? Border.all(color: AppColors.borderLight) : null,
+            boxShadow: border ? null : AppShadows.flat,
+          ),
           child: Row(
             children: [
-              const SizedBox(width: 13),
-              const Icon(Icons.search_rounded,
-                  size: 22, color: AppColors.textSecondary),
+              const SakuIcon(SakuIcons.search, size: 22, color: AppColors.textSecondary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   hint,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
-                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 15 / 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: 'Lihat peta kampus',
-                onPressed: onLocationTap,
-                icon: const Icon(
-                  Icons.location_on_outlined,
-                  size: 22,
-                  color: AppColors.primary,
+              if (onMapTap != null)
+                IconButton(
+                  tooltip: 'Lihat peta Cibiru',
+                  onPressed: onMapTap,
+                  icon: const SakuIcon(SakuIcons.pin, size: 22, color: AppColors.primary),
                 ),
-              ),
             ],
           ),
         ),
@@ -112,9 +144,9 @@ class SearchEntryField extends StatelessWidget {
   }
 }
 
-/// Banner gelap "Rekening Bersama Mahasiswa" (janji escrow kampus).
-class EscrowPromiseBanner extends StatelessWidget {
-  const EscrowPromiseBanner({super.key});
+/// Banner gelap "Dana Aman Rekening Bersama Escrow".
+class EscrowSecurityBanner extends StatelessWidget {
+  const EscrowSecurityBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -127,29 +159,26 @@ class EscrowPromiseBanner extends StatelessWidget {
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 8,
         children: [
+          SakuIcon(SakuIcons.shield, size: 26, color: AppColors.accent),
           Text(
-            'REKENING BERSAMA MAHASISWA',
+            'Dana Aman Rekening Bersama Escrow',
             style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 0.6,
-              fontWeight: FontWeight.w700,
-              color: AppColors.accent,
-            ),
-          ),
-          SizedBox(height: 6),
-          Text(
-            'Transaksi Aman & Terlindungi',
-            style: TextStyle(
-              fontSize: 18,
+              fontSize: 16,
+              height: 22 / 16,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 6),
           Text(
-            'Dana dicairkan hanya setelah bukti\npengerjaan disetujui.',
-            style: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFFCBD5E1)),
+            'Uang Anda ditahan sistem secara aman dan HANYA dicairkan setelah '
+            'hasil pekerjaan disetujui.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 17 / 12,
+              color: AppColors.bannerBody,
+            ),
           ),
         ],
       ),
@@ -157,15 +186,11 @@ class EscrowPromiseBanner extends StatelessWidget {
   }
 }
 
-class SectionHeader extends StatelessWidget {
-  const SectionHeader({
-    super.key,
-    required this.title,
-    this.actionLabel,
-    this.onAction,
-  });
+/// Judul bagian 18/700 ("Temukan keahlian di sekitarmu").
+class SectionTitle extends StatelessWidget {
+  const SectionTitle(this.text, {super.key, this.actionLabel, this.onAction});
 
-  final String title;
+  final String text;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -174,45 +199,28 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(title, style: AppTypography.subheading.copyWith(fontSize: 17)),
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 18,
+              height: 25 / 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
         if (actionLabel != null)
           TextButton(
             onPressed: onAction,
             style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               minimumSize: const Size(0, 32),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),
             child: Text(actionLabel!),
           ),
       ],
-    );
-  }
-}
-
-/// Tombol mengambang "AI Price Estimator" (modul Anggota 6).
-class AiEstimatorButton extends StatelessWidget {
-  const AiEstimatorButton({super.key, required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        borderRadius: AppRadius.pillBr,
-        boxShadow: AppShadows.emeraldGlow,
-      ),
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          shape: const StadiumBorder(),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        ),
-        icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-        label: const Text('AI Price Estimator'),
-      ),
     );
   }
 }

@@ -17,6 +17,7 @@ backend/dist/
 mobile/.dart_tool/
 mobile/.packages
 mobile/build/
+mobile/android/build/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 
@@ -29,6 +30,5 @@ mobile/.flutter-plugins-dependencies
 .postman/
 postman/
 
-# Postman local workspace
-.postman/
-postman/
+# Output graphify (knowledge graph lokal, bisa dibangun ulang)
+graphify-out/
