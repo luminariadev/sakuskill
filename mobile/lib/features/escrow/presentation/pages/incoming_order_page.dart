@@ -11,42 +11,68 @@ import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_sheets.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/models/escrow_order_model.dart';
 
 /// Figma "12 · Pesanan masuk" (sisi penyedia) + "12B · Tolak pesanan".
 class IncomingOrderPage extends StatelessWidget {
-  const IncomingOrderPage({super.key});
+  const IncomingOrderPage({super.key, this.order});
 
-  Future<void> _reject(BuildContext context) async {
+  final EscrowOrderModel? order;
+
+  EscrowOrderModel? _resolveOrder(BuildContext context) {
+    if (order != null) return order;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    return args is EscrowOrderModel ? args : null;
+  }
+
+  Future<void> _reject(BuildContext context, String clientName) async {
     final rejected = await showSakuSheet<bool>(
       context,
-      builder: (_) => const _RejectSheet(),
+      builder: (_) => _RejectSheet(clientName: clientName),
     );
     if (rejected == true && context.mounted) {
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
       messenger.showSnackBar(
-        const SnackBar(content: Text('Pesanan ditolak. Dimas sudah diberi tahu.')),
+        SnackBar(
+          content: Text('Pesanan ditolak. $clientName sudah diberi tahu.'),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const order = DemoData.order;
+    const demo = DemoData.order;
+    final currentOrder = _resolveOrder(context);
+
+    final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
+    final serviceTitle =
+        currentOrder?.judulLayanan ?? 'Desain Spanduk Toko Ukuran 3×1 m';
+    final amount = currentOrder?.harga ?? demo.amount;
+    final deadlineDays = currentOrder?.detikTersisa != null
+        ? (currentOrder!.detikTersisa! / 86400).ceil().clamp(1, 365)
+        : demo.deadlineDays;
+    final briefNote =
+        currentOrder?.catatanBrief ?? 'Warna cerah, lampiran foto menu ayam bakar.';
+    final attachment = currentOrder?.lampiranKlien ?? 'Foto_Ayam_Bakar.jpg';
+    final clientShortName = demo.client.split(' ').first;
+
     return SakuScreen(
       background: AppColors.canvasLight,
       showBack: true,
       children: [
         const PageHeader('Pesanan Baru Masuk'),
         Text(
-          '#SK-2026-091',
+          orderCode,
           style: AppTypography.mono.copyWith(
             fontSize: 11,
             color: AppColors.textSecondary,
           ),
         ),
-        const InfoBox(
-          text: 'PESANAN BARU · MENUNGGU RESPONS',
+        InfoBox(
+          text:
+              '${(currentOrder?.statusPesanan ?? 'PESANAN BARU').toUpperCase()} · MENUNGGU RESPONS',
           tone: SakuTone.escrow,
           fontWeight: FontWeight.w500,
         ),
@@ -58,11 +84,11 @@ class IncomingOrderPage extends StatelessWidget {
               PersonRow(
                 name: 'Dimas (Katering Berkah Cibiru)',
                 subtitle: 'Pelanggan · Cibiru, Bandung',
-                asset: order.clientAsset,
+                asset: demo.clientAsset,
               ),
-              const Text(
-                'Desain Spanduk Toko Ukuran 3×1 m',
-                style: TextStyle(
+              Text(
+                serviceTitle,
+                style: const TextStyle(
                   fontSize: 20,
                   height: 28 / 20,
                   fontWeight: FontWeight.w700,
@@ -70,7 +96,7 @@ class IncomingOrderPage extends StatelessWidget {
                 ),
               ),
               Text(
-                formatRupiah(order.amount),
+                formatRupiah(amount),
                 style: const TextStyle(
                   fontSize: 24,
                   height: 34 / 24,
@@ -79,7 +105,7 @@ class IncomingOrderPage extends StatelessWidget {
                 ),
               ),
               Text(
-                'Tenggat: ${order.deadlineDays} Hari',
+                'Tenggat: $deadlineDays Hari',
                 style: const TextStyle(
                   fontSize: 13,
                   height: 18 / 13,
@@ -96,12 +122,16 @@ class IncomingOrderPage extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
-              const Text(
-                'Warna cerah, lampiran foto menu ayam bakar.',
-                style: TextStyle(fontSize: 14, height: 20 / 14, color: AppColors.textPrimary),
+              Text(
+                briefNote,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 20 / 14,
+                  color: AppColors.textPrimary,
+                ),
               ),
-              const InfoBox(
-                text: 'Lampiran · Foto_Ayam_Bakar.jpg',
+              InfoBox(
+                text: 'Lampiran · $attachment',
                 tone: SakuTone.neutral,
                 fontWeight: FontWeight.w500,
               ),
@@ -113,17 +143,21 @@ class IncomingOrderPage extends StatelessWidget {
           label: 'Terima & Masuk Diskusi Brief',
           onPressed: () {
             SakuMotion.tick();
-            Navigator.of(context).pushReplacementNamed(AppRoutes.orderChat);
+            Navigator.of(context).pushReplacementNamed(
+              AppRoutes.orderChat,
+              arguments: currentOrder,
+            );
           },
         ),
         SakuButton(
           key: const Key('incoming-reject'),
           label: 'Tolak Pesanan',
           variant: SakuButtonVariant.destructive,
-          onPressed: () => _reject(context),
+          onPressed: () => _reject(context, clientShortName),
         ),
         const InfoBox(
-          text: 'Jika menolak, pilih alasan agar komunikasi dengan klien tetap profesional.',
+          text:
+              'Jika menolak, pilih alasan agar komunikasi dengan klien tetap profesional.',
           tone: SakuTone.neutral,
           fontWeight: FontWeight.w500,
         ),
@@ -133,7 +167,9 @@ class IncomingOrderPage extends StatelessWidget {
 }
 
 class _RejectSheet extends StatefulWidget {
-  const _RejectSheet();
+  const _RejectSheet({required this.clientName});
+
+  final String clientName;
 
   @override
   State<_RejectSheet> createState() => _RejectSheetState();
@@ -146,7 +182,8 @@ class _RejectSheetState extends State<_RejectSheet> {
   Widget build(BuildContext context) {
     return SakuSheetContent(
       title: 'Tolak Pesanan Ini?',
-      message: 'Beri tahu Dimas alasan Anda tidak dapat menerima pesanan ini '
+      message:
+          'Beri tahu ${widget.clientName} alasan Anda tidak dapat menerima pesanan ini '
           'agar komunikasi tetap profesional:',
       body: [
         RadioOptions(
@@ -159,9 +196,9 @@ class _RejectSheetState extends State<_RejectSheet> {
           selected: _reason,
           onChanged: (i) => setState(() => _reason = i),
         ),
-        const SakuTextField(
+        SakuTextField(
           label: 'Catatan tambahan (opsional)',
-          hint: 'Tuliskan pesan singkat untuk Pak Dimas...',
+          hint: 'Tuliskan pesan singkat untuk Pak ${widget.clientName}...',
           minLines: 2,
           maxLines: 4,
         ),

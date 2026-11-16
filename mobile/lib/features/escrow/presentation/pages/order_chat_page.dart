@@ -9,19 +9,39 @@ import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/saku_transaction.dart';
+import '../../data/models/escrow_order_model.dart';
 
 /// Figma "13 · Diskusi brief" — chat dengan draf kesepakatan tersemat.
 class OrderChatPage extends StatelessWidget {
-  const OrderChatPage({super.key});
+  const OrderChatPage({super.key, this.order});
+
+  final EscrowOrderModel? order;
+
+  // 1. INTEGRASI: Ambil objek order dari parameter atau navigasi sebelumnya
+  EscrowOrderModel? _resolveOrder(BuildContext context) {
+    if (order != null) return order;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    return args is EscrowOrderModel ? args : null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    const order = DemoData.order;
+    const demo = DemoData.order;
+    final currentOrder = _resolveOrder(context);
+
+    // 2. INTEGRASI: Gunakan data dinamis dari EscrowOrderModel (fallback ke DemoData)
+    final providerName = currentOrder?.namaLawanTransaksi ?? demo.provider;
+    final serviceTitle = currentOrder?.judulLayanan ?? 'Spanduk 3×1 m';
+    final amount = currentOrder?.harga ?? demo.amount;
+    final deadlineDays = currentOrder?.detikTersisa != null
+        ? (currentOrder!.detikTersisa! / 86400).ceil().clamp(1, 365)
+        : demo.deadlineDays;
+
     return SakuScreen(
       background: AppColors.canvasLight,
       showBack: true,
       children: [
-        PageHeader(order.provider),
+        PageHeader(providerName),
         const Text(
           'Online · Diskusi Brief & Tenggat',
           style: TextStyle(
@@ -48,8 +68,8 @@ class OrderChatPage extends StatelessWidget {
                 ),
               ),
               Text(
-                'Spanduk 3×1 m · Harga: ${formatRupiah(order.amount)}\n'
-                'Tenggat: ${order.deadlineDays} Hari',
+                '$serviceTitle · Harga: ${formatRupiah(amount)}\n'
+                'Tenggat: $deadlineDays Hari',
                 style: const TextStyle(
                   fontSize: 13,
                   height: 18 / 13,
@@ -62,7 +82,11 @@ class OrderChatPage extends StatelessWidget {
                 label: 'Setujui & Lanjut Pembayaran Escrow',
                 onPressed: () {
                   SakuMotion.tick();
-                  Navigator.of(context).pushNamed(AppRoutes.payment);
+                  // 3. INTEGRASI: Teruskan currentOrder ke halaman pembayaran
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.payment,
+                    arguments: currentOrder,
+                  );
                 },
               ),
             ],

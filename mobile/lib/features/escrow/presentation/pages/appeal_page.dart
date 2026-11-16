@@ -1,46 +1,128 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/models/escrow_order_model.dart';
 
 /// Figma "15E · Banding kompensasi" (sisi penyedia setelah dibatalkan).
-class AppealPage extends StatelessWidget {
-  const AppealPage({super.key});
+class AppealPage extends StatefulWidget {
+  const AppealPage({super.key, this.order});
+
+  final EscrowOrderModel? order;
+
+  @override
+  State<AppealPage> createState() => _AppealPageState();
+}
+
+class _AppealPageState extends State<AppealPage> {
+  // 2. INTEGRASI: Controller untuk menangkap isian form banding penyedia
+  final _progressCtrl = TextEditingController(
+    text: '80% Selesai (Draf Utama Siap Pakai)',
+  );
+  final _linkCtrl = TextEditingController(
+    text: 'https://drive.google.com/salma/draf-spanduk-80percent.pdf',
+  );
+  final _chronologyCtrl = TextEditingController(
+    text: 'Saya sudah menyelesaikan 80% desain sebelum pembatalan '
+        'terjadi. File sudah dapat digunakan klien. Mohon pembagian '
+        'kompensasi 50:50.',
+  );
+
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _progressCtrl.dispose();
+    _linkCtrl.dispose();
+    _chronologyCtrl.dispose();
+    super.dispose();
+  }
+
+  // 1. INTEGRASI: Ambil objek order dari parameter atau argumen navigasi
+  EscrowOrderModel? _resolveOrder(BuildContext context) {
+    if (widget.order != null) return widget.order;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    return args is EscrowOrderModel ? args : null;
+  }
+
+  int _parseProgressPercent() {
+    final match = RegExp(r'\d+').firstMatch(_progressCtrl.text);
+    final parsed = match != null ? int.tryParse(match.group(0)!) : null;
+    if (parsed != null && parsed >= 0 && parsed <= 100) return parsed;
+    return 80;
+  }
+
+  // 3. INTEGRASI: Kirim permohonan banding ke BE via EscrowRepository.submitAppeal
+  Future<void> _submitAppeal(EscrowOrderModel? currentOrder) async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    SakuMotion.tick();
+
+    final repo = AppScope.of(context).escrowRepository;
+    final orderId =
+        currentOrder?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+
+    await repo.submitAppeal(
+      orderId: orderId,
+      alasan: _chronologyCtrl.text.trim(),
+      progresPersen: _parseProgressPercent(),
+      tautanBukti: _linkCtrl.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    // 4. INTEGRASI: Kembali ke beranda & tampilkan pesan konfirmasi mediasi
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Banding terkirim (Status: Dalam Sengketa). Admin Mediasi akan meninjau.',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final currentOrder = _resolveOrder(context);
+    final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
+
     return SakuScreen(
       background: AppColors.canvasLight,
       showBack: true,
       children: [
         const PageHeader('Banding Pembatalan\nPesanan'),
-        const Text(
-          '#SK-2026-091',
-          style: TextStyle(
+        Text(
+          orderCode,
+          style: const TextStyle(
             fontSize: 11,
             height: 15 / 11,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
           ),
         ),
-        const InfoBox(
-          text: 'Pesanan #SK-091 dibatalkan klien karena keterlambatan. Jika Anda '
+        InfoBox(
+          text:
+              'Pesanan $orderCode dibatalkan klien karena keterlambatan. Jika Anda '
               'telah mengerjakan > 70% pekerjaan, Anda berhak mengajukan banding ke '
               'Admin untuk kompensasi damai 50:50.',
           tone: SakuTone.escrow,
           fontWeight: FontWeight.w500,
         ),
-        const SakuTextField(
+        SakuTextField(
+          controller: _progressCtrl,
           label: 'Estimasi Progres Kerja',
-          initialValue: '80% Selesai (Draf Utama Siap Pakai)',
         ),
-        const SakuTextField(
+        SakuTextField(
+          controller: _linkCtrl,
           label: 'Tautan Berkas Kerja',
-          initialValue: 'https://drive.google.com/salma/draf-spanduk-80percent.pdf',
           keyboardType: TextInputType.url,
           maxLines: 3,
         ),
@@ -60,25 +142,18 @@ class AppealPage extends StatelessWidget {
             Expanded(child: _LayerScreenshot()),
           ],
         ),
-        const SakuTextField(
+        SakuTextField(
+          controller: _chronologyCtrl,
           label: 'Kronologi',
-          initialValue: 'Saya sudah menyelesaikan 80% desain sebelum pembatalan '
-              'terjadi. File sudah dapat digunakan klien. Mohon pembagian '
-              'kompensasi 50:50.',
           minLines: 3,
           maxLines: 6,
         ),
         SakuButton(
           key: const Key('appeal-submit'),
-          label: 'Kirim Permohonan Banding 50:50 ke Admin',
-          onPressed: () {
-            SakuMotion.tick();
-            final messenger = ScaffoldMessenger.of(context);
-            Navigator.of(context).popUntil((r) => r.isFirst);
-            messenger.showSnackBar(
-              const SnackBar(content: Text('Banding terkirim. Admin Mediasi akan meninjau.')),
-            );
-          },
+          label: _submitting
+              ? 'Mengirim Banding...'
+              : 'Kirim Permohonan Banding 50:50 ke Admin',
+          onPressed: _submitting ? null : () => _submitAppeal(currentOrder),
         ),
       ],
     );

@@ -10,10 +10,13 @@ import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/saku_transaction.dart';
+import '../../data/models/escrow_order_model.dart';
 
 /// Figma "18 · Pesanan selesai" — dana dilepas + ulasan.
 class OrderDonePage extends StatefulWidget {
-  const OrderDonePage({super.key});
+  const OrderDonePage({super.key, this.order});
+
+  final EscrowOrderModel? order;
 
   @override
   State<OrderDonePage> createState() => _OrderDonePageState();
@@ -21,17 +24,49 @@ class OrderDonePage extends StatefulWidget {
 
 class _OrderDonePageState extends State<OrderDonePage> {
   int _stars = 5;
+  // 3. INTEGRASI: Controller untuk input ulasan klien
+  final _reviewCtrl = TextEditingController(
+    text: 'Hasil desain spanduk sangat memuaskan, resolusi cetak tajam '
+        'dan pengerjaan cepat. Recommended untuk promosi UMKM!',
+  );
+
+  @override
+  void dispose() {
+    _reviewCtrl.dispose();
+    super.dispose();
+  }
+
+  // 1. INTEGRASI: Ambil objek order dari parameter atau argumen navigasi
+  EscrowOrderModel? _resolveOrder(BuildContext context) {
+    if (widget.order != null) return widget.order;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    return args is EscrowOrderModel ? args : null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    const order = DemoData.order;
+    const demo = DemoData.order;
+    final currentOrder = _resolveOrder(context);
+
+    // 2. INTEGRASI: Data dinamis dari EscrowOrderModel
+    final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
+    final statusEscrow =
+        (currentOrder?.statusEscrow ?? 'Dilepas (Simulasi)').toUpperCase();
+    final amount = currentOrder?.harga ?? demo.amount;
+    final providerName = currentOrder?.namaLawanTransaksi ?? demo.provider;
+
     return SakuScreen(
       background: AppColors.canvasLight,
       showBack: true,
       children: [
         const PageHeader('Pesanan Selesai'),
-        Text('#SK-2026-091',
-            style: AppTypography.mono.copyWith(fontSize: 11, color: AppColors.textSecondary)),
+        Text(
+          orderCode,
+          style: AppTypography.mono.copyWith(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+          ),
+        ),
         SakuCard(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -49,13 +84,13 @@ class _OrderDonePageState extends State<OrderDonePage> {
                 ),
               ),
               InfoBox(
-                text: 'STATUS DANA: DILEPAS SIMULASI\n'
-                    '${formatRupiah(order.amount).toUpperCase()}',
+                text: 'STATUS DANA: $statusEscrow\n'
+                    '${formatRupiah(amount).toUpperCase()}',
                 tone: SakuTone.success,
                 fontWeight: FontWeight.w500,
               ),
               Text(
-                'Dana telah diteruskan ke Saldo Dompet ${order.provider}.',
+                'Dana telah diteruskan ke Saldo Dompet $providerName.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
@@ -67,7 +102,7 @@ class _OrderDonePageState extends State<OrderDonePage> {
           ),
         ),
         Text(
-          'Berikan Penilaian untuk\n${order.provider}',
+          'Berikan Penilaian untuk\n$providerName',
           style: const TextStyle(
             fontSize: 16,
             height: 22 / 16,
@@ -76,10 +111,9 @@ class _OrderDonePageState extends State<OrderDonePage> {
           ),
         ),
         StarRating(value: _stars, onChanged: (v) => setState(() => _stars = v)),
-        const SakuTextField(
+        SakuTextField(
+          controller: _reviewCtrl,
           label: 'Ulasan Anda',
-          initialValue: 'Hasil desain spanduk sangat memuaskan, resolusi cetak tajam '
-              'dan pengerjaan cepat. Recommended untuk promosi UMKM!',
           minLines: 4,
           maxLines: 6,
         ),
