@@ -96,6 +96,60 @@ flutter test
 - `test/core/geo_and_formatters_test.dart` — Haversine (nilai referensi), format jarak & Rupiah.
 - `test/features/discovery/listing_filter_test.dart` — radius, urutan terdekat, Smart Barter, kategori, kata kunci, parsing JSON.
 - `test/widget_test.dart` — Home, filter barter, kategori, halaman pencarian (memakai `AppDependencies.offline()`, tanpa jaringan).
+- `test/core/domain/status_test.dart` — enum status baku dibandingkan langsung dengan `backend/migrations/001_init_sakuskill_schema.sql`, round-trip, nilai asing.
+- `test/core/widgets/saku_validators_test.dart` — semua validator + integrasi `Form`.
+- `test/features/auth/auth_forms_test.dart` — error per field Registrasi, Login, Setup profil.
+
+### 5.1 Fondasi bersama: status baku & validator (T-08, T-01)
+
+**Status baku** — `core/domain/status.dart` (Dart murni). Nilainya sama persis dengan enum DB; tes akan gagal bila migrasi berubah tanpa memperbarui enum FE.
+
+```dart
+import 'package:sakuskill/core/domain/status.dart';
+import 'package:sakuskill/core/widgets/status_tones.dart';
+
+final status = OrderStatus.fromJson(json['status_pesanan']); // FormatException bila nilai asing
+final dana = EscrowSimStatus.tryParse(json['status_dana_simulasi']); // null bila asing
+StatusPill(status);              // label baku + warna konsisten (NFR-22)
+body['status'] = status.toJson(); // kirim balik ke API
+```
+
+Enum: `OrderStatus`, `BarterStatus`, `BarterExecStatus`, `PaymentStatus`, `EscrowSimStatus`, `ReportStatus`, `VerificationStatus`, `OfferType`. Badge status wajib memakai `StatusPill`/`.label`, bukan teks bebas. Status dana (`EscrowSimStatus`) wajib disertai keterangan simulasi (FR-59); copy-nya menunggu keputusan K-02.
+
+**Validator** — `SakuValidators` di `core/widgets/saku_form.dart`, dipakai lewat parameter `validator` di `SakuTextField` di dalam `Form`. Contoh untuk form **Buat Pesanan** (Anggota 4, AC-Form-01):
+
+```dart
+final _formKey = GlobalKey<FormState>();
+
+Form(
+  key: _formKey,
+  child: Column(children: [
+    SakuTextField(
+      label: 'Harga',
+      controller: _price,
+      keyboardType: TextInputType.number,
+      validator: SakuValidators.compose([
+        SakuValidators.required('Harga'),
+        SakuValidators.positiveNumber(), // menerima "50.000" / "Rp 50.000"
+      ]),
+    ),
+    SakuTextField(
+      label: 'Tautan Bukti Kerja',
+      validator: SakuValidators.httpsUrl(), // + URL Sanitizer Anggota 6
+    ),
+  ]),
+);
+
+// Tenggat (DateTime dari date picker):
+final deadlineError = SakuValidators.futureDate()(_deadline);
+
+void _submit() {
+  if (!_formKey.currentState!.validate() || deadlineError != null) return; // API tidak dipanggil
+  final harga = SakuValidators.parseNumber(_price.text); // 50000
+}
+```
+
+Error dari server (`error.details[].field`) dipasang lewat `errorText:` pada field terkait dan tampil menggantikan pesan validator.
 
 ## 6. Konsistensi tema
 

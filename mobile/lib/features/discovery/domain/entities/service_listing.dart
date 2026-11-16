@@ -1,22 +1,9 @@
+import '../../../../core/domain/status.dart';
 import '../../../../core/utils/geo.dart';
 
-/// Tipe penawaran — nilai string mengikuti `offer_type_enum` di backend.
-enum OfferType {
-  paid('Berbayar'),
-  barter('Barter'),
-  paidAndBarter('Berbayar dan Barter');
-
-  const OfferType(this.apiValue);
-  final String apiValue;
-
-  bool get acceptsBarter => this != OfferType.paid;
-  bool get acceptsPayment => this != OfferType.barter;
-
-  static OfferType fromApi(String? value) => OfferType.values.firstWhere(
-        (t) => t.apiValue == value,
-        orElse: () => OfferType.paid,
-      );
-}
+// OfferType kini tinggal di core/domain (enum status baku). Di-export ulang
+// agar impor lama `service_listing.dart` tetap berfungsi.
+export '../../../../core/domain/status.dart' show OfferType;
 
 /// Jenis postingan di marketplace: penawaran jasa oleh penyedia, atau
 /// "Kebutuhan Proyek" (permintaan) yang diposting klien.

@@ -113,9 +113,9 @@ Catatan peran: Figma memakai satu akun yang berperan ganda (Beranda menampilkan 
 ### 6.1 Ringkasan
 | Area | Kondisi |
 | :--- | :--- |
-| Branch kerja | `feat/fe-discovery`, 1 commit di depan `origin` (`620c838`, implementasi seluruh layar User Design) |
+| Branch kerja | `feat/fe-core-foundation` (bercabang dari `feat/fe-discovery`, belum di-push): M1 butir T-03, T-08, T-01 |
 | Ukuran kode FE | sekitar 11,4 ribu baris Dart, 68 file di `mobile/lib` |
-| Kualitas | `flutter analyze`: **0 issue**. `flutter test`: **27 tes lulus** (README masih menyebut 21) |
+| Kualitas | `flutter analyze`: **0 issue**. `flutter test`: **64 tes lulus** (per 16 Nov 2026) |
 | Arsitektur | Clean Architecture feature-first; DI manual (`AppDependencies` + `AppScope`); state `ChangeNotifier` + `InheritedNotifier` |
 | Data nyata | Hanya **Discovery** (`GET /listings`) dengan fallback data contoh. Semua modul lain memakai `core/demo/demo_data.dart` |
 | Backend | Express + PostgreSQL/PostGIS. Endpoint yang ada: `GET /health`, `GET /listings`. Skema DB 13 entitas dan enum status sudah sesuai SKPL |
@@ -127,9 +127,9 @@ Legenda: ✅ UI selesai + data nyata · 🟡 UI selesai, data demo/statis · ⬜
 | Figma | Layar | File | Status | FR |
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | Awalan | `auth/.../welcome_page.dart` | 🟡 | — |
-| 2 | Login | `auth/.../login_page.dart` | 🟡 belum ada auth dan validasi | FR-04–06 |
-| 3 | Registrasi | `auth/.../register_page.dart` | 🟡 belum ada validasi | FR-01–02 |
-| 4 | Setup profil | `auth/.../profile_setup_page.dart` | 🟡 | FR-08, FR-12 |
+| 2 | Login | `auth/.../login_page.dart` | 🟡 validasi klien ✅, autentikasi backend belum (M2) | FR-04–06 |
+| 3 | Registrasi | `auth/.../register_page.dart` | 🟡 validasi klien ✅, kirim ke API belum (M2) | FR-01–02 |
+| 4 | Setup profil | `auth/.../profile_setup_page.dart` | 🟡 validasi bio & tautan https ✅, simpan ke API belum | FR-08, FR-12 |
 | 5 | Beranda | `discovery/.../home_discovery_page.dart` | ✅ (nama pengguna masih demo) | FR-25, 29, 31 |
 | 6 | Explore Cibiru (peta) | `discovery/.../campus_map_page.dart` | ✅ (marker server butuh `lat/lng` dari BE) | FR-26–27 |
 | — | Pencarian | `discovery/.../search_page.dart` | ✅ (filter di klien) | FR-28–32 |
@@ -170,16 +170,16 @@ Legenda: ✅ UI selesai + data nyata · 🟡 UI selesai, data demo/statis · ⬜
 ### 6.4 Utang teknis
 | # | Temuan | Dampak | Tindakan |
 | :--- | :--- | :--- | :--- |
-| T-01 | Tidak ada `validator` di form mana pun | Melanggar FR-02, FR-18; tugas Anggota 4 "validasi input transaksi" | Validator bersama di `core/widgets/saku_form.dart` |
+| T-01 | Tidak ada `validator` di form mana pun | Melanggar FR-02, FR-18; tugas Anggota 4 "validasi input transaksi" | ✅ **Selesai** (`39f5162`, `cdd423c`): `SakuValidators` + `SakuTextField.validator`, terpasang di Login/Registrasi/Setup profil. Form Anggota 4 belum (contoh di FRONTEND_DISCOVERY §5.1) |
 | T-02 | Modul selain Discovery hanya punya lapisan `presentation` + `DemoData` | Belum bisa diintegrasikan ke API | Tambah `domain/` dan `data/` per modul (pola Discovery) |
-| T-03 | Dependensi `material_ui: any` dipakai di 60 file sebagai pengganti `package:flutter/material.dart` | Versi tidak dikunci; paket pihak ketiga di jalur kritis UI | Kunci versi, atau kembali ke `flutter/material.dart` setelah dicek alasannya (commit `b4906f2`) |
+| T-03 | Dependensi `material_ui: any` dipakai di 60 file sebagai pengganti `package:flutter/material.dart` | Versi tidak dikunci; paket pihak ketiga di jalur kritis UI | ✅ **Selesai** (`39e543b`): `material_ui` adalah library Material resmi tim Flutter (deprecated-nya `flutter/material.dart` sejak 3.47), bukan halusinasi. Dikunci `^1.11.0`, environment Dart ^3.13 / Flutter ≥ 3.47, versi tim 3.50 di README. Semua anggota wajib Flutter ≥ 3.47 |
 | T-04 | Font Plus Jakarta Sans belum dibundel | UI berbeda dari Figma | Tambah `assets/fonts/` + `pubspec.yaml` |
 | T-05 | Lokasi pengguna hardcode `AppConfig.campusCenter` | FR-24 belum terpenuhi | `geolocator` + izin + fallback |
 | T-06 | Belum ada HTTP client bersama (token, envelope, error mapping) | Setiap modul akan menduplikasi logika | `core/network/api_client.dart` |
 | T-07 | Belum ada penyimpanan sesi dan SQLite | FR-16, FR-46, persistensi login | `flutter_secure_storage` (token) + `sqflite` (draf/cache) |
-| T-08 | Label status ditulis bebas per layar | Risiko melanggar NFR-22 | Enum status tunggal di `core/domain/status.dart` mengikuti enum DB |
+| T-08 | Label status ditulis bebas per layar | Risiko melanggar NFR-22 | ✅ **Selesai** (`7b19898`): `core/domain/status.dart` + `StatusPill`; tes mencocokkan langsung dengan migrasi 001. Layar Anggota 4 belum memakai (masih teks bebas) |
 | T-09 | Tidak ada CI | PR tidak tervalidasi otomatis | GitHub Actions `analyze` + `test` + build APK (Anggota 7) |
-| T-10 | README menyebut 21 tes, aktualnya 27 | Dokumentasi usang | Perbarui README |
+| T-10 | README menyebut 21 tes | Dokumentasi usang | ✅ **Selesai**: README memuat jumlah tes aktual, prasyarat Flutter, dan mode demo |
 
 ---
 

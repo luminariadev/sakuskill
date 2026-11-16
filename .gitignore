@@ -17,6 +17,7 @@ backend/dist/
 mobile/.dart_tool/
 mobile/.packages
 mobile/build/
+mobile/android/build/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 
@@ -24,3 +25,6 @@ mobile/.flutter-plugins-dependencies
 .DS_Store
 .vscode/
 .idea/
+
+# Output graphify (knowledge graph lokal, bisa dibangun ulang)
+graphify-out/

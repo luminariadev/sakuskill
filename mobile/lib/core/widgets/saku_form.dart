@@ -6,6 +6,118 @@ import '../theme/app_dimens.dart';
 import '../theme/app_typography.dart';
 import 'saku_icon.dart';
 
+/// Validator form bersama (T-01). Semua fungsi murni: menerima nilai dan
+/// mengembalikan pesan error berbahasa Indonesia, atau `null` bila valid.
+///
+/// ```dart
+/// SakuTextField(
+///   label: 'Harga',
+///   validator: SakuValidators.compose([
+///     SakuValidators.required('Harga'),
+///     SakuValidators.positiveNumber(),
+///   ]),
+/// )
+/// ```
+abstract final class SakuValidators {
+  /// Panjang minimal kata sandi akun (FR-02).
+  static const int passwordMinLength = 8;
+
+  static final RegExp _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  static final RegExp _phoneId = RegExp(r'^(?:0|\+62)8\d{7,12}$');
+  static final RegExp _rpPrefix = RegExp(r'^rp\.?\s*', caseSensitive: false);
+  static final RegExp _idNumber = RegExp(r'^-?[\d.]+(,\d+)?$');
+
+  /// Wajib diisi (spasi saja dianggap kosong).
+  static FormFieldValidator<String> required([String? field]) => (value) =>
+      (value == null || value.trim().isEmpty)
+          ? (field == null ? 'Wajib diisi' : '$field wajib diisi')
+          : null;
+
+  /// Format email `nama@domain.tld`.
+  static FormFieldValidator<String> email() => (value) =>
+      _email.hasMatch((value ?? '').trim()) ? null : 'Format email belum benar';
+
+  /// Nomor WhatsApp Indonesia: 08… atau +628… (spasi/strip diabaikan).
+  static FormFieldValidator<String> phoneId() => (value) =>
+      _phoneId.hasMatch((value ?? '').replaceAll(RegExp(r'[\s-]'), ''))
+          ? null
+          : 'Nomor WhatsApp diawali 08 atau +628';
+
+  /// Panjang minimal [min] karakter (default: aturan kata sandi).
+  static FormFieldValidator<String> minLength([int min = passwordMinLength]) =>
+      (value) => (value ?? '').length >= min ? null : 'Minimal $min karakter';
+
+  /// Panjang maksimal [max] karakter.
+  static FormFieldValidator<String> maxLength(int max) =>
+      (value) => (value ?? '').length <= max ? null : 'Maksimal $max karakter';
+
+  /// Harus sama dengan nilai lain, mis. konfirmasi kata sandi.
+  static FormFieldValidator<String> matches(
+    String Function() other, {
+    String message = 'Kata sandi belum sama',
+  }) =>
+      (value) => value == other() ? null : message;
+
+  /// Angka ≥ 0. Menerima format Indonesia: `50.000`, `Rp 50.000`, `12,5`.
+  static FormFieldValidator<String> nonNegativeNumber() => (value) {
+        final n = parseNumber(value);
+        if (n == null) return 'Masukkan angka yang valid';
+        return n < 0 ? 'Tidak boleh kurang dari 0' : null;
+      };
+
+  /// Angka > 0, mis. harga pesanan berbayar (FE-30).
+  static FormFieldValidator<String> positiveNumber() => (value) {
+        final n = parseNumber(value);
+        if (n == null) return 'Masukkan angka yang valid';
+        return n <= 0 ? 'Harus lebih dari 0' : null;
+      };
+
+  /// URL `https://` dengan host (bukti kerja, portofolio). Validasi
+  /// keamanan lanjutan tetap di URL Sanitizer (Anggota 6).
+  static FormFieldValidator<String> httpsUrl() => (value) {
+        final text = (value ?? '').trim();
+        final uri = Uri.tryParse(text);
+        final ok = uri != null &&
+            !text.contains(' ') &&
+            uri.scheme == 'https' &&
+            uri.host.contains('.');
+        return ok ? null : 'Tautan harus diawali https:// dan valid';
+      };
+
+  /// Tanggal harus setelah hari ini (tenggat, FE-30). [now] bisa diganti di
+  /// tes agar hasilnya pasti.
+  static FormFieldValidator<DateTime> futureDate({DateTime Function()? now}) =>
+      (value) {
+        if (value == null) return 'Pilih tanggal';
+        final today = (now ?? DateTime.now)();
+        final tomorrow = DateTime(today.year, today.month, today.day + 1);
+        return value.isBefore(tomorrow) ? 'Tanggal harus setelah hari ini' : null;
+      };
+
+  /// Lewati validator bila kosong (untuk field opsional).
+  static FormFieldValidator<String> optional(FormFieldValidator<String> v) =>
+      (value) => (value == null || value.trim().isEmpty) ? null : v(value);
+
+  /// Jalankan berurutan, kembalikan error pertama.
+  static FormFieldValidator<T> compose<T>(List<FormFieldValidator<T>> list) =>
+      (value) {
+        for (final v in list) {
+          final error = v(value);
+          if (error != null) return error;
+        }
+        return null;
+      };
+
+  /// Membaca angka format Indonesia: `Rp 1.250.000`, `50.000`, `12,5`, `-3`.
+  /// Titik = pemisah ribuan, koma = desimal. Null bila bukan angka.
+  static num? parseNumber(String? value) {
+    var text = (value ?? '').trim().replaceFirst(_rpPrefix, '');
+    if (!_idNumber.hasMatch(text)) return null;
+    text = text.replaceAll('.', '').replaceAll(',', '.');
+    return num.tryParse(text);
+  }
+}
+
 /// Field berlabel (Figma "SakuSkill / Input"): label 12/600, jarak 6, kotak
 /// putih border 1 #E2E8F0 radius 8 padding 12, teks 13/18.
 /// State: Default · Focus (border 1.5 emerald) · Error (border 1.5 merah).
@@ -29,6 +141,8 @@ class SakuTextField extends StatefulWidget {
     this.readOnly = false,
     this.onTap,
     this.fieldKey,
+    this.validator,
+    this.autovalidateMode = AutovalidateMode.disabled,
   });
 
   final String? label;
@@ -49,6 +163,13 @@ class SakuTextField extends StatefulWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final Key? fieldKey;
+
+  /// Validator (mis. dari [SakuValidators]). Bila diisi, field menjadi
+  /// [FormField] sehingga ikut `Form.of(context).validate()`; pesan error
+  /// tampil di bawah field. [errorText] (mis. error dari server) tetap
+  /// diprioritaskan bila diisi.
+  final FormFieldValidator<String>? validator;
+  final AutovalidateMode autovalidateMode;
 
   @override
   State<SakuTextField> createState() => _SakuTextFieldState();
@@ -78,7 +199,28 @@ class _SakuTextFieldState extends State<SakuTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final hasError = widget.errorText != null;
+    final validator = widget.validator;
+    if (validator == null) {
+      return _buildField(widget.errorText, widget.onChanged);
+    }
+    return FormField<String>(
+      initialValue: _controller.text,
+      autovalidateMode: widget.autovalidateMode,
+      // Validasi membaca isi controller, bukan nilai FormField yang bisa
+      // tertinggal bila controller diubah dari luar.
+      validator: (_) => validator(_controller.text),
+      builder: (state) => _buildField(
+        widget.errorText ?? state.errorText,
+        (value) {
+          state.didChange(value);
+          widget.onChanged?.call(value);
+        },
+      ),
+    );
+  }
+
+  Widget _buildField(String? errorText, ValueChanged<String>? onChanged) {
+    final hasError = errorText != null;
     final borderColor = hasError
         ? AppColors.danger
         : _focus.hasFocus
@@ -138,7 +280,7 @@ class _SakuTextFieldState extends State<SakuTextField> {
                   maxLength: widget.maxLength,
                   readOnly: widget.readOnly,
                   onTap: widget.onTap,
-                  onChanged: widget.onChanged,
+                  onChanged: onChanged,
                   cursorColor: AppColors.primary,
                   style: const TextStyle(
                     fontSize: 13,
@@ -208,11 +350,11 @@ class _SakuTextFieldState extends State<SakuTextField> {
           duration: SakuMotion.base,
           curve: SakuMotion.curve,
           // errorText kosong ('') = hanya border merah, tanpa teks.
-          child: hasError && widget.errorText!.isNotEmpty
+          child: hasError && errorText.isNotEmpty
               ? Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    widget.errorText!,
+                    errorText,
                     style: const TextStyle(
                       fontSize: 11,
                       height: 15 / 11,
