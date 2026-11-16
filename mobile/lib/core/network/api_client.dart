@@ -77,9 +77,10 @@ class ApiClient {
 
   /// Klien tanpa jaringan untuk mode offline/tes: setiap permintaan langsung
   /// gagal sebagai [ApiException.network].
-  factory ApiClient.offline() => ApiClient(
+  factory ApiClient.offline({TokenProvider? tokenProvider}) => ApiClient(
     client: _OfflineHttpClient(),
     baseUrl: 'http://localhost/offline',
+    tokenProvider: tokenProvider,
     releaseMode: false,
   );
 

@@ -44,6 +44,11 @@ dependencies:
   # Pengganti package:flutter/material.dart (deprecated sejak Flutter 3.47).
   # https://pub.dev/packages/material_ui — repo resmi flutter/packages.
   material_ui: ^1.11.0
+  # Token sesi terenkripsi (FN-04/NFR-07): Keychain iOS/macOS,
+  # EncryptedSharedPreferences Android, WebCrypto Web. Butuh Android minSdk 24
+  # (sama dengan default Flutter 3.50). Alternatif shared_preferences ditolak
+  # karena tidak terenkripsi.
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:
