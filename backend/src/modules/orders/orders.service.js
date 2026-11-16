@@ -1,7 +1,7 @@
 const ordersRepository = require('./orders.repository');
+const paymentsRepository = require('../payments/payments.repository');
 const AppError = require('../../utils/AppError');
 
-// Pemetaan baku antara status_kode (English lifecycle) dan status_pesanan (SKPL Indonesia)
 const ORDER_STATUS_MAP = {
   requested: 'Diajukan',
   negotiating: 'Dalam Negosiasi',
@@ -113,7 +113,8 @@ class OrdersService {
       throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
     }
     this.assertParticipant(order, user);
-    return order;
+    const payment = await paymentsRepository.findByOrderId(orderId);
+    return { ...order, payment_escrow: payment };
   }
 
   async submitProposal(orderId, user, payload) {
@@ -156,7 +157,6 @@ class OrdersService {
       throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
     }
 
-    // Validasi keterlibatan: pengguna luar transaksi wajib ditolak (403)
     const { isCustomer, isProvider } = this.assertParticipant(order, user);
 
     const normalizedTarget = NORMALIZE_STATUS_INPUT[String(targetStatusInput).toLowerCase().trim()];
@@ -170,7 +170,6 @@ class OrdersService {
 
     const currentStatus = order.status_kode;
 
-    // Aturan Transisi State Machine Order (Kerjaan #2, #3, #4, #5 & Acceptance Criteria)
     const transitionRules = {
       accepted: {
         allowedFrom: ['requested', 'negotiating'],
@@ -217,6 +216,16 @@ class OrdersService {
       throw new AppError(rule.actorError, 403, 'FORBIDDEN_ROLE_ACTION');
     }
 
+    // Validasi Integrasi Payment/Escrow: Jika sudah ada tagihan tetapi belum dibayar (pending), tolak masuk in_progress
+    const existingPayment = await paymentsRepository.findByOrderId(orderId);
+    if (normalizedTarget === 'in_progress' && existingPayment && existingPayment.status_escrow_kode !== 'held') {
+      throw new AppError(
+        `Pengerjaan belum dapat dimulai karena pembayaran order masih berstatus '${existingPayment.status_pembayaran}' (dana belum masuk Escrow).`,
+        400,
+        'ESCROW_NOT_FUNDED'
+      );
+    }
+
     const updated = await ordersRepository.updateOrderState(orderId, {
       statusPesanan: ORDER_STATUS_MAP[normalizedTarget],
       statusKode: normalizedTarget,
@@ -229,6 +238,30 @@ class OrdersService {
       markCompletedNow: normalizedTarget === 'completed',
     });
 
+    // Otomatis lepas dana Escrow (held -> released) ketika Pelanggan mengonfirmasi Order selesai (completed)
+    if (normalizedTarget === 'completed' && existingPayment && existingPayment.status_escrow_kode === 'held') {
+      await paymentsRepository.updatePaymentAndEscrowState(orderId, {
+        statusPembayaran: 'Berhasil',
+        statusPembayaranKode: 'settlement',
+        statusEscrow: 'Dilepas',
+        statusEscrowKode: 'released',
+        catatanEscrow: 'Dana Escrow otomatis dilepas ke Penyedia Jasa setelah Pelanggan mengonfirmasi order selesai.',
+        markReleasedNow: true,
+      });
+    }
+
+    // Otomatis refund dana Escrow (held -> refunded) apabila Order dibatalkan saat dana sudah di Escrow
+    if (normalizedTarget === 'cancelled' && existingPayment && existingPayment.status_escrow_kode === 'held') {
+      await paymentsRepository.updatePaymentAndEscrowState(orderId, {
+        statusPembayaran: 'Dikembalikan',
+        statusPembayaranKode: 'refunded',
+        statusEscrow: 'Dikembalikan',
+        statusEscrowKode: 'refunded',
+        catatanEscrow: 'Dana Escrow otomatis dikembalikan (refund) karena order dibatalkan.',
+        markRefundedNow: true,
+      });
+    }
+
     await ordersRepository.writeAuditLog({
       aktorId: user.user_id,
       aksi: 'ORDER_STATUS_' + normalizedTarget.toUpperCase(),
@@ -237,7 +270,8 @@ class OrdersService {
       statusSesudah: normalizedTarget,
     });
 
-    return updated;
+    const latestPayment = await paymentsRepository.findByOrderId(orderId);
+    return { ...updated, payment_escrow: latestPayment };
   }
 
   async createReview(orderId, user, payload) {
@@ -255,7 +289,6 @@ class OrdersService {
       );
     }
 
-    // Kerjaan #5: Review HANYA dapat dibuat setelah order berstatus completed / Selesai
     if (order.status_kode !== 'completed') {
       throw new AppError(
         `Ulasan (review) hanya dapat diberikan setelah order berstatus 'completed' (status saat ini: '${order.status_kode}').`,
