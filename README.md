@@ -83,7 +83,7 @@ flutter pub get
 ```bash
 flutter test
 ```
-*Seluruh 21 unit & widget test terverifikasi lulus (100% green).*
+*Saat ini 64 unit & widget test lulus (per 16 Nov 2026). Mode demo tanpa backend: `flutter run --dart-define=USE_MOCK_DATA=true`.*
 
 ### 4. Jalankan Aplikasi pada Emulator / Perangkat
 ```bash
