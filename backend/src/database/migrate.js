@@ -13,8 +13,9 @@ async function runMigrations() {
       .sort();
 
     for (const file of files) {
-      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      await client.query(sql);
+      const rawSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      const cleanSql = rawSql.replace(/^\uFEFF/, '').trim();
+      await client.query(cleanSql);
       console.log('[MIGRATION] Berhasil menerapkan: ' + file);
     }
 
