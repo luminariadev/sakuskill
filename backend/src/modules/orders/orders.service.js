@@ -75,9 +75,8 @@ class OrdersService {
     }
 
     const scopeText = (payload.ruang_lingkup || payload.catatan_kebutuhan).trim();
-    const finalPrice = payload.harga_kesepakatan !== undefined
-      ? Number(payload.harga_kesepakatan)
-      : Number(gig.harga);
+    const finalPrice =
+      payload.harga_kesepakatan !== undefined ? Number(payload.harga_kesepakatan) : Number(gig.harga);
     const deadlineDate = new Date(payload.tenggat_pekerjaan);
 
     const created = await ordersRepository.createOrder({
@@ -114,7 +113,7 @@ class OrdersService {
     }
     this.assertParticipant(order, user);
     const payment = await paymentsRepository.findByOrderId(orderId);
-    return { ...order, payment_escrow: payment };
+    return { ...order, payment };
   }
 
   async submitProposal(orderId, user, payload) {
@@ -216,14 +215,23 @@ class OrdersService {
       throw new AppError(rule.actorError, 403, 'FORBIDDEN_ROLE_ACTION');
     }
 
-    // Validasi Integrasi Payment/Escrow: Jika sudah ada tagihan tetapi belum dibayar (pending), tolak masuk in_progress
-    const existingPayment = await paymentsRepository.findByOrderId(orderId);
-    if (normalizedTarget === 'in_progress' && existingPayment && existingPayment.status_escrow_kode !== 'held') {
-      throw new AppError(
-        `Pengerjaan belum dapat dimulai karena pembayaran order masih berstatus '${existingPayment.status_pembayaran}' (dana belum masuk Escrow).`,
-        400,
-        'ESCROW_NOT_FUNDED'
-      );
+    // Kerjaan #6 & #7: Order HANYA boleh lanjut ke in_progress setelah payment berstatus "success"!
+    const paymentRecord = await paymentsRepository.findByOrderId(orderId);
+    if (normalizedTarget === 'in_progress') {
+      if (!paymentRecord) {
+        throw new AppError(
+          'Order belum dapat dimulai (in_progress) karena pelanggan belum melakukan simulasi pembayaran (record payment belum ada).',
+          400,
+          'PAYMENT_REQUIRED_BEFORE_START'
+        );
+      }
+      if (paymentRecord.status_kode !== 'success') {
+        throw new AppError(
+          `Order tidak dapat dilanjutkan ke 'in_progress' karena status pembayaran saat ini adalah '${paymentRecord.status_kode}' (${paymentRecord.status_pembayaran}). Order hanya boleh lanjut setelah payment 'success'.`,
+          400,
+          'PAYMENT_REQUIRED_BEFORE_START'
+        );
+      }
     }
 
     const updated = await ordersRepository.updateOrderState(orderId, {
@@ -238,30 +246,6 @@ class OrdersService {
       markCompletedNow: normalizedTarget === 'completed',
     });
 
-    // Otomatis lepas dana Escrow (held -> released) ketika Pelanggan mengonfirmasi Order selesai (completed)
-    if (normalizedTarget === 'completed' && existingPayment && existingPayment.status_escrow_kode === 'held') {
-      await paymentsRepository.updatePaymentAndEscrowState(orderId, {
-        statusPembayaran: 'Berhasil',
-        statusPembayaranKode: 'settlement',
-        statusEscrow: 'Dilepas',
-        statusEscrowKode: 'released',
-        catatanEscrow: 'Dana Escrow otomatis dilepas ke Penyedia Jasa setelah Pelanggan mengonfirmasi order selesai.',
-        markReleasedNow: true,
-      });
-    }
-
-    // Otomatis refund dana Escrow (held -> refunded) apabila Order dibatalkan saat dana sudah di Escrow
-    if (normalizedTarget === 'cancelled' && existingPayment && existingPayment.status_escrow_kode === 'held') {
-      await paymentsRepository.updatePaymentAndEscrowState(orderId, {
-        statusPembayaran: 'Dikembalikan',
-        statusPembayaranKode: 'refunded',
-        statusEscrow: 'Dikembalikan',
-        statusEscrowKode: 'refunded',
-        catatanEscrow: 'Dana Escrow otomatis dikembalikan (refund) karena order dibatalkan.',
-        markRefundedNow: true,
-      });
-    }
-
     await ordersRepository.writeAuditLog({
       aktorId: user.user_id,
       aksi: 'ORDER_STATUS_' + normalizedTarget.toUpperCase(),
@@ -271,7 +255,7 @@ class OrdersService {
     });
 
     const latestPayment = await paymentsRepository.findByOrderId(orderId);
-    return { ...updated, payment_escrow: latestPayment };
+    return { ...updated, payment: latestPayment };
   }
 
   async createReview(orderId, user, payload) {

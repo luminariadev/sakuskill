@@ -1,13 +1,14 @@
 const paymentsService = require('./payments.service');
 const { sendSuccess } = require('../../utils/response');
+const AppError = require('../../utils/AppError');
 
 class PaymentsController {
-  async checkout(req, res, next) {
+  async initiate(req, res, next) {
     try {
-      const created = await paymentsService.createCheckout(req.user, req.validated.body);
+      const created = await paymentsService.initiatePayment(req.user, req.validated.body);
       return sendSuccess(res, {
         statusCode: 201,
-        message: 'Tagihan pembayaran berhasil dibuat melalui Payment Gateway Eksternal. Silakan selesaikan pembayaran agar dana masuk ke Escrow.',
+        message: 'Record pembayaran simulasi MVP berhasil dibuat dengan status awal pending (ditetapkan oleh backend).',
         data: created,
       });
     } catch (error) {
@@ -15,45 +16,16 @@ class PaymentsController {
     }
   }
 
-  async webhook(req, res, next) {
+  async simulateSuccess(req, res, next) {
     try {
-      const updated = await paymentsService.handleGatewayWebhook(req.validated.body);
-      return sendSuccess(res, {
-        statusCode: 200,
-        message: 'Notifikasi webhook Payment Gateway berhasil diproses.',
-        data: updated,
-      });
-    } catch (error) {
-      return next(error);
-    }
-  }
-
-  async simulatePay(req, res, next) {
-    try {
-      const updated = await paymentsService.simulatePaymentSettlement(
-        req.validated.params.orderId,
-        req.user
-      );
-      return sendSuccess(res, {
-        statusCode: 200,
-        message: 'Pembayaran berhasil diselesaikan (settlement). Dana kini ditahan dengan aman di Rekening Bersama (Escrow).',
-        data: updated,
-      });
-    } catch (error) {
-      return next(error);
-    }
-  }
-
-  async releaseEscrow(req, res, next) {
-    try {
-      const updated = await paymentsService.releaseEscrow(
+      const updated = await paymentsService.simulateSuccess(
         req.validated.params.orderId,
         req.user,
         req.validated.body
       );
       return sendSuccess(res, {
         statusCode: 200,
-        message: 'Dana Escrow telah resmi dilepas (released) kepada Penyedia Jasa.',
+        message: 'Simulasi pembayaran berhasil (pending -> success). Status order tetap terpisah dan kini diizinkan lanjut ke in_progress.',
         data: updated,
       });
     } catch (error) {
@@ -61,21 +33,31 @@ class PaymentsController {
     }
   }
 
-  async refundEscrow(req, res, next) {
+  async simulateFailed(req, res, next) {
     try {
-      const updated = await paymentsService.refundEscrow(
+      const updated = await paymentsService.simulateFailed(
         req.validated.params.orderId,
         req.user,
         req.validated.body
       );
       return sendSuccess(res, {
         statusCode: 200,
-        message: 'Dana Escrow telah dikembalikan (refunded) kepada Pelanggan.',
+        message: 'Simulasi pembayaran gagal (pending -> failed). Order tidak berubah menjadi in_progress.',
         data: updated,
       });
     } catch (error) {
       return next(error);
     }
+  }
+
+  async rejectDirectStatusPatch(req, res, next) {
+    return next(
+      new AppError(
+        'Client dilarang menetapkan atau memaksa status pembayaran secara langsung. Gunakan action simulasi resmi pada environment demo/development.',
+        400,
+        'CLIENT_CANNOT_FORCE_STATUS'
+      )
+    );
   }
 
   async getByOrder(req, res, next) {
@@ -86,7 +68,7 @@ class PaymentsController {
       );
       return sendSuccess(res, {
         statusCode: 200,
-        message: 'Detail pembayaran dan status Escrow berhasil dimuat.',
+        message: 'Detail simulasi pembayaran MVP berhasil dimuat.',
         data: payment,
       });
     } catch (error) {
@@ -96,12 +78,11 @@ class PaymentsController {
 
   async listMine(req, res, next) {
     try {
-      const result = await paymentsService.listMyPayments(req.user.user_id);
+      const items = await paymentsService.listMyPayments(req.user.user_id);
       return sendSuccess(res, {
         statusCode: 200,
-        message: 'Ringkasan Rekening Bersama (Escrow) dan daftar pembayaran berhasil dimuat.',
-        data: result.items,
-        meta: result.summary,
+        message: 'Daftar simulasi pembayaran MVP berhasil dimuat.',
+        data: items,
       });
     } catch (error) {
       return next(error);

@@ -1,16 +1,20 @@
 const paymentsRepository = require('./payments.repository');
-const ordersRepository = require('../orders/orders.repository');
-const gatewayService = require('./gateway.service');
 const AppError = require('../../utils/AppError');
 
+const PAYMENT_STATUS_LABEL = {
+  pending: 'Menunggu',
+  success: 'Berhasil',
+  failed: 'Gagal',
+};
+
 class PaymentsService {
-  assertParticipant(paymentOrOrder, user) {
+  assertParticipant(record, user) {
     const isAdmin = user.peran === 'Administrator';
-    const isCustomer = paymentOrOrder.pelanggan_id === user.user_id;
-    const isProvider = paymentOrOrder.penyedia_id === user.user_id;
+    const isCustomer = record.pelanggan_id === user.user_id;
+    const isProvider = record.penyedia_id === user.user_id;
     if (!isCustomer && !isProvider && !isAdmin) {
       throw new AppError(
-        'Akses ditolak. Pengguna di luar transaksi tidak diizinkan mengakses atau mengubah pembayaran/escrow ini.',
+        'Akses ditolak. Pengguna di luar transaksi tidak diizinkan mengakses data pembayaran ini.',
         403,
         'FORBIDDEN_NOT_PARTICIPANT'
       );
@@ -19,325 +23,159 @@ class PaymentsService {
   }
 
   /**
-   * 1. Checkout Order & Panggil API Payment Gateway Eksternal
+   * Kerjaan #4: Validasi bahwa HANYA pelanggan terkait yang dapat memulai simulasi pembayaran.
    */
-  async createCheckout(user, { order_id: orderId, metode_pembayaran: metodePembayaran }) {
-    const order = await paymentsRepository.findOrderWithCustomer(orderId);
+  assertOnlyCustomer(record, user) {
+    this.assertParticipant(record, user);
+    if (record.pelanggan_id !== user.user_id) {
+      throw new AppError(
+        'Akses ditolak. Hanya Pelanggan terkait pada order ini yang dapat memulai atau menjalankan simulasi pembayaran.',
+        403,
+        'FORBIDDEN_ONLY_CUSTOMER'
+      );
+    }
+  }
+
+  /**
+   * Kerjaan #1, #2, #4, #5: Buat record payment terpisah dengan status awal pending yang ditetapkan backend.
+   */
+  async initiatePayment(user, { order_id: orderId, metode_simulasi: metodeSimulasi, catatan }) {
+    const order = await paymentsRepository.findOrderById(orderId);
     if (!order) {
       throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
     }
 
-    const { isCustomer } = this.assertParticipant(order, user);
-    if (!isCustomer) {
-      throw new AppError(
-        'Hanya Pelanggan pada order ini yang dapat membuat tagihan pembayaran (checkout).',
-        403,
-        'FORBIDDEN_ROLE_ACTION'
-      );
-    }
+    // Kerjaan #4: Hanya pelanggan terkait yang boleh memulai pembayaran
+    this.assertOnlyCustomer(order, user);
 
-    if (!['accepted', 'in_progress'].includes(order.status_kode)) {
+    if (order.status_kode !== 'accepted') {
       throw new AppError(
-        `Pembayaran hanya dapat dibuat setelah order disetujui penyedia ('accepted'). Status order saat ini: '${order.status_kode}'.`,
+        `Simulasi pembayaran hanya dapat dimulai ketika order berstatus 'accepted' (Disepakati). Status order saat ini: '${order.status_kode}'.`,
         400,
         'INVALID_ORDER_STATE_FOR_PAYMENT'
       );
     }
 
     const existing = await paymentsRepository.findByOrderId(orderId);
-    if (existing && ['settlement'].includes(existing.status_pembayaran_kode)) {
+    if (existing && existing.status_kode === 'success') {
       throw new AppError(
-        'Order ini sudah dibayar dan dana sudah ditahan di rekening bersama (Escrow).',
+        'Pembayaran untuk order ini sudah berstatus success (Berhasil) dan tidak dapat dibuat ulang.',
         409,
-        'PAYMENT_ALREADY_SETTLED'
+        'PAYMENT_ALREADY_SUCCESS'
       );
     }
 
-    // Panggil API Payment Gateway Eksternal (Midtrans Snap / Open ExchangeRate + GoQR API)
-    const gatewayResult = await gatewayService.createExternalCharge({
-      order,
-      customer: { nama: order.nama_pelanggan, email: order.email_pelanggan },
-      metodePembayaran,
-    });
+    const shortId = order.order_id.split("-")[0].toUpperCase();
+    const referensiSimulasi = `SIM-MVP-${shortId}-${Date.now()}`;
 
-    const saved = await paymentsRepository.upsertCheckoutPayment({
+    // Kerjaan #5: Backend menetapkan status awal selalu "pending" (Menunggu)
+    const saved = await paymentsRepository.createOrResetPendingPayment({
       orderId: order.order_id,
       pelangganId: order.pelanggan_id,
       penyediaId: order.penyedia_id,
-      metodePembayaran,
+      metodeSimulasi: metodeSimulasi || 'SIMULASI_MVP',
       nominal: order.harga_kesepakatan,
-      gatewayProvider: gatewayResult.gatewayProvider,
-      referensiGateway: gatewayResult.referensiGateway,
-      snapToken: gatewayResult.snapToken,
-      paymentUrl: gatewayResult.paymentUrl,
-      qrCodeUrl: gatewayResult.qrCodeUrl,
-      vaNumber: gatewayResult.vaNumber,
-      kursUsdReferensi: gatewayResult.kursUsdReferensi,
-      nominalUsdEstimasi: gatewayResult.nominalUsdEstimasi,
-      rawGatewayResponse: gatewayResult.rawGatewayResponse,
+      referensiSimulasi,
+      catatanSimulasi:
+        catatan ||
+        'Sesi simulasi pembayaran MVP berhasil dibuat oleh backend dengan status pending.',
     });
 
     await paymentsRepository.writeAuditLog({
       aktorId: user.user_id,
-      aksi: 'CREATE_PAYMENT_CHECKOUT',
+      aksi: 'INITIATE_PAYMENT_SIMULATION_PENDING',
       objekId: saved.payment_id,
-      statusSebelum: existing ? existing.status_escrow_kode : null,
-      statusSesudah: 'pending/none',
+      statusSebelum: existing ? existing.status_kode : null,
+      statusSesudah: 'pending',
     });
 
     return saved;
   }
 
   /**
-   * 2. Webhook Notification Handler dari Payment Gateway (Midtrans Standard)
+   * Kerjaan #2, #3, #4, #5, #6: Simulasi transisi pending -> success
+   * Status order tetap "accepted" (terpisah), namun kini mengizinkan order lanjut ke "in_progress".
    */
-  async handleGatewayWebhook(payload) {
-    const payment = await paymentsRepository.findByGatewayRefOrOrderId(payload.order_id);
-    if (!payment) {
-      throw new AppError(
-        `Data pembayaran untuk referensi '${payload.order_id}' tidak ditemukan.`,
-        404,
-        'PAYMENT_NOT_FOUND'
-      );
-    }
-
-    // Verifikasi Signature SHA-512 apabila dikirim oleh Payment Gateway
-    if (payload.signature_key) {
-      const isValid = gatewayService.verifySignature(
-        payload.order_id,
-        payload.status_code,
-        payload.gross_amount,
-        payload.signature_key
-      );
-      if (!isValid) {
-        throw new AppError(
-          'Signature key webhook payment gateway tidak valid (SHA-512 mismatch).',
-          401,
-          'INVALID_WEBHOOK_SIGNATURE'
-        );
-      }
-    }
-
-    const txStatus = payload.transaction_status;
-
-    if (txStatus === 'settlement' || txStatus === 'capture') {
-      if (payment.status_escrow_kode === 'released') {
-        return payment;
-      }
-      const updated = await paymentsRepository.updatePaymentAndEscrowState(payment.order_id, {
-        statusPembayaran: 'Berhasil',
-        statusPembayaranKode: 'settlement',
-        statusEscrow: 'Ditahan',
-        statusEscrowKode: 'held',
-        catatanEscrow: 'Dana pembayaran pelanggan telah diterima dari Payment Gateway dan ditahan di Rekening Bersama (Escrow) SakuSkill.',
-        markPaidNow: true,
-      });
-
-      await paymentsRepository.writeAuditLog({
-        aktorId: payment.pelanggan_id,
-        aksi: 'WEBHOOK_PAYMENT_SETTLEMENT_ESCROW_HELD',
-        objekId: payment.payment_id,
-        statusSebelum: payment.status_escrow_kode,
-        statusSesudah: 'held',
-      });
-
-      return updated;
-    }
-
-    if (['cancel', 'deny', 'failure'].includes(txStatus)) {
-      return paymentsRepository.updatePaymentAndEscrowState(payment.order_id, {
-        statusPembayaran: 'Gagal',
-        statusPembayaranKode: 'failed',
-        statusEscrow: 'Belum Aktif',
-        statusEscrowKode: 'none',
-        catatanEscrow: 'Pembayaran dibatalkan atau ditolak oleh Payment Gateway.',
-      });
-    }
-
-    if (txStatus === 'expire') {
-      return paymentsRepository.updatePaymentAndEscrowState(payment.order_id, {
-        statusPembayaran: 'Kedaluwarsa',
-        statusPembayaranKode: 'expired',
-        statusEscrow: 'Belum Aktif',
-        statusEscrowKode: 'none',
-        catatanEscrow: 'Batas waktu pembayaran di Payment Gateway telah berakhir.',
-      });
-    }
-
-    return payment;
-  }
-
-  /**
-   * 3. Simulasi Pembayaran Berhasil (Untuk Pengujian Tanpa Browser Midtrans)
-   */
-  async simulatePaymentSettlement(orderId, user) {
+  async simulateSuccess(orderId, user, payload = {}) {
     const payment = await paymentsRepository.findByOrderId(orderId);
     if (!payment) {
       throw new AppError(
-        'Tagihan pembayaran belum dibuat untuk order ini. Panggil POST /api/v1/payments/checkout terlebih dahulu.',
+        'Record payment belum ditemukan. Panggil POST /api/v1/payments terlebih dahulu untuk memulai sesi pending.',
         404,
         'PAYMENT_NOT_FOUND'
       );
     }
 
-    this.assertParticipant(payment, user);
+    // Kerjaan #4: Hanya pelanggan terkait yang dapat menjalankan simulasi
+    this.assertOnlyCustomer(payment, user);
 
-    if (payment.status_pembayaran_kode !== 'pending') {
+    if (payment.status_kode !== 'pending') {
       throw new AppError(
-        `Transisi pembayaran ilegal: pembayaran sudah berstatus '${payment.status_pembayaran_kode}'.`,
+        `Transisi pembayaran ilegal: simulasi pending -> success hanya dapat dijalankan dari status 'pending' (status saat ini: '${payment.status_kode}').`,
         400,
         'INVALID_PAYMENT_TRANSITION'
       );
     }
 
-    const grossAmount = String(Math.round(Number(payment.nominal)));
-    const signatureKey = gatewayService.generateSignature(
-      payment.referensi_gateway,
-      '200',
-      grossAmount
-    );
-
-    return this.handleGatewayWebhook({
-      order_id: payment.referensi_gateway,
-      transaction_status: 'settlement',
-      status_code: '200',
-      gross_amount: grossAmount,
-      signature_key: signatureKey,
-    });
-  }
-
-  /**
-   * 4. Pelepasan Dana Escrow (Release) ke Penyedia Jasa
-   * Hanya sah apabila dana berstatus held (Ditahan) dan Order minimal completion_requested / completed
-   */
-  async releaseEscrow(orderId, user, payload = {}) {
-    const payment = await paymentsRepository.findByOrderId(orderId);
-    if (!payment) {
-      throw new AppError('Data pembayaran/escrow tidak ditemukan untuk order ini.', 404, 'PAYMENT_NOT_FOUND');
-    }
-
-    const { isCustomer, isAdmin } = this.assertParticipant(payment, user);
-    if (!isCustomer && !isAdmin) {
-      throw new AppError(
-        'Hanya Pelanggan atau Administrator yang dapat melepas dana Escrow ke Penyedia Jasa.',
-        403,
-        'FORBIDDEN_ROLE_ACTION'
-      );
-    }
-
-    if (payment.status_escrow_kode !== 'held') {
-      throw new AppError(
-        `Transisi escrow ilegal: dana hanya dapat dilepas (released) jika berstatus 'held' (Ditahan). Status saat ini: '${payment.status_escrow_kode}'.`,
-        400,
-        'INVALID_ESCROW_TRANSITION'
-      );
-    }
-
-    if (!['completion_requested', 'completed'].includes(payment.status_order_kode)) {
-      throw new AppError(
-        `Transisi escrow ilegal: dana tidak dapat dilepas karena pekerjaan order belum diajukan selesai ('completion_requested' / 'completed'). Status order saat ini: '${payment.status_order_kode}'.`,
-        400,
-        'ORDER_NOT_READY_FOR_RELEASE'
-      );
-    }
-
-    // Jika order masih completion_requested, otomatis tandai order sebagai completed
-    if (payment.status_order_kode === 'completion_requested') {
-      await ordersRepository.updateOrderState(orderId, {
-        statusPesanan: 'Selesai',
-        statusKode: 'completed',
-        markCompletedNow: true,
-      });
-    }
-
-    const updated = await paymentsRepository.updatePaymentAndEscrowState(orderId, {
-      statusPembayaran: 'Berhasil',
-      statusPembayaranKode: 'settlement',
-      statusEscrow: 'Dilepas',
-      statusEscrowKode: 'released',
-      catatanEscrow:
+    const updated = await paymentsRepository.updateSimulationStatus(orderId, {
+      statusKode: 'success',
+      statusPembayaran: PAYMENT_STATUS_LABEL.success,
+      catatanSimulasi:
         payload.catatan ||
-        'Pelanggan telah mengonfirmasi pekerjaan selesai. Dana Escrow resmi dilepas (dicairkan) ke Penyedia Jasa.',
-      markReleasedNow: true,
+        'Simulasi pembayaran berhasil (pending -> success). Order kini diizinkan lanjut ke tahap in_progress oleh penyedia.',
     });
 
     await paymentsRepository.writeAuditLog({
       aktorId: user.user_id,
-      aksi: 'RELEASE_ESCROW_TO_PROVIDER',
+      aksi: 'SIMULATE_PAYMENT_SUCCESS',
       objekId: payment.payment_id,
-      statusSebelum: 'held',
-      statusSesudah: 'released',
+      statusSebelum: 'pending',
+      statusSesudah: 'success',
     });
 
     return updated;
   }
 
   /**
-   * 5. Pengembalian Dana Escrow (Refund) ke Pelanggan
+   * Kerjaan #2, #3, #4, #5, #7: Simulasi transisi pending -> failed
+   * Pembayaran gagal TIDAK mengubah order menjadi in_progress.
    */
-  async refundEscrow(orderId, user, payload = {}) {
+  async simulateFailed(orderId, user, payload = {}) {
     const payment = await paymentsRepository.findByOrderId(orderId);
     if (!payment) {
-      throw new AppError('Data pembayaran/escrow tidak ditemukan untuk order ini.', 404, 'PAYMENT_NOT_FOUND');
+      throw new AppError(
+        'Record payment belum ditemukan. Panggil POST /api/v1/payments terlebih dahulu untuk memulai sesi pending.',
+        404,
+        'PAYMENT_NOT_FOUND'
+      );
     }
 
-    const { isCustomer, isProvider, isAdmin } = this.assertParticipant(payment, user);
+    // Kerjaan #4: Hanya pelanggan terkait yang dapat menjalankan simulasi
+    this.assertOnlyCustomer(payment, user);
 
-    if (payment.status_escrow_kode !== 'held') {
+    if (payment.status_kode !== 'pending') {
       throw new AppError(
-        `Transisi escrow ilegal: refund hanya dapat dilakukan saat dana berstatus 'held' (Ditahan). Status saat ini: '${payment.status_escrow_kode}'.`,
+        `Transisi pembayaran ilegal: simulasi pending -> failed hanya dapat dijalankan dari status 'pending' (status saat ini: '${payment.status_kode}').`,
         400,
-        'INVALID_ESCROW_TRANSITION'
+        'INVALID_PAYMENT_TRANSITION'
       );
     }
 
-    if (payment.status_order_kode === 'completed') {
-      throw new AppError(
-        'Order yang sudah selesai (completed) tidak dapat di-refund.',
-        400,
-        'INVALID_ESCROW_TRANSITION'
-      );
-    }
-
-    if (isCustomer && !['requested', 'negotiating', 'accepted', 'cancelled'].includes(payment.status_order_kode)) {
-      throw new AppError(
-        'Pelanggan tidak dapat melakukan refund sepihak ketika pekerjaan sudah sedang dikerjakan (in_progress). Mintalah persetujuan Penyedia atau Admin.',
-        403,
-        'FORBIDDEN_ROLE_ACTION'
-      );
-    }
-
-    if (!isCustomer && !isProvider && !isAdmin) {
-      throw new AppError('Akses ditolak.', 403, 'FORBIDDEN_NOT_PARTICIPANT');
-    }
-
-    // Pastikan status order juga ditandai cancelled / Dibatalkan jika belum
-    if (payment.status_order_kode !== 'cancelled') {
-      await ordersRepository.updateOrderState(orderId, {
-        statusPesanan: 'Dibatalkan',
-        statusKode: 'cancelled',
-        alasanPembatalan: payload.alasan || payload.catatan || 'Order dibatalkan dan dana Escrow dikembalikan (refund).',
-      });
-    }
-
-    const updated = await paymentsRepository.updatePaymentAndEscrowState(orderId, {
-      statusPembayaran: 'Dikembalikan',
-      statusPembayaranKode: 'refunded',
-      statusEscrow: 'Dikembalikan',
-      statusEscrowKode: 'refunded',
-      catatanEscrow:
-        payload.alasan ||
+    const updated = await paymentsRepository.updateSimulationStatus(orderId, {
+      statusKode: 'failed',
+      statusPembayaran: PAYMENT_STATUS_LABEL.failed,
+      catatanSimulasi:
+        payload.alasan_gagal ||
         payload.catatan ||
-        'Dana Escrow telah dikembalikan (refunded) sepenuhnya kepada Pelanggan.',
-      markRefundedNow: true,
+        'Simulasi pembayaran gagal (pending -> failed). Order tertahan dan tidak dapat masuk ke in_progress.',
     });
 
     await paymentsRepository.writeAuditLog({
       aktorId: user.user_id,
-      aksi: 'REFUND_ESCROW_TO_CUSTOMER',
+      aksi: 'SIMULATE_PAYMENT_FAILED',
       objekId: payment.payment_id,
-      statusSebelum: 'held',
-      statusSesudah: 'refunded',
+      statusSebelum: 'pending',
+      statusSesudah: 'failed',
     });
 
     return updated;
@@ -346,16 +184,14 @@ class PaymentsService {
   async getPaymentByOrder(orderId, user) {
     const payment = await paymentsRepository.findByOrderId(orderId);
     if (!payment) {
-      throw new AppError('Data pembayaran/escrow tidak ditemukan untuk order ini.', 404, 'PAYMENT_NOT_FOUND');
+      throw new AppError('Record payment belum ditemukan untuk order ini.', 404, 'PAYMENT_NOT_FOUND');
     }
     this.assertParticipant(payment, user);
     return payment;
   }
 
   async listMyPayments(userId) {
-    const items = await paymentsRepository.listUserPayments(userId);
-    const summary = await paymentsRepository.getEscrowSummary(userId);
-    return { summary, items };
+    return paymentsRepository.listByUser(userId);
   }
 }
 

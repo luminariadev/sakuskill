@@ -1,14 +1,23 @@
 const db = require('../../config/database');
 
+const MVP_DISCLAIMER = {
+  is_simulasi_mvp: true,
+  bukan_uang_sungguhan: true,
+  bukan_escrow_nyata: true,
+  midtrans_ditunda: true,
+  keterangan: 'Simulasi pembayaran internal khusus MVP SakuSkill. Tidak melibatkan uang sungguhan, bukan rekening bersama (escrow) perbankan nyata, dan integrasi Midtrans ditunda pasca-MVP.',
+};
+
 class PaymentsRepository {
-  async findOrderWithCustomer(orderId) {
+  async findOrderById(orderId) {
     const sql = `
       SELECT
         o.order_id, o.listing_id, o.pelanggan_id, o.penyedia_id,
         o.snapshot_judul, o.harga_kesepakatan, o.status_pesanan, o.status_kode,
-        u.nama AS nama_pelanggan, u.email AS email_pelanggan
+        up.nama AS nama_pelanggan, uj.nama AS nama_penyedia
       FROM orders o
-      JOIN users u ON u.user_id = o.pelanggan_id
+      JOIN users up ON up.user_id = o.pelanggan_id
+      JOIN users uj ON uj.user_id = o.penyedia_id
       WHERE o.order_id = $1 LIMIT 1;
     `;
     const { rows } = await db.query(sql, [orderId]);
@@ -20,8 +29,8 @@ class PaymentsRepository {
       SELECT
         p.*,
         o.snapshot_judul AS judul_order,
-        o.status_kode AS status_order_kode,
-        o.status_pesanan AS status_order_label,
+        o.status_kode AS order_status_kode,
+        o.status_pesanan AS order_status_label,
         up.nama AS nama_pelanggan,
         uj.nama AS nama_penyedia
       FROM payments p
@@ -31,93 +40,67 @@ class PaymentsRepository {
       WHERE p.order_id = $1 LIMIT 1;
     `;
     const { rows } = await db.query(sql, [orderId]);
-    return rows[0] ? this.formatPaymentRow(rows[0]) : null;
+    return rows[0] ? this.formatPayment(rows[0]) : null;
   }
 
-  async findByGatewayRefOrOrderId(refOrOrderId) {
-    const sql = `
-      SELECT p.*
-      FROM payments p
-      WHERE p.referensi_gateway = $1 OR p.order_id::text = $1
-      LIMIT 1;
-    `;
-    const { rows } = await db.query(sql, [String(refOrOrderId)]);
-    if (rows.length === 0) return null;
-    return this.findByOrderId(rows[0].order_id);
-  }
-
-  formatPaymentRow(row) {
+  formatPayment(row) {
     return {
-      ...row,
-      ringkasan_escrow: {
-        status_pembayaran: row.status_pembayaran,
-        status_pembayaran_kode: row.status_pembayaran_kode,
-        status_escrow: row.status_escrow,
-        status_escrow_kode: row.status_escrow_kode,
-        dana_aman_di_escrow: row.status_escrow_kode === 'held',
-        dana_dilepas_ke_penyedia: row.status_escrow_kode === 'released',
-        dana_dikembalikan_ke_pelanggan: row.status_escrow_kode === 'refunded',
+      payment_id: row.payment_id,
+      order_id: row.order_id,
+      pelanggan_id: row.pelanggan_id,
+      penyedia_id: row.penyedia_id,
+      nama_pelanggan: row.nama_pelanggan,
+      nama_penyedia: row.nama_penyedia,
+      judul_order: row.judul_order,
+      metode_simulasi: row.metode_simulasi,
+      nominal: row.nominal,
+      mata_uang: row.mata_uang,
+      status_kode: row.status_kode,
+      status_pembayaran: row.status_pembayaran,
+      referensi_simulasi: row.referensi_simulasi,
+      catatan_simulasi: row.catatan_simulasi,
+      jumlah_percobaan: row.jumlah_percobaan,
+      disimulasikan_pada: row.disimulasikan_pada,
+      dibuat_pada: row.dibuat_pada,
+      diubah_pada: row.diubah_pada,
+      relasi_order: {
+        order_id: row.order_id,
+        order_status_kode: row.order_status_kode,
+        order_status_label: row.order_status_label,
+        boleh_lanjut_in_progress: row.status_kode === 'success',
       },
-      instruksi_gateway: {
-        provider: row.gateway_provider,
-        referensi_gateway: row.referensi_gateway,
-        metode_pembayaran: row.metode_pembayaran,
-        snap_token: row.snap_token,
-        payment_url: row.payment_url,
-        qr_code_url: row.qr_code_url,
-        va_number: row.va_number,
-        estimasi_usd: row.nominal_usd_estimasi,
-      },
+      disclaimer_mvp: MVP_DISCLAIMER,
     };
   }
 
-  async upsertCheckoutPayment({
+  async createOrResetPendingPayment({
     orderId,
     pelangganId,
     penyediaId,
-    metodePembayaran,
+    metodeSimulasi,
     nominal,
-    gatewayProvider,
-    referensiGateway,
-    snapToken,
-    paymentUrl,
-    qrCodeUrl,
-    vaNumber,
-    kursUsdReferensi,
-    nominalUsdEstimasi,
-    rawGatewayResponse,
+    referensiSimulasi,
+    catatanSimulasi,
   }) {
     const sql = `
       INSERT INTO payments (
-        order_id, pelanggan_id, penyedia_id, metode_pembayaran, nominal,
-        status_pembayaran, status_pembayaran_kode,
-        status_escrow, status_escrow_kode,
-        gateway_provider, referensi_gateway, snap_token, payment_url, qr_code_url, va_number,
-        kurs_usd_referensi, nominal_usd_estimasi, raw_gateway_response,
-        kedaluwarsa_pada, dibuat_pada, diubah_pada
+        order_id, pelanggan_id, penyedia_id, metode_simulasi, nominal,
+        status_kode, status_pembayaran, referensi_simulasi, catatan_simulasi,
+        jumlah_percobaan, is_simulasi_mvp, disimulasikan_pada, dibuat_pada, diubah_pada
       )
       VALUES (
-        $1, $2, $3, $4, $5, 'Menunggu', 'pending', 'Belum Aktif', 'none',
-        $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, NOW() + INTERVAL '24 hours', NOW(), NOW()
+        $1, $2, $3, $4, $5, 'pending', 'Menunggu', $6, $7, 1, TRUE, NULL, NOW(), NOW()
       )
       ON CONFLICT (order_id)
       DO UPDATE SET
-        metode_pembayaran = EXCLUDED.metode_pembayaran,
+        metode_simulasi = EXCLUDED.metode_simulasi,
         nominal = EXCLUDED.nominal,
+        status_kode = 'pending',
         status_pembayaran = 'Menunggu',
-        status_pembayaran_kode = 'pending',
-        status_escrow = 'Belum Aktif',
-        status_escrow_kode = 'none',
-        gateway_provider = EXCLUDED.gateway_provider,
-        referensi_gateway = EXCLUDED.referensi_gateway,
-        snap_token = EXCLUDED.snap_token,
-        payment_url = EXCLUDED.payment_url,
-        qr_code_url = EXCLUDED.qr_code_url,
-        va_number = EXCLUDED.va_number,
-        kurs_usd_referensi = EXCLUDED.kurs_usd_referensi,
-        nominal_usd_estimasi = EXCLUDED.nominal_usd_estimasi,
-        raw_gateway_response = EXCLUDED.raw_gateway_response,
-        kedaluwarsa_pada = NOW() + INTERVAL '24 hours',
+        referensi_simulasi = EXCLUDED.referensi_simulasi,
+        catatan_simulasi = EXCLUDED.catatan_simulasi,
+        jumlah_percobaan = payments.jumlah_percobaan + 1,
+        disimulasikan_pada = NULL,
         diubah_pada = NOW()
       RETURNING order_id;
     `;
@@ -125,65 +108,35 @@ class PaymentsRepository {
       orderId,
       pelangganId,
       penyediaId,
-      metodePembayaran,
+      metodeSimulasi,
       nominal,
-      gatewayProvider,
-      referensiGateway,
-      snapToken,
-      paymentUrl,
-      qrCodeUrl,
-      vaNumber,
-      kursUsdReferensi,
-      nominalUsdEstimasi,
-      JSON.stringify(rawGatewayResponse || {}),
+      referensiSimulasi,
+      catatanSimulasi || 'Sesi simulasi pembayaran MVP dibuat (status awal: pending).',
     ]);
     return this.findByOrderId(orderId);
   }
 
-  async updatePaymentAndEscrowState(orderId, {
-    statusPembayaran,
-    statusPembayaranKode,
-    statusEscrow,
-    statusEscrowKode,
-    catatanEscrow,
-    markPaidNow,
-    markReleasedNow,
-    markRefundedNow,
-  }) {
+  async updateSimulationStatus(orderId, { statusKode, statusPembayaran, catatanSimulasi }) {
     const sql = `
       UPDATE payments
-      SET status_pembayaran = $1,
-          status_pembayaran_kode = $2,
-          status_escrow = $3,
-          status_escrow_kode = $4,
-          catatan_escrow = COALESCE($5, catatan_escrow),
-          dibayar_pada = CASE WHEN $6::boolean THEN COALESCE(dibayar_pada, NOW()) ELSE dibayar_pada END,
-          escrow_dilepas_pada = CASE WHEN $7::boolean THEN NOW() ELSE escrow_dilepas_pada END,
-          escrow_dikembalikan_pada = CASE WHEN $8::boolean THEN NOW() ELSE escrow_dikembalikan_pada END,
+      SET status_kode = $1,
+          status_pembayaran = $2,
+          catatan_simulasi = COALESCE($3, catatan_simulasi),
+          disimulasikan_pada = NOW(),
           diubah_pada = NOW()
-      WHERE order_id = $9;
+      WHERE order_id = $4;
     `;
-    await db.query(sql, [
-      statusPembayaran,
-      statusPembayaranKode,
-      statusEscrow,
-      statusEscrowKode,
-      catatanEscrow || null,
-      Boolean(markPaidNow),
-      Boolean(markReleasedNow),
-      Boolean(markRefundedNow),
-      orderId,
-    ]);
+    await db.query(sql, [statusKode, statusPembayaran, catatanSimulasi || null, orderId]);
     return this.findByOrderId(orderId);
   }
 
-  async listUserPayments(userId) {
+  async listByUser(userId) {
     const sql = `
       SELECT
         p.*,
         o.snapshot_judul AS judul_order,
-        o.status_kode AS status_order_kode,
-        o.status_pesanan AS status_order_label,
+        o.status_kode AS order_status_kode,
+        o.status_pesanan AS order_status_label,
         up.nama AS nama_pelanggan,
         uj.nama AS nama_penyedia
       FROM payments p
@@ -194,28 +147,13 @@ class PaymentsRepository {
       ORDER BY p.dibuat_pada DESC;
     `;
     const { rows } = await db.query(sql, [userId]);
-    return rows.map((r) => this.formatPaymentRow(r));
-  }
-
-  async getEscrowSummary(userId) {
-    const sql = `
-      SELECT
-        COALESCE(SUM(CASE WHEN status_escrow_kode = 'held' AND (pelanggan_id = $1 OR penyedia_id = $1) THEN nominal ELSE 0 END), 0)::numeric(12,2) AS total_dana_ditahan_escrow,
-        COALESCE(SUM(CASE WHEN status_escrow_kode = 'released' AND penyedia_id = $1 THEN nominal ELSE 0 END), 0)::numeric(12,2) AS total_pendapatan_dilepas_penyedia,
-        COALESCE(SUM(CASE WHEN status_escrow_kode = 'released' AND pelanggan_id = $1 THEN nominal ELSE 0 END), 0)::numeric(12,2) AS total_pembayaran_selesai_pelanggan,
-        COALESCE(SUM(CASE WHEN status_escrow_kode = 'refunded' AND pelanggan_id = $1 THEN nominal ELSE 0 END), 0)::numeric(12,2) AS total_dana_dikembalikan_refund,
-        COUNT(*)::int AS total_transaksi_pembayaran
-      FROM payments
-      WHERE pelanggan_id = $1 OR penyedia_id = $1;
-    `;
-    const { rows } = await db.query(sql, [userId]);
-    return rows[0];
+    return rows.map((r) => this.formatPayment(r));
   }
 
   async writeAuditLog({ aktorId, aksi, objekId, statusSebelum, statusSesudah }) {
     await db.query(
       `INSERT INTO audit_logs (aktor_id, aksi, objek_tipe, objek_id, status_sebelum, status_sesudah)
-       VALUES ($1, $2, 'PaymentsEscrow', $3, $4, $5)`,
+       VALUES ($1, $2, 'PaymentsSimulationMVP', $3, $4, $5)`,
       [aktorId || null, aksi, objekId, statusSebelum, statusSesudah]
     );
   }

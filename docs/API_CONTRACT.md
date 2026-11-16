@@ -1,6 +1,11 @@
-# SakuSkill Backend API Contract (v1.3 ? Task 1, 2, 3 & 4)
+# SakuSkill Backend API Contract (v1.3 MVP ? Task 1, 2, 3 & 4 Simulasi Pembayaran)
 
-Dokumen ini adalah acuan integrasi resmi bagi tim **Mobile Flutter** untuk mengakses seluruh modul Backend SakuSkill: **Auth, User Profile, Gigs CRUD, Hyperlocal Discovery (PostGIS), Order Lifecycle, Barter Lifecycle, serta Payment Gateway Eksternal & Rekening Bersama (Escrow)**.
+Dokumen ini adalah acuan integrasi resmi bagi tim **Mobile Flutter** untuk mengakses seluruh modul Backend SakuSkill: **Auth, User Profile, Gigs CRUD, Hyperlocal Discovery (PostGIS), Order Lifecycle, Barter Lifecycle, serta Simulasi Pembayaran MVP**.
+
+> **CATATAN KETERBATASAN MVP (Wajib Ditampilkan/Diketahui Tim Frontend & Penguji):**
+> 1. **Bukan Uang Sungguhan:** Seluruh nominal pada modul `/api/v1/payments` adalah simulasi internal untuk keperluan demonstrasi MVP.
+> 2. **Bukan Escrow Perbankan Nyata:** Sistem tidak menahan dana di rekening bank atau lembaga keuangan mana pun.
+> 3. **Integrasi Midtrans Ditunda:** Sesuai keputusan produk MVP, tidak ada pemanggilan API Midtrans pada fase ini.
 
 ---
 
@@ -48,17 +53,17 @@ Authorization: Bearer <jwt_token>
 | :--- | :--- | :--- |
 | `400` | `INVALID_STATE_TRANSITION` | Transisi status Order/Barter melanggar urutan state machine |
 | `400` | `ORDER_NOT_COMPLETED` / `BARTER_NOT_COMPLETED` | Mencoba mengirim review sebelum transaksi berstatus `completed` |
-| `400` | `INVALID_ORDER_STATE_FOR_PAYMENT` | Mencoba checkout pembayaran sebelum order disetujui penyedia (`accepted`) |
-| `400` | `ESCROW_NOT_FUNDED` | Penyedia mencoba memulai order (`in_progress`) saat tagihan belum masuk Escrow (`held`) |
-| `400` | `ORDER_NOT_READY_FOR_RELEASE` | Mencoba melepas dana Escrow sebelum pekerjaan diajukan selesai (`completion_requested`) |
-| `400` | `INVALID_ESCROW_TRANSITION` | Mencoba release/refund dana yang tidak berstatus `held` atau order sudah selesai |
+| `400` | `INVALID_ORDER_STATE_FOR_PAYMENT` | Mencoba memulai simulasi pembayaran saat order belum berstatus `accepted` |
+| `400` | `CLIENT_CANNOT_FORCE_STATUS` | Client mengirim field `status`/`status_kode` pada body atau memanggil PATCH status secara langsung |
+| `400` | `INVALID_PAYMENT_TRANSITION` | Mencoba simulasi `success`/`failed` ketika status payment bukan `pending` |
+| `400` | `PAYMENT_REQUIRED_BEFORE_START` | Penyedia mencoba memulai order (`in_progress`) saat payment belum ada, masih `pending`, atau `failed` |
 | `401` | `UNAUTHORIZED` / `TOKEN_REVOKED` | Token JWT tidak ada, kedaluwarsa, atau sudah di-logout |
-| `401` | `INVALID_WEBHOOK_SIGNATURE` | Signature SHA-512 pada notifikasi webhook payment gateway tidak cocok |
 | `403` | `FORBIDDEN_NOT_OWNER` | Mencoba mengubah/menghapus gig milik pengguna lain |
-| `403` | `FORBIDDEN_NOT_PARTICIPANT` | Pengguna di luar transaksi mencoba mengakses/mengubah Order, Barter, atau Escrow |
-| `403` | `FORBIDDEN_ROLE_ACTION` | Aksi dilakukan oleh peran yang salah (misal Penyedia menekan tombol Release Escrow) |
-| `404` | `GIG_NOT_FOUND` / `ORDER_NOT_FOUND` / `BARTER_NOT_FOUND` / `PAYMENT_NOT_FOUND` | Data transaksi dengan UUID tersebut tidak ditemukan |
-| `409` | `EMAIL_ALREADY_EXISTS` / `REVIEW_ALREADY_EXISTS` / `PAYMENT_ALREADY_SETTLED` | Duplikasi email, ulasan, atau order sudah pernah dibayar lunas |
+| `403` | `FORBIDDEN_NOT_PARTICIPANT` | Pengguna di luar transaksi mencoba mengakses/mengubah Order, Barter, atau Payment |
+| `403` | `FORBIDDEN_ONLY_CUSTOMER` | Penyedia jasa atau pengguna luar mencoba memulai/menjalankan simulasi pembayaran |
+| `403` | `SIMULATION_DISABLED_IN_PRODUCTION` | Endpoint simulasi dipanggil pada environment production tanpa izin |
+| `404` | `GIG_NOT_FOUND` / `ORDER_NOT_FOUND` / `BARTER_NOT_FOUND` / `PAYMENT_NOT_FOUND` | Data dengan UUID tersebut tidak ditemukan |
+| `409` | `EMAIL_ALREADY_EXISTS` / `REVIEW_ALREADY_EXISTS` / `PAYMENT_ALREADY_SUCCESS` | Duplikasi email, ulasan, atau pembayaran sudah berstatus `success` |
 | `422` | `VALIDATION_ERROR` | Input body/query tidak lolos validasi Zod (lihat array `error.details`) |
 
 ---
@@ -84,49 +89,45 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## 4. Pemetaan Enum Status Order, Barter, Pembayaran & Escrow (Task 3 & 4)
+## 4. Pemetaan Enum Status Terpisah: Order, Barter & Payment (Task 3 & 4)
 
-### A. Status Order & Barter (`status_kode` vs Label UI)
+Status pada tabel **`orders`** dan tabel **`payments`** disimpan secara **terpisah** dan tidak saling menimpa:
+
+### A. Status Order & Barter (`orders.status_kode` / `barter_agreements.status_kode`)
 | `status_kode` (State Machine) | Label UI (`status_pesanan` / `status`) | Fase Transaksi | Keterangan Status |
 | :--- | :--- | :--- | :--- |
 | `requested` | `Diajukan` | Awal | Order atau penawaran barter baru dibuat, menunggu respons penyedia/penerima |
 | `negotiating` | `Dalam Negosiasi` | Aktif | Sedang dalam pengajuan revisi scope, harga, atau tenggat waktu |
 | `accepted` | `Disepakati` | Aktif | Disetujui penyedia (Order) atau disetujui kedua belah pihak (Barter) |
-| `in_progress` | `Dikerjakan` | Aktif | Pekerjaan sedang berlangsung |
+| `in_progress` | `Dikerjakan` | Aktif | Pekerjaan sedang berlangsung (Untuk Order: **wajib `payment.status_kode === "success"`**) |
 | `completion_requested` | `Menunggu Konfirmasi` | Aktif | Penyedia mengajukan klaim selesai (Order) atau baru 1 pihak konfirmasi selesai (Barter) |
 | `completed` | `Selesai` | Terminal | Pelanggan mengonfirmasi selesai (Order) atau kedua pihak telah konfirmasi selesai (Barter) |
 | `rejected` | `Ditolak` | Terminal | Penawaran ditolak oleh penyedia/penerima sebelum disepakati |
 | `cancelled` | `Dibatalkan` | Terminal | Transaksi dibatalkan sebelum pengerjaan dimulai (`in_progress`) |
 
-### B. Status Pembayaran (`status_pembayaran_kode`) & Rekening Bersama (`status_escrow_kode`)
-| Jenis Status | Kode State Machine | Label UI Bahasa Indonesia | Keterangan |
+### B. Status Simulasi Pembayaran MVP (`payments.status_kode`)
+| `status_kode` (State Machine) | Label UI (`status_pembayaran`) | Penentu Status | Dampak terhadap Order |
 | :--- | :--- | :--- | :--- |
-| **Pembayaran** | `pending` | `Menunggu` | Tagihan sudah terbit di Payment Gateway, menunggu pelunasan pelanggan |
-| **Pembayaran** | `settlement` | `Berhasil` | Pembayaran lunas terverifikasi oleh Payment Gateway |
-| **Pembayaran** | `failed` | `Gagal` | Pembayaran ditolak atau dibatalkan di Payment Gateway |
-| **Pembayaran** | `expired` | `Kedaluwarsa` | Melewati batas waktu pembayaran (24 jam) |
-| **Pembayaran** | `refunded` | `Dikembalikan` | Dana pembayaran telah dikembalikan ke pelanggan |
-| **Escrow** | `none` | `Belum Aktif` | Dana belum masuk ke Rekening Bersama |
-| **Escrow** | `held` | `Ditahan` | Dana aman ditahan di Rekening Bersama SakuSkill selama pengerjaan |
-| **Escrow** | `released` | `Dilepas` | Dana telah dicairkan ke saldo Penyedia Jasa setelah order `completed` |
-| **Escrow** | `refunded` | `Dikembalikan` | Dana telah dikembalikan ke Pelanggan karena order dibatalkan |
+| `pending` | `Menunggu` | Ditetapkan otomatis oleh Backend saat `POST /payments` | Order tertahan di `accepted`, belum boleh masuk `in_progress` |
+| `failed` | `Gagal` | Ditetapkan oleh Backend saat `POST /payments/:orderId/simulate-failed` | Order tetap `accepted` (**tidak** berubah menjadi `in_progress`). Pelanggan dapat mengulang `POST /payments` |
+| `success` | `Berhasil` | Ditetapkan oleh Backend saat `POST /payments/:orderId/simulate-success` | Order tetap `accepted` (terpisah), namun kini **diizinkan** lanjut ke `in_progress` oleh Penyedia |
 
 ---
 
 ## 5. Spesifikasi Endpoint Order Lifecycle (`/api/v1/orders`)
 
-| Method & Path | Aktor yang Diizinkan | Transisi Status | Keterangan & Integrasi Escrow |
+| Method & Path | Aktor yang Diizinkan | Transisi Status | Keterangan & Aturan Pembayaran MVP |
 | :--- | :--- | :--- | :--- |
 | `POST /orders` | Pelanggan | `-> requested` | Membuat order dari gig dengan snapshot harga & ketentuan otomatis |
 | `GET /orders` | Partisipan | - | Daftar order milik pengguna (`?role=pelanggan\|penyedia&status=...`) |
-| `GET /orders/:id` | Partisipan | - | Detail order beserta `snapshot_gig`, `kesepakatan`, `proposals`, `reviews`, dan `payment_escrow` |
+| `GET /orders/:id` | Partisipan | - | Detail order beserta `snapshot_gig`, `kesepakatan`, `proposals`, `reviews`, dan objek `payment` terpisah |
 | `POST /orders/:id/proposals` | Pelanggan / Penyedia | `-> negotiating` | Mengajukan penyesuaian scope, harga tawaran, dan usulan deadline |
 | `POST /orders/:id/accept` | Penyedia Jasa | `-> accepted` | Menyetujui order dan mengunci kesepakatan scope, harga final, serta deadline |
 | `POST /orders/:id/reject` | Penyedia Jasa | `-> rejected` | Menolak order yang berstatus `requested` atau `negotiating` |
-| `POST /orders/:id/start` | Penyedia Jasa | `accepted -> in_progress` | Memulai pengerjaan (wajib `status_escrow_kode = held` jika sudah ada tagihan) |
+| `POST /orders/:id/start` | Penyedia Jasa | `accepted -> in_progress` | Memulai pengerjaan (**Wajib `payment.status_kode === "success"`, jika belum maka ditolak `400 PAYMENT_REQUIRED_BEFORE_START`**) |
 | `POST /orders/:id/request-completion` | Penyedia Jasa | `in_progress -> completion_requested` | Penyedia mengajukan klaim bahwa pekerjaan telah selesai |
-| `POST /orders/:id/complete` | Pelanggan | `completion_requested -> completed` | Pelanggan mengonfirmasi selesai & **otomatis mencairkan dana Escrow (`held -> released`)** |
-| `POST /orders/:id/cancel` | Pelanggan | `-> cancelled` | Membatalkan order sebelum `in_progress` & **otomatis refund Escrow (`held -> refunded`)** |
+| `POST /orders/:id/complete` | Pelanggan | `completion_requested -> completed` | Pelanggan mengonfirmasi pekerjaan telah selesai |
+| `POST /orders/:id/cancel` | Pelanggan | `-> cancelled` | Membatalkan order sebelum `in_progress` |
 | `PATCH /orders/:id/status` | Sesuai Aturan | Sesuai body `status` | Endpoint generik pengubah status (`{"status": "accepted"}` dll.) |
 | `POST /orders/:id/reviews` | Pelanggan | Wajib `completed` | Mengirim rating (1-5) & komentar ulasan **hanya setelah order selesai** |
 
@@ -149,131 +150,99 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## 7. Spesifikasi Endpoint Payment Gateway Eksternal & Escrow (`/api/v1/payments` & `/api/v1/escrow`)
+## 7. Spesifikasi Endpoint Simulasi Pembayaran MVP (`/api/v1/payments`)
 
-Seluruh endpoint di bawah ini dapat diakses melalui prefix **`/api/v1/payments`** maupun alias **`/api/v1/escrow`**.
-
-### A. Diagram Alur Pembayaran & Rekening Bersama (Escrow)
+### A. Diagram Alur Simulasi Sukses & Gagal (Status Payment Terpisah dari Order)
 ```text
-1. Penyedia menyetujui Order (status_kode: "accepted")
-2. Pelanggan memanggil POST /payments/checkout
-   ??> Backend memanggil API Eksternal (Midtrans Snap + Open ExchangeRate API + GoQR QRIS API)
-   ??> Menghasilkan snap_token, payment_url, qr_code_url, va_number (status: pending, escrow: none)
-3. Pelanggan membayar tagihan (POST /payments/webhook atau POST /payments/:orderId/simulate-pay)
-   ??> Verifikasi tanda tangan kriptografi SHA-512
-   ??> Status Pembayaran: "settlement" (Berhasil) | Status Escrow: "held" (Ditahan di Rekening Bersama)
-4. Penyedia mengerjakan Order (in_progress -> completion_requested)
-5. Pencairan atau Pengembalian Dana Escrow:
-   ??> Jika Order Selesai (POST /orders/:id/complete atau POST /payments/:orderId/release)
-   ?     ??> Status Escrow: "released" (Dilepas ke Penyedia Jasa)
-   ??> Jika Order Dibatalkan (POST /orders/:id/cancel atau POST /payments/:orderId/refund)
-         ??> Status Pembayaran: "refunded" | Status Escrow: "refunded" (Dikembalikan ke Pelanggan)
+1. Penyedia menyetujui Order (orders.status_kode = "accepted")
+2. Pelanggan memulai simulasi pembayaran (POST /api/v1/payments)
+   ??> Jangan kirim field "status" dari client! (Jika dikirim -> Ditolak 400 CLIENT_CANNOT_FORCE_STATUS)
+   ??> Backend membuat record payment terpisah dengan status_kode = "pending" (Order tetap "accepted")
+3A. Skenario Alur Gagal (POST /api/v1/payments/:orderId/simulate-failed):
+   ??> Backend mengubah payments.status_kode menjadi "failed"
+   ??> orders.status_kode tetap "accepted" (TIDAK berubah menjadi "in_progress")
+   ??> Jika Penyedia memanggil POST /orders/:id/start -> Ditolak 400 PAYMENT_REQUIRED_BEFORE_START
+3B. Skenario Alur Sukses (POST /api/v1/payments/:orderId/simulate-success):
+   ??> (Jika sebelumnya failed, Pelanggan panggil POST /api/v1/payments dulu untuk reset ke "pending")
+   ??> Backend mengubah payments.status_kode menjadi "success"
+   ??> orders.status_kode tetap "accepted" (status payment & order tetap terpisah)
+   ??> Penyedia memanggil POST /orders/:id/start -> Berhasil! orders.status_kode berubah menjadi "in_progress"
 ```
 
-### B. Daftar Endpoint Payment Gateway & Escrow
+### B. Daftar Endpoint Simulasi Pembayaran MVP
 
-| Method & Path | Aktor | Keterangan |
-| :--- | :--- | :--- |
-| `POST /payments/checkout` | Pelanggan | Membuat tagihan ke Payment Gateway Eksternal (`QRIS`, `GOPAY`, `SHOPEEPAY`, `BCA_VA`, `BNI_VA`, `BRI_VA`, `MANDIRI_BILL`) untuk order yang sudah `accepted` |
-| `POST /payments/webhook` | Payment Gateway | Endpoint publik penerima HTTP Notification Midtrans dengan validasi signature `SHA-512` |
-| `POST /payments/:orderId/simulate-pay` | Partisipan | Mensimulasikan pelunasan instan ber-signature SHA-512 valid di lingkungan development/testing sehingga dana langsung masuk Escrow (`held`) |
-| `POST /payments/:orderId/release` | Pelanggan / Admin | Mencairkan dana Escrow (`held -> released`) ke Penyedia Jasa saat pekerjaan telah `completion_requested` atau `completed` |
-| `POST /payments/:orderId/refund` | Pelanggan / Penyedia / Admin | Mengembalikan dana Escrow (`held -> refunded`) ke Pelanggan apabila order dibatalkan sebelum selesai |
-| `GET /payments/:orderId` | Partisipan | Mengambil detail tagihan, URL gambar QRIS eksternal, nomor VA, dan status Escrow untuk 1 order |
-| `GET /payments` atau `GET /payments/summary` | Pengguna Login | Mengambil daftar riwayat transaksi pembayaran beserta `meta` rekapitulasi saldo Escrow pengguna |
+| Method & Path | Aktor | Pembatasan Env | Keterangan |
+| :--- | :--- | :--- | :--- |
+| `POST /payments` (atau `/payments/checkout`) | Hanya Pelanggan Terkait | Semua Env | Membuat (atau me-reset setelah `failed`) record payment dengan status awal `pending` yang ditetapkan backend |
+| `POST /payments/:orderId/simulate-success` (atau `/simulate-pay`) | Hanya Pelanggan Terkait | Khusus `development` / `demo` / `test` | Mengubah status payment dari `pending` ke `success`. Mengizinkan order lanjut ke `in_progress` |
+| `POST /payments/:orderId/simulate-failed` | Hanya Pelanggan Terkait | Khusus `development` / `demo` / `test` | Mengubah status payment dari `pending` ke `failed`. Menahan order agar tidak bisa masuk `in_progress` |
+| `PATCH /payments/:orderId/status` | Ditolak Server (`400`) | Semua Env | Selalu ditolak `400 CLIENT_CANNOT_FORCE_STATUS` karena client tidak boleh memaksa status secara langsung |
+| `GET /payments/:orderId` | Pelanggan & Penyedia | Semua Env | Mengambil detail record payment, objek `relasi_order`, dan objek `disclaimer_mvp` |
+| `GET /payments` | Pengguna Login | Semua Env | Mengambil daftar seluruh simulasi pembayaran yang melibatkan pengguna |
 
-### C. Contoh Request & Response Payment Gateway & Escrow
+### C. Contoh Request & Response Simulasi Pembayaran MVP
 
-#### 1. Checkout Pembayaran via Payment Gateway Eksternal (`POST /api/v1/payments/checkout`)
-**Request Body:**
+#### 1. Memulai Sesi Simulasi Pembayaran (`POST /api/v1/payments`)
+**Request Body (Jangan menyertakan field `status`!):**
 ```json
 {
-  "order_id": "30b4b309-e26f-4a92-8c17-e3a468447cbf",
-  "metode_pembayaran": "QRIS"
+  "order_id": "66e64100-cccd-4023-b19c-4e9089283b5d",
+  "metode_simulasi": "SIMULASI_MVP",
+  "catatan": "Memulai simulasi pembayaran untuk order layanan."
 }
 ```
 **Response (`201 Created`):**
 ```json
 {
   "success": true,
-  "message": "Tagihan pembayaran berhasil dibuat melalui Payment Gateway Eksternal. Silakan selesaikan pembayaran agar dana masuk ke Escrow.",
+  "message": "Record pembayaran simulasi MVP berhasil dibuat dengan status awal pending (ditetapkan oleh backend).",
   "data": {
-    "payment_id": "8c19e4b2-21b4-4d99-9890-71fb09a1e331",
-    "order_id": "30b4b309-e26f-4a92-8c17-e3a468447cbf",
-    "metode_pembayaran": "QRIS",
-    "nominal": "150000.00",
+    "payment_id": "9a41d8c2-11e4-4c88-a120-55bc09e1f221",
+    "order_id": "66e64100-cccd-4023-b19c-4e9089283b5d",
+    "pelanggan_id": "...",
+    "penyedia_id": "...",
+    "metode_simulasi": "SIMULASI_MVP",
+    "nominal": "120000.00",
     "mata_uang": "IDR",
+    "status_kode": "pending",
     "status_pembayaran": "Menunggu",
-    "status_pembayaran_kode": "pending",
-    "status_escrow": "Belum Aktif",
-    "status_escrow_kode": "none",
-    "referensi_gateway": "SK-GW-30B4B309-1794852465656",
-    "snap_token": "snap-ext-9f4a8d2c1e7b3a5f6d8c9e0a",
-    "payment_url": "[https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-ext-9f4a8d2c1e7b3a5f6d8c9e0a](https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-ext-9f4a8d2c1e7b3a5f6d8c9e0a)",
-    "qr_code_url": "[https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=SAKUSKILL.QRIS.SK-GW-30B4B309-1794852465656.IDR.150000](https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=SAKUSKILL.QRIS.SK-GW-30B4B309-1794852465656.IDR.150000)",
-    "va_number": "880852465656",
-    "nominal_usd_estimasi": "8.25",
-    "ringkasan_escrow": {
-      "status_pembayaran": "Menunggu",
-      "status_pembayaran_kode": "pending",
-      "status_escrow": "Belum Aktif",
-      "status_escrow_kode": "none",
-      "dana_aman_di_escrow": false,
-      "dana_dilepas_ke_penyedia": false,
-      "dana_dikembalikan_ke_pelanggan": false
+    "referensi_simulasi": "SIM-MVP-66E64100-1794853000123",
+    "jumlah_percobaan": 1,
+    "relasi_order": {
+      "order_id": "66e64100-cccd-4023-b19c-4e9089283b5d",
+      "order_status_kode": "accepted",
+      "order_status_label": "Disepakati",
+      "boleh_lanjut_in_progress": false
     },
-    "instruksi_gateway": {
-      "provider": "external_qris_and_midtrans_compatible",
-      "referensi_gateway": "SK-GW-30B4B309-1794852465656",
-      "metode_pembayaran": "QRIS",
-      "snap_token": "snap-ext-9f4a8d2c1e7b3a5f6d8c9e0a",
-      "payment_url": "[https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-ext-9f4a8d2c1e7b3a5f6d8c9e0a](https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-ext-9f4a8d2c1e7b3a5f6d8c9e0a)",
-      "qr_code_url": "[https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=](https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=)...",
-      "va_number": "880852465656",
-      "estimasi_usd": "8.25"
+    "disclaimer_mvp": {
+      "is_simulasi_mvp": true,
+      "bukan_uang_sungguhan": true,
+      "bukan_escrow_nyata": true,
+      "midtrans_ditunda": true,
+      "keterangan": "Simulasi pembayaran internal khusus MVP SakuSkill. Tidak melibatkan uang sungguhan, bukan rekening bersama (escrow) perbankan nyata, dan integrasi Midtrans ditunda pasca-MVP."
     }
   }
 }
 ```
 
-#### 2. Pelunasan & Penahanan Dana di Rekening Bersama (`POST /api/v1/payments/:orderId/simulate-pay`)
-**Response (`200 OK`):**
+#### 2. Simulasi Pembayaran Gagal (`POST /api/v1/payments/:orderId/simulate-failed`)
+**Request Body:**
 ```json
 {
-  "success": true,
-  "message": "Pembayaran berhasil diselesaikan (settlement). Dana kini ditahan dengan aman di Rekening Bersama (Escrow).",
-  "data": {
-    "order_id": "30b4b309-e26f-4a92-8c17-e3a468447cbf",
-    "status_pembayaran": "Berhasil",
-    "status_pembayaran_kode": "settlement",
-    "status_escrow": "Ditahan",
-    "status_escrow_kode": "held",
-    "ringkasan_escrow": {
-      "status_pembayaran": "Berhasil",
-      "status_pembayaran_kode": "settlement",
-      "status_escrow": "Ditahan",
-      "status_escrow_kode": "held",
-      "dana_aman_di_escrow": true,
-      "dana_dilepas_ke_penyedia": false,
-      "dana_dikembalikan_ke_pelanggan": false
-    }
-  }
+  "alasan_gagal": "Simulasi saldo tidak mencukupi untuk demonstrasi alur gagal."
 }
 ```
+**Response (`200 OK`):**
+* `data.status_kode` berubah menjadi `"failed"` (`"Gagal"`).
+* `data.relasi_order.order_status_kode` tetap `"accepted"` dan `boleh_lanjut_in_progress` bernilai `false`.
 
-#### 3. Ringkasan Saldo Rekening Bersama / Escrow (`GET /api/v1/payments/summary`)
-**Response (`200 OK`):**
+#### 3. Simulasi Pembayaran Sukses (`POST /api/v1/payments/:orderId/simulate-success`)
+**Request Body:**
 ```json
 {
-  "success": true,
-  "message": "Ringkasan Rekening Bersama (Escrow) dan daftar pembayaran berhasil dimuat.",
-  "data": [ ... ],
-  "meta": {
-    "total_dana_ditahan_escrow": "0.00",
-    "total_pendapatan_dilepas_penyedia": "150000.00",
-    "total_pembayaran_selesai_pelanggan": "0.00",
-    "total_dana_dikembalikan_refund": "0.00",
-    "total_transaksi_pembayaran": 2
-  }
+  "catatan": "Simulasi pembayaran MVP berhasil dilunasi."
 }
 ```
+**Response (`200 OK`):**
+* `data.status_kode` berubah menjadi `"success"` (`"Berhasil"`).
+* `data.relasi_order.order_status_kode` tetap `"accepted"` (terpisah dari status payment), dan `boleh_lanjut_in_progress` berubah menjadi `true` sehingga Penyedia Jasa dapat menekan tombol Mulai Kerjakan (`POST /api/v1/orders/:id/start`).

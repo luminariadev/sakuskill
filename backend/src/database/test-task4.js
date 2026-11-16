@@ -1,11 +1,11 @@
 /**
- * Automated Verification Script untuk Task 4 [P0][BE]:
- * Implementasi Pembayaran, Rekening Bersama (Escrow), & Payment Gateway Eksternal
+ * Automated Verification Script untuk [P0][BE] Implementasi simulasi pembayaran untuk MVP
+ * Menguji seluruh Kerjaan #1 s.d. #8 dan Acceptance Criteria PM.
  */
 const app = require('../app');
 const db = require('../config/database');
 
-async function runPaymentEscrowTests() {
+async function runMvpPaymentSimulationTests() {
   const server = app.listen(0);
   const port = server.address().port;
   const baseUrl = 'http://localhost:' + port + '/api/v1';
@@ -23,34 +23,34 @@ async function runPaymentEscrowTests() {
   };
 
   try {
-    console.log('=== MEMULAI UJI OTOMATIS [P0][BE] PAYMENT GATEWAY EKSTERNAL & ESCROW ===\n');
+    console.log('=== MEMULAI UJI ACCEPTANCE CRITERIA [P0][BE] SIMULASI PEMBAYARAN MVP ===\n');
 
     const ts = Date.now();
     const password = 'PasswordAman123!';
 
-    // 1. Register 3 Akun: Penyedia (User A), Pelanggan (User B), Outsider (User C)
-    const regA = await request('POST', '/auth/register', {
-      body: { nama: 'Arya Penyedia', email: 'arya.pay.' + ts + '@uinsgd.ac.id', kata_sandi: password },
+    // Setup 3 Akun: Penyedia (User A), Pelanggan (User B), Pihak Luar (User C)
+    const regProvider = await request('POST', '/auth/register', {
+      body: { nama: 'Arya Penyedia', email: 'arya.mvp.' + ts + '@uinsgd.ac.id', kata_sandi: password },
     });
-    const regB = await request('POST', '/auth/register', {
-      body: { nama: 'Qoisy Pelanggan', email: 'qoisy.pay.' + ts + '@uinsgd.ac.id', kata_sandi: password },
+    const regCustomer = await request('POST', '/auth/register', {
+      body: { nama: 'Qoisy Pelanggan', email: 'qoisy.mvp.' + ts + '@uinsgd.ac.id', kata_sandi: password },
     });
-    const regC = await request('POST', '/auth/register', {
-      body: { nama: 'Outsider User', email: 'outsider.pay.' + ts + '@uinsgd.ac.id', kata_sandi: password },
+    const regOutsider = await request('POST', '/auth/register', {
+      body: { nama: 'Outsider User', email: 'outsider.mvp.' + ts + '@uinsgd.ac.id', kata_sandi: password },
     });
 
-    const tokenProvider = regA.body.data.token;
-    const tokenCustomer = regB.body.data.token;
-    const tokenOutsider = regC.body.data.token;
+    const tokenProvider = regProvider.body.data.token;
+    const tokenCustomer = regCustomer.body.data.token;
+    const tokenOutsider = regOutsider.body.data.token;
 
-    // 2. Buat Gig & Order, lalu Penyedia Accept Order
+    // Buat Gig & Order, lalu Penyedia Accept Order
     const gigRes = await request('POST', '/gigs', {
       token: tokenProvider,
       body: {
-        judul: 'Jasa Audit Jaringan & Konfigurasi Mikrotik/Linux',
-        deskripsi: 'Melayani setup jaringan, firewall, dan optimasi server lokal.',
+        judul: 'Jasa Instalasi & Optimasi Linux CachyOS / Debian',
+        deskripsi: 'Melayani setup dual-boot, optimasi kernel, dan konfigurasi server lokal.',
         skill_id: 1,
-        harga: 150000,
+        harga: 120000,
         latitude: -6.9311,
         longitude: 107.7175,
         tipe_penawaran: 'Berbayar',
@@ -63,151 +63,136 @@ async function runPaymentEscrowTests() {
       token: tokenCustomer,
       body: {
         listing_id: gigId,
-        ruang_lingkup: 'Konfigurasi router dan server laboratorium.',
-        harga_kesepakatan: 150000,
+        ruang_lingkup: 'Instalasi dan konfigurasi server praktikum.',
+        harga_kesepakatan: 120000,
         tenggat_pekerjaan: '2026-11-29T17:00:00.000Z',
       },
     });
     const orderId = orderRes.body.data.order_id;
-
-    // Uji Checkout Sebelum Order Disetujui (Masih requested) -> Wajib Ditolak 400
-    const prematureCheckout = await request('POST', '/payments/checkout', {
-      token: tokenCustomer,
-      body: { order_id: orderId, metode_pembayaran: 'QRIS' },
-    });
-    console.log(
-      '[P1] [NEGATIVE TEST] Checkout Sebelum Order Disetujui -> Status HTTP:',
-      prematureCheckout.status,
-      '(' + prematureCheckout.body.error.code + ')'
-    );
-
-    // Penyedia Accept Order
     await request('POST', '/orders/' + orderId + '/accept', { token: tokenProvider });
 
-    // 3. Buat Checkout Pembayaran via External Payment Gateway API
-    const checkoutRes = await request('POST', '/payments/checkout', {
-      token: tokenCustomer,
-      body: { order_id: orderId, metode_pembayaran: 'QRIS' },
-    });
-    console.log(
-      '[P2] Checkout via External Gateway API -> Status HTTP:',
-      checkoutRes.status,
-      '| Ref:',
-      checkoutRes.body.data.referensi_gateway,
-      '| Live Currency API Connected:',
-      checkoutRes.body.data.raw_gateway_response.external_currency_api.live_api_connected,
-      '| Estimasi USD: $' + checkoutRes.body.data.nominal_usd_estimasi
-    );
-
-    // 4. Uji Penyedia Mulai Kerja Saat Tagihan Belum Dibayar (Escrow belum held) -> Wajib Ditolak 400
-    const startUnpaid = await request('POST', '/orders/' + orderId + '/start', {
+    // 1. Uji Kerjaan #6: Coba mulai order (in_progress) sebelum ada record payment -> Wajib Ditolak 400
+    const startBeforePayment = await request('POST', '/orders/' + orderId + '/start', {
       token: tokenProvider,
     });
     console.log(
-      '[P3] [NEGATIVE TEST] Mulai Order Sebelum Dana Masuk Escrow -> Status HTTP:',
-      startUnpaid.status,
-      '(' + startUnpaid.body.error.code + ')'
+      '[M1] [NEGATIVE - KERJAAN #6] Mulai Order Tanpa Payment -> Status HTTP:',
+      startBeforePayment.status,
+      '(' + startBeforePayment.body.error.code + ')'
     );
 
-    // 5. Uji Webhook dengan Signature SHA-512 Palsu -> Wajib Ditolak 401
-    const fakeWebhook = await request('POST', '/payments/webhook', {
-      body: {
-        order_id: checkoutRes.body.data.referensi_gateway,
-        transaction_status: 'settlement',
-        status_code: '200',
-        gross_amount: '150000',
-        signature_key: 'signature-palsu-tidak-valid',
-      },
+    // 2. Uji Kerjaan #4: Penyedia atau Pihak Luar mencoba memulai simulasi pembayaran -> Wajib Ditolak 403
+    const providerTryPay = await request('POST', '/payments', {
+      token: tokenProvider,
+      body: { order_id: orderId },
     });
     console.log(
-      '[P4] [NEGATIVE TEST] Webhook dengan Signature Palsu -> Status HTTP:',
-      fakeWebhook.status,
-      '(' + fakeWebhook.body.error.code + ')'
+      '[M2] [NEGATIVE - KERJAAN #4] Penyedia Mencoba Mulai Simulasi Payment -> Status HTTP:',
+      providerTryPay.status,
+      '(' + providerTryPay.body.error.code + ')'
     );
 
-    // 6. Pelanggan Melunasi Pembayaran (Webhook Settlement Valid) -> Dana Masuk Escrow (held / Ditahan)
-    const paySettle = await request('POST', '/payments/' + orderId + '/simulate-pay', {
+    // 3. Uji Kerjaan #5 & Acceptance: Client mencoba memaksa status="success" saat membuat payment -> Wajib Ditolak 400
+    const clientForceCreate = await request('POST', '/payments', {
       token: tokenCustomer,
+      body: { order_id: orderId, status: 'success', status_kode: 'success' },
     });
     console.log(
-      '[P5] Pembayaran Lunas (Settlement) -> Status Pembayaran:',
-      paySettle.body.data.status_pembayaran_kode,
-      '| Status Escrow:',
-      paySettle.body.data.status_escrow_kode,
-      '(' + paySettle.body.data.status_escrow + ')'
+      '[M3] [NEGATIVE - KERJAAN #5] Client Memaksa Status saat Create -> Status HTTP:',
+      clientForceCreate.status,
+      '(' + clientForceCreate.body.error.code + ')'
     );
 
-    // 7. Uji Pengguna Luar Mengakses/Melepas Escrow -> Wajib Ditolak 403
-    const outsiderRelease = await request('POST', '/payments/' + orderId + '/release', {
+    // 4. Uji Kerjaan #1 & #2: Pelanggan membuat record payment (Status awal ditetapkan backend = pending)
+    const createPending = await request('POST', '/payments', {
+      token: tokenCustomer,
+      body: { order_id: orderId, metode_simulasi: 'SIMULASI_QRIS_MVP' },
+    });
+    console.log(
+      '[M4] [KERJAAN #1 & #2] Buat Record Payment Terpisah -> Status HTTP:',
+      createPending.status,
+      '| Payment Status:',
+      createPending.body.data.status_kode,
+      '| Order Status Tetap:',
+      createPending.body.data.relasi_order.order_status_kode
+    );
+
+    // 5. Uji Kerjaan #5 & Acceptance: Client mencoba memaksa status via PATCH /payments/:orderId/status -> Wajib Ditolak 400
+    const clientForcePatch = await request('PATCH', '/payments/' + orderId + '/status', {
+      token: tokenCustomer,
+      body: { status: 'success' },
+    });
+    console.log(
+      '[M5] [NEGATIVE - KERJAAN #5] Client Memaksa Status via PATCH -> Status HTTP:',
+      clientForcePatch.status,
+      '(' + clientForcePatch.body.error.code + ')'
+    );
+
+    // 6. Uji Alur Gagal (Acceptance: pending -> failed) & Kerjaan #7: Pembayaran gagal TIDAK mengubah order jadi in_progress
+    const simFailed = await request('POST', '/payments/' + orderId + '/simulate-failed', {
+      token: tokenCustomer,
+      body: { alasan_gagal: 'Simulasi saldo tidak mencukupi untuk demonstrasi MVP.' },
+    });
+    const startAfterFailed = await request('POST', '/orders/' + orderId + '/start', {
+      token: tokenProvider,
+    });
+    const orderCheckAfterFail = await request('GET', '/orders/' + orderId, { token: tokenCustomer });
+    console.log(
+      '[M6] [ALUR GAGAL - KERJAAN #2 & #7] Transisi pending -> failed:',
+      simFailed.body.data.status_kode,
+      '| Coba Start Order Ditolak:',
+      startAfterFailed.status,
+      '| Status Order Tetap:',
+      orderCheckAfterFail.body.data.status_kode
+    );
+
+    // 7. Uji Alur Sukses (Acceptance: pending -> success): Pelanggan inisiasi ulang ke pending lalu simulate-success
+    const resetPending = await request('POST', '/payments', {
+      token: tokenCustomer,
+      body: { order_id: orderId, metode_simulasi: 'SIMULASI_TRANSFER_MVP' },
+    });
+    const outsiderTrySim = await request('POST', '/payments/' + orderId + '/simulate-success', {
       token: tokenOutsider,
     });
-    console.log(
-      '[P6] [NEGATIVE TEST] Pengguna Luar Lepas Escrow -> Status HTTP:',
-      outsiderRelease.status,
-      '(' + outsiderRelease.body.error.code + ')'
-    );
-
-    // 8. Uji Lepas Escrow Sebelum Pekerjaan Diajukan Selesai -> Wajib Ditolak 400
-    const prematureRelease = await request('POST', '/payments/' + orderId + '/release', {
+    const simSuccess = await request('POST', '/payments/' + orderId + '/simulate-success', {
       token: tokenCustomer,
+      body: { catatan: 'Simulasi pelunasan MVP berhasil.' },
     });
     console.log(
-      '[P7] [NEGATIVE TEST] Lepas Escrow Sebelum Order Selesai -> Status HTTP:',
-      prematureRelease.status,
-      '(' + prematureRelease.body.error.code + ')'
+      '[M7] [ALUR SUKSES - KERJAAN #2, #4, #5] Retry ke:',
+      resetPending.body.data.status_kode,
+      '-> Outsider Ditolak:',
+      outsiderTrySim.status,
+      '-> Pelanggan Simulate Success:',
+      simSuccess.body.data.status_kode,
+      '| Order Status Masih Terpisah:',
+      simSuccess.body.data.relasi_order.order_status_kode
     );
 
-    // 9. Siklus Pengerjaan Order -> Pelanggan Konfirmasi Selesai -> Escrow Otomatis Dilepas (released)
-    await request('POST', '/orders/' + orderId + '/start', { token: tokenProvider });
-    await request('POST', '/orders/' + orderId + '/request-completion', { token: tokenProvider });
-    const completeOrder = await request('POST', '/orders/' + orderId + '/complete', {
-      token: tokenCustomer,
+    // 8. Uji Kerjaan #6: Setelah payment success, Penyedia kini BISA mengubah order menjadi in_progress
+    const startAfterSuccess = await request('POST', '/orders/' + orderId + '/start', {
+      token: tokenProvider,
     });
     console.log(
-      '[P8] Order Completed & Escrow Released -> Status Order:',
-      completeOrder.body.data.status_kode,
-      '| Status Escrow:',
-      completeOrder.body.data.payment_escrow.status_escrow_kode,
-      '(' + completeOrder.body.data.payment_escrow.status_escrow + ')'
+      '[M8] [KERJAAN #6] Mulai Order Setelah Payment Success -> Status HTTP:',
+      startAfterSuccess.status,
+      '| Order Status:',
+      startAfterSuccess.body.data.status_kode,
+      '| Payment Status Tetap Terpisah:',
+      startAfterSuccess.body.data.payment.status_kode
     );
 
-    // 10. Skenario Order ke-2: Pembayaran Masuk Escrow (held) lalu Dibatalkan -> Escrow Refunded
-    const order2Res = await request('POST', '/orders', {
-      token: tokenCustomer,
-      body: {
-        listing_id: gigId,
-        ruang_lingkup: 'Setup jaringan ruang rapat tambahan.',
-        harga_kesepakatan: 100000,
-        tenggat_pekerjaan: '2026-11-30T17:00:00.000Z',
-      },
-    });
-    const order2Id = order2Res.body.data.order_id;
-    await request('POST', '/orders/' + order2Id + '/accept', { token: tokenProvider });
-    await request('POST', '/payments/checkout', {
-      token: tokenCustomer,
-      body: { order_id: order2Id, metode_pembayaran: 'BCA_VA' },
-    });
-    await request('POST', '/payments/' + order2Id + '/simulate-pay', { token: tokenCustomer });
-    const refundRes = await request('POST', '/payments/' + order2Id + '/refund', {
-      token: tokenCustomer,
-      body: { alasan: 'Perangkat router dibatalkan pembeliannya oleh kampus.' },
-    });
+    // 9. Uji Kerjaan #8: Verifikasi Disclaimer Keterbatasan MVP pada Response API
     console.log(
-      '[P9] Refund Escrow pada Order Batal -> Status Pembayaran:',
-      refundRes.body.data.status_pembayaran_kode,
-      '| Status Escrow:',
-      refundRes.body.data.status_escrow_kode,
-      '(' + refundRes.body.data.status_escrow + ')'
+      '[M9] [KERJAAN #8] Disclaimer MVP Aktif -> bukan_uang_sungguhan:',
+      simSuccess.body.data.disclaimer_mvp.bukan_uang_sungguhan,
+      '| bukan_escrow_nyata:',
+      simSuccess.body.data.disclaimer_mvp.bukan_escrow_nyata,
+      '| midtrans_ditunda:',
+      simSuccess.body.data.disclaimer_mvp.midtrans_ditunda
     );
 
-    // 11. Cek Ringkasan Rekening Bersama (Escrow Summary)
-    const summaryRes = await request('GET', '/payments/summary', { token: tokenProvider });
-    console.log(
-      '[P10] Ringkasan Escrow Penyedia -> Pendapatan Dilepas: Rp' +
-        summaryRes.body.meta.total_pendapatan_dilepas_penyedia
-    );
-
-    console.log('\n=== SELURUH PENGUJIAN PAYMENT GATEWAY EKSTERNAL & ESCROW LULUS 100%! ===');
+    console.log('\n=== SELURUH ACCEPTANCE CRITERIA SIMULASI PEMBAYARAN MVP LULUS 100%! ===');
   } catch (error) {
     console.error('Pengujian gagal:', error);
     process.exitCode = 1;
@@ -217,4 +202,4 @@ async function runPaymentEscrowTests() {
   }
 }
 
-runPaymentEscrowTests();
+runMvpPaymentSimulationTests();
