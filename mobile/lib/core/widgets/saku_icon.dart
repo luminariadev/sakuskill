@@ -1,5 +1,5 @@
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 /// Ikon garis SakuSkill (Figma "User Design / 00 · Design guide" → 04 Icons:
 /// 24px, stroke 1.8px, rounded caps). File SVG ada di `assets/icons/`.
