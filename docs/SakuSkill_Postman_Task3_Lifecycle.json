@@ -1,0 +1,809 @@
+{
+  "info": {
+    "name": "SakuSkill API - Task 3 (Order Lifecycle & Barter Lifecycle)",
+    "description": "Koleksi pengujian otomatis 22 skenario untuk [P0][BE] Implementasi order lifecycle dan barter lifecycle API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "token_provider",
+      "value": ""
+    },
+    {
+      "key": "token_customer",
+      "value": ""
+    },
+    {
+      "key": "token_outsider",
+      "value": ""
+    },
+    {
+      "key": "gig_id",
+      "value": ""
+    },
+    {
+      "key": "order_id",
+      "value": ""
+    },
+    {
+      "key": "order_cancel_id",
+      "value": ""
+    },
+    {
+      "key": "barter_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Register User A (Penyedia Jasa / Penerima Barter)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.token) pm.collectionVariables.set(\"token_provider\", res.data.token);",
+              "pm.test(\"Status 201 Created & Token Penyedia Tersimpan\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Arya Penyedia Jasa\",\n  \"email\": \"arya.provider.{{$timestamp}}@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        },
+        "url": "{{base_url}}/auth/register"
+      }
+    },
+    {
+      "name": "2. Register User B (Pelanggan Order / Pengaju Barter)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.token) pm.collectionVariables.set(\"token_customer\", res.data.token);",
+              "pm.test(\"Status 201 Created & Token Pelanggan Tersimpan\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Qoisy Pelanggan\",\n  \"email\": \"qoisy.customer.{{$timestamp}}@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        },
+        "url": "{{base_url}}/auth/register"
+      }
+    },
+    {
+      "name": "3. Register User C (Pengguna Luar Transaksi / Outsider)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.token) pm.collectionVariables.set(\"token_outsider\", res.data.token);",
+              "pm.test(\"Status 201 Created & Token Outsider Tersimpan\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Pihak Luar Transaksi\",\n  \"email\": \"outsider.{{$timestamp}}@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        },
+        "url": "{{base_url}}/auth/register"
+      }
+    },
+    {
+      "name": "4. Buat Gig Berbayar & Barter (User A)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.listing_id) pm.collectionVariables.set(\"gig_id\", res.data.listing_id);",
+              "pm.test(\"Status 201 Created & gig_id Tersimpan\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"judul\": \"Jasa Setup Server Debian & Reverse Proxy Nginx\",\n  \"deskripsi\": \"Melayani konfigurasi server Debian headless, Nginx reverse proxy, dan firewall.\",\n  \"skill_id\": 1,\n  \"harga\": 75000,\n  \"latitude\": -6.9315,\n  \"longitude\": 107.718,\n  \"tipe_penawaran\": \"Berbayar dan Barter\",\n  \"deskripsi_imbalan_barter\": \"Barter dengan desain UI/UX aplikasi mobile 5 layar.\",\n  \"status\": \"Aktif\"\n}"
+        },
+        "url": "{{base_url}}/gigs"
+      }
+    },
+    {
+      "name": "5. [ORDER #1 & #3] Buat Order dari Gig dengan Snapshot, Scope & Deadline (User B -> requested)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.order_id) pm.collectionVariables.set(\"order_id\", res.data.order_id);",
+              "pm.test(\"Status 201 & status_kode = requested\", () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(res.data.status_kode).to.eql(\"requested\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"listing_id\": \"{{gig_id}}\",\n  \"ruang_lingkup\": \"Setup 1 VPS Debian 12 dengan Nginx dan SSL Cloudflare untuk proyek kampus.\",\n  \"harga_kesepakatan\": 75000,\n  \"tenggat_pekerjaan\": \"2026-11-25T17:00:00.000Z\"\n}"
+        },
+        "url": "{{base_url}}/orders"
+      }
+    },
+    {
+      "name": "6. [ACCEPTANCE TEST] Pengguna Luar Ubah Status Order (User C -> Wajib 403 Forbidden)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 403 FORBIDDEN_NOT_PARTICIPANT\", () => {",
+              "  pm.response.to.have.status(403);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN_NOT_PARTICIPANT\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_outsider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/accept"
+      }
+    },
+    {
+      "name": "7. [ACCEPTANCE TEST] Transisi Ilegal requested -> completed (User B -> Wajib 400 Bad Request)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 INVALID_STATE_TRANSITION\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"INVALID_STATE_TRANSITION\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/complete"
+      }
+    },
+    {
+      "name": "8. [ACCEPTANCE TEST - ORDER #5] Review Sebelum Order Selesai (User B -> Wajib 400 Bad Request)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 ORDER_NOT_COMPLETED\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"ORDER_NOT_COMPLETED\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rating\": 5,\n  \"komentar\": \"Mencoba memberi ulasan padahal order belum selesai.\"\n}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/reviews"
+      }
+    },
+    {
+      "name": "9. [ORDER #2 & #3] Penyedia Accept Order & Kunci Scope/Harga/Deadline (User A -> accepted)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & status_kode = accepted\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"accepted\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ruang_lingkup\": \"Setup 1 VPS Debian 12 + Nginx + Cloudflare Tunnel disepakati.\",\n  \"harga_kesepakatan\": 70000,\n  \"tenggat_pekerjaan\": \"2026-11-25T17:00:00.000Z\"\n}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/accept"
+      }
+    },
+    {
+      "name": "10. [ORDER #4] Penyedia Mulai Kerjakan Order (User A -> in_progress)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & status_kode = in_progress\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"in_progress\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/start"
+      }
+    },
+    {
+      "name": "11. [ORDER #4] Penyedia Ajukan Klaim Selesai (User A -> completion_requested)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & status_kode = completion_requested\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"completion_requested\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/request-completion"
+      }
+    },
+    {
+      "name": "12. [ORDER #5] Pelanggan Konfirmasi Selesai (User B -> completed)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & status_kode = completed\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"completed\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/complete"
+      }
+    },
+    {
+      "name": "13. [ORDER #5] Pelanggan Buat Review Setelah Order Selesai (User B -> 201 Created)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201 Created Review Berhasil Disimpan\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rating\": 5,\n  \"rating_kualitas\": 5,\n  \"rating_ketepatan_waktu\": 5,\n  \"komentar\": \"Server Debian dan Nginx berjalan sangat stabil dan sesuai tenggat!\"\n}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/reviews"
+      }
+    },
+    {
+      "name": "14. Buat Order ke-2 untuk Skenario Cancel (User B -> requested)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.order_id) pm.collectionVariables.set(\"order_cancel_id\", res.data.order_id);",
+              "pm.test(\"Status 201 Order ke-2 Dibuat\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"listing_id\": \"{{gig_id}}\",\n  \"ruang_lingkup\": \"Instalasi tambahan untuk server cadangan laboratorium.\",\n  \"tenggat_pekerjaan\": \"2026-11-28T17:00:00.000Z\"\n}"
+        },
+        "url": "{{base_url}}/orders"
+      }
+    },
+    {
+      "name": "15. [ORDER #2] Pelanggan Cancel Order Sesuai Aturan Status (User B -> cancelled)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & status_kode = cancelled\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"cancelled\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"alasan\": \"Jadwal kegiatan praktikum berubah.\"\n}"
+        },
+        "url": "{{base_url}}/orders/{{order_cancel_id}}/cancel"
+      }
+    },
+    {
+      "name": "16. [BARTER #6 & #7] Buat Barter Offer 2 Pengguna, Deskripsi 2 Pekerjaan & Tenggat (User B -> requested)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.barter_id) pm.collectionVariables.set(\"barter_id\", res.data.barter_id);",
+              "pm.test(\"Status 201 & status_kode = requested\", () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(res.data.status_kode).to.eql(\"requested\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"listing_id\": \"{{gig_id}}\",\n  \"deskripsi_jasa_pengaju\": \"Membuat desain 5 halaman UI/UX aplikasi mobile di Figma lengkap dengan prototype.\",\n  \"deskripsi_jasa_penerima\": \"Melakukan setup server Debian dan konfigurasi reverse proxy Nginx.\",\n  \"tenggat_pekerjaan\": \"2026-11-30T17:00:00.000Z\"\n}"
+        },
+        "url": "{{base_url}}/barter"
+      }
+    },
+    {
+      "name": "17. [ACCEPTANCE TEST - BARTER #8] Mulai in_progress Sebelum Kedua Pihak Setuju (Wajib 400 Bad Request)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 INVALID_STATE_TRANSITION\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"INVALID_STATE_TRANSITION\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/barter/{{barter_id}}/start"
+      }
+    },
+    {
+      "name": "18. [ACCEPTANCE TEST - BARTER #10] Pengguna Luar Ubah Status Barter (User C -> Wajib 403 Forbidden)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 403 FORBIDDEN_NOT_PARTICIPANT\", () => {",
+              "  pm.response.to.have.status(403);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN_NOT_PARTICIPANT\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_outsider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/barter/{{barter_id}}/accept"
+      }
+    },
+    {
+      "name": "19. [BARTER #8] Pihak Penerima Menyetujui Barter / Dual-Consent (User A -> accepted)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & Kedua Pihak Setuju (accepted)\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"accepted\");",
+              "  pm.expect(res.data.persetujuan_kedua_pihak.siap_in_progress).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/barter/{{barter_id}}/accept"
+      }
+    },
+    {
+      "name": "20. [BARTER #8] Mulai Pengerjaan Barter Setelah Kedua Pihak Setuju (User A -> in_progress)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & status_kode = in_progress\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"in_progress\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/barter/{{barter_id}}/start"
+      }
+    },
+    {
+      "name": "21. [BARTER #9] Konfirmasi Selesai Pihak ke-1 Saja (User B -> completion_requested, Belum Selesai)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & Belum Ditandai Selesai (completion_requested)\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"completion_requested\");",
+              "  pm.expect(res.data.konfirmasi_penyelesaian.keduanya_selesai).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catatan\": \"Desain 5 halaman Figma sudah saya serahkan.\"\n}"
+        },
+        "url": "{{base_url}}/barter/{{barter_id}}/confirm-completion"
+      }
+    },
+    {
+      "name": "22. [BARTER #9] Konfirmasi Selesai Pihak ke-2 (User A -> completed / Selesai!)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200 & Kedua Pihak Konfirmasi (completed)\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"completed\");",
+              "  pm.expect(res.data.konfirmasi_penyelesaian.keduanya_selesai).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catatan\": \"Setup server Debian & Nginx sudah tuntas dan diterima.\"\n}"
+        },
+        "url": "{{base_url}}/barter/{{barter_id}}/confirm-completion"
+      }
+    }
+  ]
+}
