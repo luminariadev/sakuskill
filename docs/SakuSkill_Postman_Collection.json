@@ -1,0 +1,203 @@
+﻿{
+  "info": {
+    "name": "SakuSkill API - Task 2 (Auth, Profile, Gigs CRUD & Discovery)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api/v1" },
+    { "key": "token_user_a", "value": "" },
+    { "key": "token_user_b", "value": "" },
+    { "key": "gig_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Register User A (Pemilik Gig)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.token) { pm.collectionVariables.set('token_user_a', res.data.token); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Arya Fabio Ismail\",\n  \"email\": \"arya.postman@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\",\n  \"deskripsi_profil\": \"Mahasiswa Teknik Informatika UIN SGD Bandung\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Login User A (Simpan Token Otomatis)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.token) { pm.collectionVariables.set('token_user_a', res.data.token); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"arya.postman@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Register User B (Penguji Validasi Pemilik)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.token) { pm.collectionVariables.set('token_user_b', res.data.token); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Faiz Penguji\",\n  \"email\": \"faiz.postman@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        }
+      }
+    },
+    {
+      "name": "4. Get Profile Milik Sendiri (User A)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token_user_a}}" }],
+        "url": "{{base_url}}/users/me"
+      }
+    },
+    {
+      "name": "5. Update Profile & Keterampilan (User A)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token_user_a}}" }
+        ],
+        "url": "{{base_url}}/users/me",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Arya Fabio Ismail\",\n  \"deskripsi_profil\": \"Melayani instalasi Linux, optimasi laptop, dan setup server lokal di Cibiru.\",\n  \"skill_ids\": [1, 2]\n}"
+        }
+      }
+    },
+    {
+      "name": "6. Create Gig Baru (User A)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.data && res.data.listing_id) { pm.collectionVariables.set('gig_id', res.data.listing_id); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token_user_a}}" }
+        ],
+        "url": "{{base_url}}/gigs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"judul\": \"Jasa Instalasi Dual-Boot Linux & Optimasi Laptop\",\n  \"deskripsi\": \"Melayani instalasi Linux berdampingan dengan Windows tanpa hapus data beserta konfigurasi driver untuk mahasiswa UIN SGD.\",\n  \"skill_id\": 1,\n  \"harga\": 50000,\n  \"latitude\": -6.9315,\n  \"longitude\": 107.7180,\n  \"tipe_penawaran\": \"Berbayar dan Barter\",\n  \"deskripsi_imbalan_barter\": \"Bisa barter dengan desain poster kegiatan kampus.\",\n  \"status\": \"Aktif\"\n}"
+        }
+      }
+    },
+    {
+      "name": "7. Discovery & Search Gigs (Hyperlocal PostGIS)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/gigs?q=Linux&lat=-6.9311&lng=107.7175&radius_m=3000&sort_by=jarak"
+      }
+    },
+    {
+      "name": "8. Get Detail Gig",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/gigs/{{gig_id}}"
+      }
+    },
+    {
+      "name": "9. Update Gig oleh Pemilik Asli (User A -> 200 OK)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token_user_a}}" }
+        ],
+        "url": "{{base_url}}/gigs/{{gig_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"harga\": 45000,\n  \"status\": \"Aktif\"\n}"
+        }
+      }
+    },
+    {
+      "name": "10. [ACCEPTANCE TEST] User B Ubah Gig User A (Wajib 403 Forbidden)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token_user_b}}" }
+        ],
+        "url": "{{base_url}}/gigs/{{gig_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"harga\": 1000\n}"
+        }
+      }
+    },
+    {
+      "name": "11. [ACCEPTANCE TEST] Validasi Field Gagal (Wajib 422 Validation Error)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token_user_a}}" }
+        ],
+        "url": "{{base_url}}/gigs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"judul\": \"Abc\",\n  \"deskripsi\": \"Pendek\",\n  \"harga\": -5000\n}"
+        }
+      }
+    },
+    {
+      "name": "12. Logout & Cabut Token (User A)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token_user_a}}" }],
+        "url": "{{base_url}}/auth/logout"
+      }
+    }
+  ]
+}

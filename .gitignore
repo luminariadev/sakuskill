@@ -24,3 +24,11 @@ mobile/.flutter-plugins-dependencies
 .DS_Store
 .vscode/
 .idea/
+
+# Postman local workspace
+.postman/
+postman/
+
+# Postman local workspace
+.postman/
+postman/
