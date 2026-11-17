@@ -24,6 +24,11 @@ class SakuSkillApp extends StatelessWidget {
         title: 'SakuSkill',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+        ),
         initialRoute: initialRoute,
         onGenerateRoute: AppRouter.onGenerateRoute,
       ),

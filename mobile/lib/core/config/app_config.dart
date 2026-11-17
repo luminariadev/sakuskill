@@ -22,14 +22,15 @@ abstract final class AppConfig {
     return false;
   }
 
-  /// Base URL sesuai docs/API_CONTRACT.md. Emulator Android memakai 10.0.2.2.
+  /// Base URL sesuai docs/API_CONTRACT.md. Default pada Android fisik diarahkan
+  /// ke IP Wi-Fi host laptop (192.168.100.201) agar HP dapat langsung terhubung.
   static String get apiBaseUrl {
     if (customServerUrl != null && customServerUrl!.isNotEmpty) {
       return customServerUrl!;
     }
     if (_apiOverride.isNotEmpty) return _apiOverride;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:3000/api/v1';
+      return 'http://192.168.100.201:3000/api/v1';
     }
     return 'http://localhost:3000/api/v1';
   }

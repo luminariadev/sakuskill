@@ -30,7 +30,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirm = TextEditingController();
   final _domicile = TextEditingController();
 
-  String _role = 'Pelanggan';
   bool _agree = true;
   bool _submitted = false;
   bool _loading = false;
@@ -42,6 +41,80 @@ class _RegisterPageState extends State<RegisterPage> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _openServerSettings() async {
+    final controller = TextEditingController(text: AppConfig.apiBaseUrl);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pengaturan Server API'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Sesuaikan alamat backend untuk pengujian di HP fisik / Wi-Fi:',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'API Base URL',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ActionChip(
+                    label: const Text('Wi-Fi Laptop (192.168.100.201)'),
+                    onPressed: () => controller.text = 'http://192.168.100.201:3000/api/v1',
+                  ),
+                  ActionChip(
+                    label: const Text('Emulator (10.0.2.2)'),
+                    onPressed: () => controller.text = 'http://10.0.2.2:3000/api/v1',
+                  ),
+                  ActionChip(
+                    label: const Text('USB Reverse (127.0.0.1)'),
+                    onPressed: () => controller.text = 'http://127.0.0.1:3000/api/v1',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              AppConfig.customUseMockData = true;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Beralih ke Mode Offline Demo')),
+              );
+              setState(() {});
+            },
+            child: const Text('Mode Demo'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              AppConfig.customServerUrl = controller.text.trim();
+              AppConfig.customUseMockData = false;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Server API diubah: ${AppConfig.apiBaseUrl}')),
+              );
+              setState(() {});
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -80,7 +153,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'nama': _name.text.trim(),
           'email': _email.text.trim(),
           'kata_sandi': _password.text,
-          'peran': _role,
+          'peran': 'Penyedia Jasa',
           if (profileNotes.isNotEmpty) 'deskripsi_profil': profileNotes,
         }),
       );
@@ -110,7 +183,7 @@ class _RegisterPageState extends State<RegisterPage> {
           id: user['id']?.toString(),
           name: (user['nama'] ?? _name.text.trim()).toString(),
           userEmail: (user['email'] ?? _email.text.trim()).toString(),
-          userRole: (user['peran'] ?? _role).toString(),
+          userRole: (user['peran'] ?? 'Mahasiswa').toString(),
         );
 
         SakuMotion.tick();
@@ -126,7 +199,7 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } catch (e) {
       setState(() {
-        _authError = 'Gagal terhubung ke server (${AppConfig.apiBaseUrl}).';
+        _authError = 'Gagal terhubung ke server (${AppConfig.apiBaseUrl}). Periksa koneksi Wi-Fi atau ganti alamat server.';
       });
     } finally {
       if (mounted) {
@@ -146,43 +219,26 @@ class _RegisterPageState extends State<RegisterPage> {
         showBack: true,
         gap: 12,
         children: [
-          const Text(
-            'Buat Akun\nSakuSkill Baru',
-            style: AppTypography.pageTitle,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Buat Akun\nSakuSkill Baru',
+                  style: AppTypography.pageTitle,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings_ethernet, color: AppColors.primary),
+                tooltip: 'Pengaturan Server API',
+                onPressed: _openServerSettings,
+              ),
+            ],
           ),
           const Text(
             'Satu akun fleksibel untuk mencari jasa maupun menawarkan keahlian',
             style: AppTypography.body,
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Daftar Sebagai', style: AppTypography.body),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('Pelanggan')),
-                      selected: _role == 'Pelanggan',
-                      onSelected: _loading
-                          ? null
-                          : (_) => setState(() => _role = 'Pelanggan'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('Penyedia Jasa')),
-                      selected: _role == 'Penyedia Jasa',
-                      onSelected: _loading
-                          ? null
-                          : (_) => setState(() => _role = 'Penyedia Jasa'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
           SakuTextField(
             fieldKey: const Key('register-name'),

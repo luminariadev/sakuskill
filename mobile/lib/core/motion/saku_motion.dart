@@ -1,13 +1,13 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
-/// Micro-interaction SakuSkill — sengaja halus: durasi 120–260 ms, kurva
-/// easeOut, skala tekan 0.97, geser masuk 8–12 px. Semua menghormati
-/// pengaturan "kurangi animasi" (MediaQuery.disableAnimations).
+/// Micro-interaction SakuSkill — ultra-ringan dioptimalkan untuk layar 90–120Hz:
+/// durasi mikro 80–180 ms, kurva easeOutCubic, animasi berbasis GPU layer
+/// (FadeTransition & SlideTransition tanpa alokasi buffer offscreen rekursif).
 abstract final class SakuMotion {
-  static const Duration fast = Duration(milliseconds: 120);
-  static const Duration base = Duration(milliseconds: 200);
-  static const Duration slow = Duration(milliseconds: 260);
+  static const Duration fast = Duration(milliseconds: 80);
+  static const Duration base = Duration(milliseconds: 140);
+  static const Duration slow = Duration(milliseconds: 180);
   static const Curve curve = Curves.easeOutCubic;
 
   static bool reduced(BuildContext context) =>
@@ -89,9 +89,8 @@ class FadeSlideIn extends StatefulWidget {
 
 class _FadeSlideInState extends State<FadeSlideIn>
     with SingleTickerProviderStateMixin {
-  // Jeda stagger dimasukkan ke durasi + Interval (tanpa Timer), jadi tidak
-  // ada callback tertunda saat widget dibuang.
-  late final int _delayMs = 40 * widget.index.clamp(0, 8);
+  // Jeda stagger mikro (20 ms per indeks, maksimal 6 item) untuk daftar cepat & ringan.
+  late final int _delayMs = 20 * widget.index.clamp(0, 6);
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: Duration(milliseconds: SakuMotion.slow.inMilliseconds + _delayMs),
@@ -104,6 +103,10 @@ class _FadeSlideInState extends State<FadeSlideIn>
       curve: SakuMotion.curve,
     ),
   );
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: Offset(0, (widget.offset / 200).clamp(0.02, 0.08)),
+    end: Offset.zero,
+  ).animate(_t);
 
   @override
   void didChangeDependencies() {
@@ -123,15 +126,12 @@ class _FadeSlideInState extends State<FadeSlideIn>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _t,
-      child: widget.child,
-      builder: (context, child) => Opacity(
-        opacity: _t.value,
-        child: Transform.translate(
-          offset: Offset(0, (1 - _t.value) * widget.offset),
-          child: child,
-        ),
+    if (SakuMotion.reduced(context)) return widget.child;
+    return FadeTransition(
+      opacity: _t,
+      child: SlideTransition(
+        position: _slide,
+        child: widget.child,
       ),
     );
   }

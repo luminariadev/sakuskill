@@ -11,6 +11,10 @@ class AuthSession {
   String? email;
   String? role;
 
+  String? get userName => fullName;
+  String? get userEmail => email;
+  String? get userRole => role;
+
   bool get isLoggedIn => accessToken != null && accessToken!.isNotEmpty;
   bool get isProvider => role == 'Penyedia Jasa';
 

@@ -47,7 +47,7 @@ class HomeDiscoveryPage extends StatelessWidget {
                       onBalanceTap: () =>
                           Navigator.of(context).pushNamed(AppRoutes.wallet),
                       onAvatarTap: () => Navigator.of(context)
-                          .pushNamed(AppRoutes.profileSetup),
+                          .pushNamed(AppRoutes.profile),
                     ),
                     const SizedBox(height: 16),
                     SearchPill(

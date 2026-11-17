@@ -5,6 +5,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/profile_setup_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/barter/presentation/pages/barter_chat_page.dart';
 import '../../features/barter/presentation/pages/barter_done_page.dart';
 import '../../features/barter/presentation/pages/barter_history_page.dart';
@@ -40,6 +41,7 @@ abstract final class AppRoutes {
   static const String login = '/auth/login'; // 2
   static const String register = '/auth/register'; // 3
   static const String profileSetup = '/auth/profile-setup'; // 4
+  static const String profile = '/profile';
 
   // ---- Marketplace (5–10) ------------------------------------------------
   static const String shell = '/'; // 5 Beranda · 6 Explore · 8 Chat · 9 Aktivitas
@@ -87,6 +89,7 @@ abstract final class AppRouter {
     AppRoutes.login: (_) => const LoginPage(),
     AppRoutes.register: (_) => const RegisterPage(),
     AppRoutes.profileSetup: (_) => const ProfileSetupPage(),
+    AppRoutes.profile: (_) => const ProfilePage(),
     AppRoutes.shell: (_) => const MainShell(),
     AppRoutes.myServices: (_) => const MyServicesPage(),
     AppRoutes.incomingOrders: (_) => const IncomingOrderPage(),
