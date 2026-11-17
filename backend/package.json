@@ -1,6 +1,6 @@
 {
   "name": "sakuskill-backend",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Backend API SakuSkill - Marketplace Jasa Mikro Lokal & Barter Skill",
   "main": "src/server.js",
   "scripts": {
@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/database/migrate.js",
     "test:api": "node src/database/test-task2.js",
-    "test:lifecycle": "node src/database/test-task3.js"
+    "test:lifecycle": "node src/database/test-task3.js",
+    "test:payment": "node src/database/test-task4.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

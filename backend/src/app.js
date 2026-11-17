@@ -11,6 +11,7 @@ const usersRoutes = require('./modules/users/users.routes');
 const listingsRoutes = require('./modules/listings/listings.routes');
 const ordersRoutes = require('./modules/orders/orders.routes');
 const barterRoutes = require('./modules/barter/barter.routes');
+const paymentsRoutes = require('./modules/payments/payments.routes');
 
 const app = express();
 
@@ -29,6 +30,8 @@ app.use(env.apiPrefix + '/listings', listingsRoutes);
 app.use(env.apiPrefix + '/orders', ordersRoutes);
 app.use(env.apiPrefix + '/barter', barterRoutes);
 app.use(env.apiPrefix + '/barters', barterRoutes);
+app.use(env.apiPrefix + '/payments', paymentsRoutes);
+app.use(env.apiPrefix + '/escrow', paymentsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

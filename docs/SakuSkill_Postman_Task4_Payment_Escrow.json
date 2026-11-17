@@ -1,0 +1,617 @@
+{
+  "info": {
+    "name": "SakuSkill API - Task 4 ([P0][BE] Simulasi Pembayaran MVP)",
+    "description": "Koleksi pengujian otomatis untuk [P0][BE] Implementasi simulasi pembayaran untuk MVP (pending -> failed, pending -> success, proteksi status client, dan pemisahan status payment vs order).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "token_provider",
+      "value": ""
+    },
+    {
+      "key": "token_customer",
+      "value": ""
+    },
+    {
+      "key": "token_outsider",
+      "value": ""
+    },
+    {
+      "key": "gig_id",
+      "value": ""
+    },
+    {
+      "key": "order_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Register User A (Penyedia Jasa)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set(\"token_provider\", res.data.token);",
+              "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Arya Penyedia Jasa\",\n  \"email\": \"arya.mvp.{{$timestamp}}@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        },
+        "url": "{{base_url}}/auth/register"
+      }
+    },
+    {
+      "name": "2. Register User B (Pelanggan Terkait)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set(\"token_customer\", res.data.token);",
+              "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Qoisy Pelanggan\",\n  \"email\": \"qoisy.mvp.{{$timestamp}}@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        },
+        "url": "{{base_url}}/auth/register"
+      }
+    },
+    {
+      "name": "3. Register User C (Pengguna Luar / Outsider)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set(\"token_outsider\", res.data.token);",
+              "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Outsider User\",\n  \"email\": \"outsider.mvp.{{$timestamp}}@uinsgd.ac.id\",\n  \"kata_sandi\": \"PasswordAman123!\"\n}"
+        },
+        "url": "{{base_url}}/auth/register"
+      }
+    },
+    {
+      "name": "4. Buat Gig Berbayar (User A)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set(\"gig_id\", res.data.listing_id);",
+              "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"judul\": \"Jasa Setup Server Linux & Optimasi Jaringan\",\n  \"deskripsi\": \"Melayani konfigurasi server lokal dan jaringan laboratorium.\",\n  \"skill_id\": 1,\n  \"harga\": 120000,\n  \"latitude\": -6.9311,\n  \"longitude\": 107.7175,\n  \"tipe_penawaran\": \"Berbayar\",\n  \"status\": \"Aktif\"\n}"
+        },
+        "url": "{{base_url}}/gigs"
+      }
+    },
+    {
+      "name": "5. Buat Order dari Gig (User B -> requested)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set(\"order_id\", res.data.order_id);",
+              "pm.test(\"Status 201 & order requested\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"listing_id\": \"{{gig_id}}\",\n  \"ruang_lingkup\": \"Instalasi dan konfigurasi server praktikum.\",\n  \"harga_kesepakatan\": 120000,\n  \"tenggat_pekerjaan\": \"2026-11-29T17:00:00.000Z\"\n}"
+        },
+        "url": "{{base_url}}/orders"
+      }
+    },
+    {
+      "name": "6. Penyedia Accept Order (User A -> accepted)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200 & order accepted\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/accept"
+      }
+    },
+    {
+      "name": "7. [KERJAAN #6] Coba Mulai Order Sebelum Payment Dibuat (Wajib 400 PAYMENT_REQUIRED_BEFORE_START)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 PAYMENT_REQUIRED_BEFORE_START\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"PAYMENT_REQUIRED_BEFORE_START\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/start"
+      }
+    },
+    {
+      "name": "8. [KERJAAN #4] Penyedia Mencoba Memulai Simulasi Payment (Wajib 403 FORBIDDEN_ONLY_CUSTOMER)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 403 FORBIDDEN_ONLY_CUSTOMER\", () => {",
+              "  pm.response.to.have.status(403);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN_ONLY_CUSTOMER\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_id\": \"{{order_id}}\"\n}"
+        },
+        "url": "{{base_url}}/payments"
+      }
+    },
+    {
+      "name": "9. [KERJAAN #5 & ACCEPTANCE] Client Mencoba Memaksa Status=success saat Create (Wajib 400 CLIENT_CANNOT_FORCE_STATUS)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 CLIENT_CANNOT_FORCE_STATUS\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"CLIENT_CANNOT_FORCE_STATUS\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"status\": \"success\"\n}"
+        },
+        "url": "{{base_url}}/payments"
+      }
+    },
+    {
+      "name": "10. [KERJAAN #1 & #2] Pelanggan Buat Record Payment Terpisah (Backend Set Status = pending)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 201, Payment=pending & Order tetap accepted\", () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(res.data.status_kode).to.eql(\"pending\");",
+              "  pm.expect(res.data.relasi_order.order_status_kode).to.eql(\"accepted\");",
+              "  pm.expect(res.data.disclaimer_mvp.bukan_uang_sungguhan).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"metode_simulasi\": \"SIMULASI_MVP\"\n}"
+        },
+        "url": "{{base_url}}/payments"
+      }
+    },
+    {
+      "name": "11. [KERJAAN #5 & ACCEPTANCE] Client Mencoba Memaksa Status via PATCH (Wajib 400 CLIENT_CANNOT_FORCE_STATUS)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 CLIENT_CANNOT_FORCE_STATUS\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"CLIENT_CANNOT_FORCE_STATUS\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"success\"\n}"
+        },
+        "url": "{{base_url}}/payments/{{order_id}}/status"
+      }
+    },
+    {
+      "name": "12. [ACCEPTANCE: pending -> failed] Pelanggan Simulasi Pembayaran Gagal",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200, Payment=failed & Order tetap accepted\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"failed\");",
+              "  pm.expect(res.data.relasi_order.order_status_kode).to.eql(\"accepted\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"alasan_gagal\": \"Simulasi pembayaran gagal untuk demo MVP.\"\n}"
+        },
+        "url": "{{base_url}}/payments/{{order_id}}/simulate-failed"
+      }
+    },
+    {
+      "name": "13. [KERJAAN #7] Pembayaran Gagal Tidak Mengubah Order Menjadi in_progress (Wajib 400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 400 PAYMENT_REQUIRED_BEFORE_START\", () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().error.code).to.eql(\"PAYMENT_REQUIRED_BEFORE_START\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/start"
+      }
+    },
+    {
+      "name": "14. Pelanggan Inisiasi Ulang Sesi Pembayaran ke pending",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 201 & Payment kembali pending\", () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(res.data.status_kode).to.eql(\"pending\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"metode_simulasi\": \"SIMULASI_RETRY_MVP\"\n}"
+        },
+        "url": "{{base_url}}/payments"
+      }
+    },
+    {
+      "name": "15. [KERJAAN #4] Pihak Luar Mencoba Menjalankan Simulasi Success (Wajib 403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Wajib Ditolak 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_outsider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/payments/{{order_id}}/simulate-success"
+      }
+    },
+    {
+      "name": "16. [ACCEPTANCE: pending -> success] Pelanggan Simulasi Pembayaran Sukses",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200, Payment=success & Order masih accepted (Terpisah)\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"success\");",
+              "  pm.expect(res.data.relasi_order.order_status_kode).to.eql(\"accepted\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_customer}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catatan\": \"Simulasi pembayaran sukses untuk demo MVP.\"\n}"
+        },
+        "url": "{{base_url}}/payments/{{order_id}}/simulate-success"
+      }
+    },
+    {
+      "name": "17. [KERJAAN #6] Penyedia Mulai Order Setelah Payment Success (accepted -> in_progress)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test(\"Status 200, Order=in_progress & Payment tetap success\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(res.data.status_kode).to.eql(\"in_progress\");",
+              "  pm.expect(res.data.payment.status_kode).to.eql(\"success\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_provider}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{base_url}}/orders/{{order_id}}/start"
+      }
+    }
+  ]
+}
