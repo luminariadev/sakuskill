@@ -160,8 +160,8 @@ class _LoginPageState extends State<LoginPage> {
                 runSpacing: 8,
                 children: [
                   ActionChip(
-                    label: const Text('Wi-Fi Laptop (192.168.100.201)'),
-                    onPressed: () => controller.text = 'http://192.168.100.201:3000/api/v1',
+                    label: const Text('Wi-Fi Laptop (192.168.101.9)'),
+                    onPressed: () => controller.text = 'http://192.168.101.9:3000/api/v1',
                   ),
                   ActionChip(
                     label: const Text('Emulator (10.0.2.2)'),

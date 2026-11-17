@@ -23,14 +23,14 @@ abstract final class AppConfig {
   }
 
   /// Base URL sesuai docs/API_CONTRACT.md. Default pada Android fisik diarahkan
-  /// ke IP Wi-Fi host laptop (192.168.100.201) agar HP dapat langsung terhubung.
+  /// ke IP Wi-Fi host laptop (192.168.101.9) agar HP dapat langsung terhubung.
   static String get apiBaseUrl {
     if (customServerUrl != null && customServerUrl!.isNotEmpty) {
       return customServerUrl!;
     }
     if (_apiOverride.isNotEmpty) return _apiOverride;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.100.201:3000/api/v1';
+      return 'http://192.168.101.9:3000/api/v1';
     }
     return 'http://localhost:3000/api/v1';
   }
