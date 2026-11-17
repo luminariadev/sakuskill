@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'incoming_order_page.dart';
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
@@ -30,7 +31,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   );
   late final TextEditingController _duration;
   final _notes = TextEditingController(
-    text: 'Warna cerah hijau kuning, tolong cantumkan logo menu '
+    text:
+        'Warna cerah hijau kuning, tolong cantumkan logo menu '
         'ayam bakar dan no WhatsApp katering.',
   );
 
@@ -108,9 +110,11 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         );
       }
 
-      Navigator.of(context).pushReplacementNamed(
-        AppRoutes.incomingOrders,
-        arguments: result.data,
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) =>
+              IncomingOrderPage(order: result.data, isProviderView: false),
+        ),
       );
     } on EscrowException catch (e) {
       if (!mounted) return;
@@ -118,10 +122,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           ? 'Sesi habis atau Anda belum login. Silakan login terlebih dahulu.'
           : e.message;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(pesan),
-          backgroundColor: Colors.red.shade700,
-        ),
+        SnackBar(content: Text(pesan), backgroundColor: Colors.red.shade700),
       );
     } catch (e) {
       if (!mounted) return;
@@ -191,10 +192,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           errorText: _validateTitle(),
           onChanged: (_) => setState(() {}),
         ),
-        SakuTextField(
-          controller: _duration,
-          label: 'Tenggat Waktu Diinginkan',
-        ),
+        SakuTextField(controller: _duration, label: 'Tenggat Waktu Diinginkan'),
         SakuTextField(
           controller: _notes,
           label: 'Catatan Brief Detail',
@@ -228,12 +226,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         ),
         SakuButton(
           key: const Key('order-submit'),
-          label: _submitting ? 'Mengirim Pesanan...' : 'Kirim Pesanan ke $provider',
+          label: _submitting
+              ? 'Mengirim Pesanan...'
+              : 'Kirim Pesanan ke $provider',
           onPressed: _submitting ? null : _submit,
         ),
         const InfoBox(
-          text:
-              'Pesanan akan masuk ke penyedia jasa untuk ditinjau dan disetujui.',
+          text: 'Pesanan akan masuk ke penyedia jasa untuk ditinjau dan disetujui.',
           tone: SakuTone.escrow,
           fontWeight: FontWeight.w500,
         ),

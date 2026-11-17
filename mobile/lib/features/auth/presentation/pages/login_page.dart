@@ -1,5 +1,10 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 
+import '../../data/auth_session.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -10,13 +15,6 @@ import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 
 /// Figma "2 · Login pengguna".
-///
-/// Validasi klien (FE-02): kedua field wajib diisi lewat [SakuValidators].
-/// Kegagalan kredensial tampil sebagai pesan generik di kotak merah (FR-05),
-/// tanpa menyebut field mana yang salah.
-///
-/// TODO(anggota-5): ganti simulasi kredensial di [_submit] dengan
-/// `POST /auth/login` (M2). Sementara: sandi < 8 karakter dianggap salah.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -30,6 +28,9 @@ class _LoginPageState extends State<LoginPage> {
   final _password = TextEditingController();
   bool _remember = true;
   bool _failed = false;
+  bool _loading = false;
+  String _errorMessage =
+      'Email atau kata sandi tidak sesuai. Silakan coba lagi.';
 
   @override
   void dispose() {
@@ -38,19 +39,96 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_loading) return;
     setState(() => _failed = false);
     if (!_formKey.currentState!.validate()) return;
-    // Simulasi respons server sampai repository auth tersedia (M2).
-    final credentialsOk =
-        _password.text.length >= SakuValidators.passwordMinLength;
-    if (!credentialsOk) {
-      setState(() => _failed = true);
+
+    if (AppConfig.useMockData) {
+      final credentialsOk =
+          _password.text.length >= SakuValidators.passwordMinLength;
+      if (!credentialsOk) {
+        setState(() => _failed = true);
+        return;
+      }
+      SakuMotion.tick();
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
       return;
     }
-    SakuMotion.tick();
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
+
+    setState(() => _loading = true);
+
+    try {
+      final uri = Uri.parse('${AppConfig.apiBaseUrl}/auth/login');
+      final response = await http.post(
+        uri,
+        headers: const {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': _id.text.trim(),
+          'kata_sandi': _password.text,
+        }),
+      );
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = decoded['data'] is Map<String, dynamic>
+            ? decoded['data'] as Map<String, dynamic>
+            : decoded;
+        final tokens = data['tokens'] is Map<String, dynamic>
+            ? data['tokens'] as Map<String, dynamic>
+            : data;
+        final user = data['user'] is Map<String, dynamic>
+            ? data['user'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        final token = (tokens['access_token'] ??
+                tokens['accessToken'] ??
+                tokens['token'] ??
+                '')
+            .toString();
+
+        if (token.isEmpty) {
+          throw Exception('Token autentikasi tidak ditemukan pada respons.');
+        }
+
+        AuthSession.instance.save(
+          token: token,
+          id: user['id']?.toString(),
+          name: (user['nama'] ?? user['nama_lengkap'] ?? user['name'])?.toString(),
+          userEmail: user['email']?.toString(),
+          userRole: user['peran']?.toString(),
+        );
+
+        if (!mounted) return;
+        SakuMotion.tick();
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
+      } else {
+        final errorObj = decoded['error'] is Map<String, dynamic>
+            ? decoded['error'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+        setState(() {
+          _errorMessage = (errorObj['message'] ??
+                  decoded['message'] ??
+                  'Email atau kata sandi tidak sesuai. Silakan coba lagi.')
+              .toString();
+          _failed = true;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Gagal terhubung ke server: $e';
+        _failed = true;
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -125,8 +203,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           SakuButton(
             key: const Key('login-submit'),
-            label: 'Masuk Sekarang',
-            onPressed: _submit,
+            label: _loading ? 'Memproses Masuk...' : 'Masuk Sekarang',
+            onPressed: _loading ? null : _submit,
           ),
           AnimatedSwitcher(
             duration: SakuMotion.base,
@@ -135,9 +213,9 @@ class _LoginPageState extends State<LoginPage> {
               child: FadeTransition(opacity: a, child: child),
             ),
             child: _failed
-                ? const InfoBox(
-                    key: ValueKey('login-error'),
-                    text: 'Email atau kata sandi tidak sesuai. Silakan coba lagi.',
+                ? InfoBox(
+                    key: const ValueKey('login-error'),
+                    text: _errorMessage,
                     tone: SakuTone.danger,
                   )
                 : const SizedBox(key: ValueKey('ok'), width: double.infinity),

@@ -11,6 +11,7 @@ import '../../features/escrow/data/datasources/escrow_local_data_source.dart';
 import '../../features/escrow/data/datasources/escrow_remote_data_source.dart';
 import '../../features/escrow/domain/repositories/escrow_repository_impl.dart';
 import '../../features/escrow/domain/repositories/escrow_repository.dart';
+import '../../features/auth/data/auth_session.dart';
 import '../config/app_config.dart';
 
 /// Composition root (dependency injection manual, tanpa paket tambahan).
@@ -28,7 +29,9 @@ class AppDependencies {
         forceLocal: AppConfig.useMockData,
       ),
       escrowRepository: EscrowRepositoryImpl(
-        remote: EscrowRemoteDataSource(),
+        remote: EscrowRemoteDataSource(
+          tokenProvider: () async => AuthSession.instance.accessToken,
+        ),
         local: const EscrowLocalDataSource(),
         forceLocal: AppConfig.useMockData,
       ),

@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -7,13 +11,9 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
+import '../../data/auth_session.dart';
 
 /// Figma "3 · Registrasi akun" (FE-01: FR-01, FR-02).
-///
-/// Validasi klien memakai [SakuValidators]; setelah tombol ditekan sekali,
-/// field divalidasi ulang setiap diketik.
-/// TODO(anggota-5): kirim ke `POST /auth/register` dan petakan
-/// `error.details[].field` ke `errorText` field terkait.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -29,8 +29,12 @@ class _RegisterPageState extends State<RegisterPage> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _domicile = TextEditingController();
+
+  String _role = 'Pelanggan';
   bool _agree = true;
   bool _submitted = false;
+  bool _loading = false;
+  String? _authError;
 
   @override
   void dispose() {
@@ -40,12 +44,89 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _submit() {
-    setState(() => _submitted = true);
+  Future<void> _submit() async {
+    setState(() {
+      _submitted = true;
+      _authError = null;
+    });
+
     final fieldsValid = _formKey.currentState!.validate();
     if (!fieldsValid || !_agree) return;
-    SakuMotion.tick();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.profileSetup);
+
+    setState(() => _loading = true);
+
+    try {
+      final phone = _phone.text.trim();
+      final domicile = _domicile.text.trim();
+      final profileNotes = [
+        if (phone.isNotEmpty) 'WA: $phone',
+        if (domicile.isNotEmpty) 'Domisili: $domicile',
+      ].join(' · ');
+
+      final uri = Uri.parse('${AppConfig.apiBaseUrl}/auth/register');
+      final response = await http.post(
+        uri,
+        headers: const {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'nama': _name.text.trim(),
+          'email': _email.text.trim(),
+          'kata_sandi': _password.text,
+          'peran': _role,
+          if (profileNotes.isNotEmpty) 'deskripsi_profil': profileNotes,
+        }),
+      );
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = decoded['data'] is Map<String, dynamic>
+            ? decoded['data'] as Map<String, dynamic>
+            : decoded;
+        final token = (data['token'] ??
+                data['accessToken'] ??
+                data['access_token'] ??
+                '')
+            .toString();
+
+        if (token.isEmpty) {
+          throw Exception('Token autentikasi tidak ditemukan pada respons.');
+        }
+
+        final user = data['user'] is Map<String, dynamic>
+            ? data['user'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        AuthSession.instance.save(
+          token: token,
+          id: user['id']?.toString(),
+          name: (user['nama'] ?? _name.text.trim()).toString(),
+          userEmail: (user['email'] ?? _email.text.trim()).toString(),
+          userRole: (user['peran'] ?? _role).toString(),
+        );
+
+        SakuMotion.tick();
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed(AppRoutes.profileSetup);
+      } else {
+        final errorObj = decoded['error'];
+        final message = errorObj is Map<String, dynamic>
+            ? (errorObj['message'] ?? 'Registrasi gagal.').toString()
+            : (decoded['message'] ?? 'Registrasi gagal.').toString();
+
+        setState(() => _authError = message);
+      }
+    } catch (e) {
+      setState(() {
+        _authError = 'Gagal terhubung ke server (${AppConfig.apiBaseUrl}).';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   @override
@@ -66,6 +147,36 @@ class _RegisterPageState extends State<RegisterPage> {
           const Text(
             'Satu akun fleksibel untuk mencari jasa maupun menawarkan keahlian',
             style: AppTypography.body,
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Daftar Sebagai', style: AppTypography.body),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Pelanggan')),
+                      selected: _role == 'Pelanggan',
+                      onSelected: _loading
+                          ? null
+                          : (_) => setState(() => _role = 'Pelanggan'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Penyedia Jasa')),
+                      selected: _role == 'Penyedia Jasa',
+                      onSelected: _loading
+                          ? null
+                          : (_) => setState(() => _role = 'Penyedia Jasa'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           SakuTextField(
             fieldKey: const Key('register-name'),
@@ -142,10 +253,23 @@ class _RegisterPageState extends State<RegisterPage> {
                 ? AppColors.danger
                 : AppColors.textSecondary,
           ),
+          if (_authError != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.danger),
+              ),
+              child: Text(
+                _authError!,
+                style: AppTypography.body.copyWith(color: AppColors.danger),
+              ),
+            ),
           SakuButton(
             key: const Key('register-submit'),
-            label: 'Daftar Akun Baru',
-            onPressed: _submit,
+            label: _loading ? 'Mendaftarkan Akun...' : 'Daftar Akun Baru',
+            onPressed: _loading ? null : _submit,
           ),
           SakuTextLink(
             'Sudah memiliki akun? Masuk di sini',
