@@ -7,20 +7,32 @@ import '../../features/discovery/domain/entities/discovery_filter.dart';
 import '../../features/discovery/domain/repositories/discovery_repository.dart';
 import '../../features/discovery/domain/usecases/discovery_usecases.dart';
 import '../../features/discovery/presentation/controllers/discovery_controller.dart';
+import '../../features/escrow/data/datasources/escrow_local_data_source.dart';
+import '../../features/escrow/data/datasources/escrow_remote_data_source.dart';
+import '../../features/escrow/domain/repositories/escrow_repository_impl.dart';
+import '../../features/escrow/domain/repositories/escrow_repository.dart';
+import '../../features/auth/data/auth_session.dart';
 import '../config/app_config.dart';
 
 /// Composition root (dependency injection manual, tanpa paket tambahan).
-///
-/// Anggota lain menambahkan repository/use case modulnya di sini, mis.
-/// `escrowRepository`, `barterRepository`, `authRepository`.
 class AppDependencies {
-  AppDependencies({required this.discoveryRepository});
+  AppDependencies({
+    required this.discoveryRepository,
+    required this.escrowRepository,
+  });
 
   factory AppDependencies.production() {
     return AppDependencies(
       discoveryRepository: DiscoveryRepositoryImpl(
         remote: DiscoveryRemoteDataSource(),
         local: const DiscoveryLocalDataSource(),
+        forceLocal: AppConfig.useMockData,
+      ),
+      escrowRepository: EscrowRepositoryImpl(
+        remote: EscrowRemoteDataSource(
+          tokenProvider: () async => AuthSession.instance.accessToken,
+        ),
+        local: const EscrowLocalDataSource(),
         forceLocal: AppConfig.useMockData,
       ),
     );
@@ -34,10 +46,16 @@ class AppDependencies {
         local: const DiscoveryLocalDataSource(),
         forceLocal: true,
       ),
+      escrowRepository: EscrowRepositoryImpl(
+        remote: EscrowRemoteDataSource(),
+        local: const EscrowLocalDataSource(),
+        forceLocal: true,
+      ),
     );
   }
 
   final DiscoveryRepository discoveryRepository;
+  final EscrowRepository escrowRepository;
 
   DiscoveryController createDiscoveryController({
     DiscoveryFilter initialFilter = const DiscoveryFilter(),

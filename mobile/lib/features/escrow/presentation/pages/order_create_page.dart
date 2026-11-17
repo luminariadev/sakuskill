@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'incoming_order_page.dart';
 import '../../../../core/demo/demo_data.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -10,6 +12,7 @@ import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../discovery/domain/entities/service_listing.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 
 /// Figma "11 · Buat pesanan jasa" (sisi klien).
 class OrderCreatePage extends StatefulWidget {
@@ -23,21 +26,115 @@ class OrderCreatePage extends StatefulWidget {
 }
 
 class _OrderCreatePageState extends State<OrderCreatePage> {
-  final _title = TextEditingController(text: 'Desain Spanduk Toko Ukuran 3×1 Meter');
+  final _title = TextEditingController(
+    text: 'Desain Spanduk Toko Ukuran 3×1 Meter',
+  );
+  late final TextEditingController _duration;
+  final _notes = TextEditingController(
+    text:
+        'Warna cerah hijau kuning, tolong cantumkan logo menu '
+        'ayam bakar dan no WhatsApp katering.',
+  );
+
   String? _file = 'Foto_Ayam_Bakar.jpg (3 MB)';
   bool _submitted = false;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final defaultDays =
+        widget.listing?.deliveryDays ?? DemoData.order.deadlineDays;
+    _duration = TextEditingController(text: '$defaultDays Hari Pengerjaan');
+  }
 
   @override
   void dispose() {
     _title.dispose();
+    _duration.dispose();
+    _notes.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  int _parseDurationDays() {
+    final match = RegExp(r'\d+').firstMatch(_duration.text);
+    final parsed = match != null ? int.tryParse(match.group(0)!) : null;
+    if (parsed != null && parsed > 0) return parsed;
+    return widget.listing?.deliveryDays ?? DemoData.order.deadlineDays;
+  }
+
+  String? _validateTitle() {
+    if (!_submitted) return null;
+    final text = _title.text.trim();
+    if (text.isEmpty) return 'Judul kebutuhan wajib diisi';
+    if (text.length < 10) return 'Judul kebutuhan minimal 10 karakter';
+    return null;
+  }
+
+  Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (_title.text.trim().isEmpty) return;
+    if (_validateTitle() != null || _submitting) return;
+
+    setState(() => _submitting = true);
     SakuMotion.tick();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.incomingOrders);
+
+    const demoOrder = DemoData.order;
+    final listing = widget.listing;
+    final price = (listing?.price ?? demoOrder.amount).toInt();
+    final repo = AppScope.of(context).escrowRepository;
+
+    try {
+      final result = await repo.createOrder(
+        listingId: listing?.id ?? 'listing-demo-091',
+        deskripsiKebutuhan: _title.text.trim(),
+        hargaDisepakati: price,
+        durasiHari: _parseDurationDays(),
+        catatanKlien: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (result.isFallback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Mode demo: Pesanan dibuat menggunakan data simulasi lokal.',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan berhasil dikirim ke penyedia jasa!'),
+          ),
+        );
+      }
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) =>
+              IncomingOrderPage(order: result.data, isProviderView: false),
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      final pesan = e.code == 'UNAUTHORIZED'
+          ? 'Sesi habis atau Anda belum login. Silakan login terlebih dahulu.'
+          : e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(pesan), backgroundColor: Colors.red.shade700),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Terjadi kesalahan tak terduga: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -92,19 +189,13 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           fieldKey: const Key('order-title'),
           controller: _title,
           label: 'Judul Kebutuhan',
-          errorText: _submitted && _title.text.trim().isEmpty
-              ? 'Judul kebutuhan wajib diisi'
-              : null,
+          errorText: _validateTitle(),
           onChanged: (_) => setState(() {}),
         ),
+        SakuTextField(controller: _duration, label: 'Tenggat Waktu Diinginkan'),
         SakuTextField(
-          label: 'Tenggat Waktu Diinginkan',
-          initialValue: '${listing?.deliveryDays ?? order.deadlineDays} Hari Pengerjaan',
-        ),
-        const SakuTextField(
+          controller: _notes,
           label: 'Catatan Brief Detail',
-          initialValue: 'Warna cerah hijau kuning, tolong cantumkan logo menu '
-              'ayam bakar dan no WhatsApp katering.',
           minLines: 3,
           maxLines: 6,
           maxLength: 500,
@@ -127,15 +218,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
               subtitle: 'JPG / PNG / PDF maks 5MB',
               fileName: _file == null ? null : '↑ $_file',
               onTap: () => setState(
-                () => _file = _file == null ? 'Foto_Ayam_Bakar.jpg (3 MB)' : null,
+                () =>
+                    _file = _file == null ? 'Foto_Ayam_Bakar.jpg (3 MB)' : null,
               ),
             ),
           ],
         ),
         SakuButton(
           key: const Key('order-submit'),
-          label: 'Kirim Pesanan ke $provider',
-          onPressed: _submit,
+          label: _submitting
+              ? 'Mengirim Pesanan...'
+              : 'Kirim Pesanan ke $provider',
+          onPressed: _submitting ? null : _submit,
         ),
         const InfoBox(
           text: 'Pesanan akan masuk ke penyedia jasa untuk ditinjau dan disetujui.',
