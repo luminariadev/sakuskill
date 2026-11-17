@@ -184,10 +184,13 @@ class ApiClient {
       throw const ApiException.network();
     }
 
-    return _parse(response);
+    return _parse(
+      response,
+      authenticated: token != null && token.isNotEmpty,
+    );
   }
 
-  ApiResponse _parse(http.Response response) {
+  ApiResponse _parse(http.Response response, {required bool authenticated}) {
     final status = response.statusCode;
     Object? json;
     if (response.bodyBytes.isNotEmpty) {
@@ -217,7 +220,14 @@ class ApiClient {
     }
 
     final error = _errorFrom(envelope, status);
-    if (error.isUnauthorized) _unauthorized.add(error);
+    // Hanya 401 atas token yang dikirim berarti sesi berakhir. 401 karena
+    // kredensial login salah (atau tanpa token sama sekali) bukan alasan
+    // menghapus sesi.
+    if (error.isUnauthorized &&
+        authenticated &&
+        error.code != ApiException.invalidCredentials) {
+      _unauthorized.add(error);
+    }
     throw error;
   }
 

@@ -40,6 +40,8 @@ class ApiException implements Exception {
   static const String timeoutError = 'TIMEOUT';
   static const String invalidResponseError = 'INVALID_RESPONSE';
   static const String unauthorized = 'UNAUTHORIZED';
+  /// 401 dari `POST /auth/login` saat email/sandi salah.
+  static const String invalidCredentials = 'INVALID_CREDENTIALS';
   static const String validationError = 'VALIDATION_ERROR';
 
   final String code;

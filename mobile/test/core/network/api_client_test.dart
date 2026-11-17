@@ -160,7 +160,7 @@ void main() {
       final api = clientFor((_) async => _json({
             'success': false,
             'error': {'code': 'UNAUTHORIZED', 'message': 'Token kedaluwarsa'},
-          }, 401));
+          }, 401), token: () => 'tok-lama');
       final events = <ApiException>[];
       final sub = api.unauthorizedEvents.listen(events.add);
 
@@ -181,6 +181,27 @@ void main() {
             .having((e) => e.code, 'code', ApiException.unauthorized)
             .having((e) => e.message, 'msg', contains('masuk kembali'))),
       );
+    });
+
+    test('401 tanpa token atau kredensial salah tidak menghapus sesi', () async {
+      final events = <ApiException>[];
+      final noToken = clientFor((_) async => http.Response('', 401));
+      final badLogin = clientFor((_) async => _json({
+            'success': false,
+            'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Salah'},
+          }, 401), token: () => 'tok-masih-valid');
+      final subs = [
+        noToken.unauthorizedEvents.listen(events.add),
+        badLogin.unauthorizedEvents.listen(events.add),
+      ];
+
+      await expectLater(noToken.get('/me'), throwsA(isA<ApiException>()));
+      await expectLater(badLogin.post('/auth/login'), throwsA(isA<ApiException>()));
+      await Future<void>.delayed(Duration.zero);
+      expect(events, isEmpty);
+      for (final s in subs) {
+        await s.cancel();
+      }
     });
 
     test('error selain 401 tidak memancarkan event', () async {
