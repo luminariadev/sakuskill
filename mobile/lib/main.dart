@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/di/app_dependencies.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(SakuSkillApp(dependencies: AppDependencies.production()));
+  final dependencies = AppDependencies.production();
+  // Pulihkan sesi tersimpan sebelum layar pertama (FE-03).
+  await dependencies.init();
+  runApp(SakuSkillApp(dependencies: dependencies));
 }

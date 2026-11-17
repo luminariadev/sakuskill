@@ -31,6 +31,9 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      // Font global (T-04). TextStyle di fitur tidak perlu menyebut
+      // fontFamily karena mewarisi DefaultTextStyle dari tema ini.
+      fontFamily: AppTypography.fontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.canvasLight,
       textTheme: AppTypography.textTheme,
