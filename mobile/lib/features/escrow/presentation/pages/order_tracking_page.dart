@@ -274,7 +274,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             spacing: 10,
             children: [
               Text(
-                '✓  STATUS: $statusPesanan · DANA: ${statusEscrow.toUpperCase()}',
+                '✓  STATUS: $statusPesanan',
                 style: const TextStyle(
                   fontSize: 11,
                   height: 15 / 11,

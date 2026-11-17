@@ -67,6 +67,8 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
       final detailResult = await repo.fetchOrderDetail(orderId);
       final updatedOrder = detailResult.isFallback
           ? (currentOrder ?? detailResult.data).copyWith(
+              statusPesanan: 'Dikerjakan',
+              statusKode: 'in_progress',
               paymentStatusKode: simResult.data.statusKode,
               bolehLanjutInProgress: simResult.data.bolehLanjutInProgress,
               statusEscrow: isSuccess

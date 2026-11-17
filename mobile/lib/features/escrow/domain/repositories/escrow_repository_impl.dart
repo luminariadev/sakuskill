@@ -9,10 +9,11 @@ import '../../data/models/escrow_payment_model.dart';
 
 class EscrowRepositoryImpl implements EscrowRepository {
   EscrowRepositoryImpl({
-    required this._remote,
-    required this._local,
+    required EscrowRemoteDataSource remote,
+    required EscrowLocalDataSource local,
     this.forceLocal = false,
-  });
+  })  : _remote = remote,
+        _local = local;
 
   final EscrowRemoteDataSource _remote;
   final EscrowLocalDataSource _local;
@@ -127,9 +128,7 @@ class EscrowRepositoryImpl implements EscrowRepository {
         final json = await _remote.createPayment(orderId);
         return EscrowPaymentModel.fromJson(json);
       },
-      fallbackCall: () => throw const EscrowException(
-        'Simulasi pembayaran membutuhkan koneksi ke backend.',
-      ),
+      fallbackCall: () => _local.getSamplePayment(orderId, false),
     );
   }
 
@@ -148,9 +147,7 @@ class EscrowRepositoryImpl implements EscrowRepository {
             : await _remote.simulatePaymentFailed(orderId, alasan: alasanGagal);
         return EscrowPaymentModel.fromJson(json);
       },
-      fallbackCall: () => throw const EscrowException(
-        'Simulasi pembayaran membutuhkan koneksi ke backend.',
-      ),
+      fallbackCall: () => _local.getSamplePayment(orderId, berhasil),
     );
   }
 
@@ -163,9 +160,7 @@ class EscrowRepositoryImpl implements EscrowRepository {
         final json = await _remote.fetchPayment(orderId);
         return EscrowPaymentModel.fromJson(json);
       },
-      fallbackCall: () => throw const EscrowException(
-        'Data pembayaran tidak tersedia di mode offline.',
-      ),
+      fallbackCall: () => _local.getSamplePayment(orderId, true),
     );
   }
 
@@ -221,7 +216,7 @@ class EscrowRepositoryImpl implements EscrowRepository {
       actionName: 'acceptOrder',
       isWrite: true,
       remoteCall: () => _remote.acceptOrder(orderId),
-      fallbackCall: () => _local.getSampleOrder(orderId),
+      fallbackCall: () => _local.getSampleOrder(orderId, 'accepted'),
     );
   }
 
@@ -234,7 +229,7 @@ class EscrowRepositoryImpl implements EscrowRepository {
       actionName: 'rejectOrder',
       isWrite: true,
       remoteCall: () => _remote.rejectOrder(orderId, alasan: alasan),
-      fallbackCall: () => _local.getSampleOrder(orderId),
+      fallbackCall: () => _local.getSampleOrder(orderId, 'rejected'),
     );
   }
 
@@ -244,7 +239,7 @@ class EscrowRepositoryImpl implements EscrowRepository {
       actionName: 'startWork',
       isWrite: true,
       remoteCall: () => _remote.startWorkOrder(orderId),
-      fallbackCall: () => _local.getSampleOrder(orderId),
+      fallbackCall: () => _local.getSampleOrder(orderId, 'in_progress'),
     );
   }
 

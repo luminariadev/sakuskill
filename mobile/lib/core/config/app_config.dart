@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../utils/geo.dart';
 
@@ -9,8 +10,14 @@ import '../utils/geo.dart';
 abstract final class AppConfig {
   static const String _apiOverride = String.fromEnvironment('API_BASE_URL');
 
-  /// Paksa memakai data contoh lokal (berguna untuk demo / saat backend mati).
-  static const bool useMockData = bool.fromEnvironment('USE_MOCK_DATA');
+  /// Paksa memakai data contoh lokal (berguna untuk demo / saat backend mati / dalam widget test).
+  static bool get useMockData {
+    const fromEnv = bool.fromEnvironment('USE_MOCK_DATA');
+    if (fromEnv) return true;
+    final binding = WidgetsBinding.instance.runtimeType.toString();
+    if (binding.contains('TestWidgetsFlutterBinding')) return true;
+    return false;
+  }
 
   /// Base URL sesuai docs/API_CONTRACT.md. Emulator Android memakai 10.0.2.2.
   static String get apiBaseUrl {

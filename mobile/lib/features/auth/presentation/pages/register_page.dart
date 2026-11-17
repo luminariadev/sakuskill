@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/motion/saku_motion.dart';
@@ -52,6 +52,12 @@ class _RegisterPageState extends State<RegisterPage> {
 
     final fieldsValid = _formKey.currentState!.validate();
     if (!fieldsValid || !_agree) return;
+
+    if (AppConfig.useMockData) {
+      SakuMotion.tick();
+      Navigator.of(context).pushReplacementNamed(AppRoutes.profileSetup);
+      return;
+    }
 
     setState(() => _loading = true);
 

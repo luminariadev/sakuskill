@@ -113,7 +113,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) =>
-              IncomingOrderPage(order: result.data, isProviderView: false),
+              IncomingOrderPage(order: result.data, isProviderView: true),
         ),
       );
     } on EscrowException catch (e) {
