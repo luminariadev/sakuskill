@@ -2,7 +2,7 @@ const app = require('./app');
 const env = require('./config/env');
 const { pool } = require('./config/database');
 
-const server = app.listen(env.port, () => {
+const server = app.listen(env.port, '0.0.0.0', () => {
   console.log('[SERVER] SakuSkill API berjalan pada http://localhost:' + env.port + env.apiPrefix);
   console.log('[SERVER] Health-check endpoint: http://localhost:' + env.port + env.apiPrefix + '/health');
 });

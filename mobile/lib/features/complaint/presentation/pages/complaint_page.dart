@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -11,6 +15,7 @@ import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_sheets.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/saku_transaction.dart';
+import '../../../auth/data/auth_session.dart';
 
 /// Figma "26 · Komplain transaksi" — Pusat Bantuan & Komplain.
 class ComplaintPage extends StatefulWidget {
@@ -62,10 +67,33 @@ class _ComplaintPageState extends State<ComplaintPage> {
     if (picked != null) setState(() => _reason = picked);
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (_chronology.text.trim().length < 10) return;
+    final text = _chronology.text.trim();
+    if (text.length < 10) return;
     SakuMotion.tick();
+
+    final token = AuthSession.instance.accessToken;
+    if (token != null && !AppConfig.useMockData) {
+      try {
+        final uri = Uri.parse('${AppConfig.apiBaseUrl}/reports');
+        await http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'target_tipe': 'Pesanan',
+            'target_id': 'd450c009-368e-4628-912e-f6d010e6ecb3',
+            'alasan': _reasons[_reason],
+            'keterangan': text,
+          }),
+        );
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).popUntil((r) => r.isFirst);
     messenger.showSnackBar(

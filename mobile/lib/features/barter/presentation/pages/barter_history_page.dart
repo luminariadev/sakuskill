@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_data.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/models/barter_model.dart';
 import '../widgets/barter_widgets.dart';
 
 /// Figma "24B · Riwayat barter" — kontrak barter yang sudah tuntas.
@@ -19,6 +22,36 @@ class BarterHistoryPage extends StatefulWidget {
 
 class _BarterHistoryPageState extends State<BarterHistoryPage> {
   int _filter = 3; // 0 Semua · 1 Berjalan · 2 Menunggu · 3 Selesai
+  List<BarterAgreementModel>? _remoteBarters;
+  bool _loading = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_remoteBarters == null && !_loading) {
+      _loadBarters();
+    }
+  }
+
+  Future<void> _loadBarters() async {
+    if (AppConfig.useMockData) return;
+    _loading = true;
+    try {
+      final list = await AppScope.of(context).barterDataSource.listMyBarters();
+      if (mounted) {
+        setState(() {
+          _remoteBarters = list;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

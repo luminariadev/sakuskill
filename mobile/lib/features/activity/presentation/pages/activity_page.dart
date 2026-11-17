@@ -66,9 +66,20 @@ class _ActivityPageState extends State<ActivityPage> {
         status == 'disepakati';
 
     if (isPrePayment) {
+      if (!asProvider && (status == 'accepted' || status == 'disepakati')) {
+        Navigator.of(context)
+            .pushNamed(AppRoutes.payment, arguments: order)
+            .then((_) => _loadOrders());
+        return;
+      }
       Navigator.of(context)
           .push(
-            MaterialPageRoute(builder: (_) => IncomingOrderPage(order: order)),
+            MaterialPageRoute(
+              builder: (_) => IncomingOrderPage(
+                order: order,
+                isProviderView: asProvider,
+              ),
+            ),
           )
           .then((_) => _loadOrders());
     } else {

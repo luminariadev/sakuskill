@@ -193,8 +193,10 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
     final session = AuthSession.instance;
 
     // Tentukan apakah pengguna aktif adalah Penyedia Jasa pada pesanan ini
-    final bool isProviderRole =
-        widget.isProviderView ?? (session.isLoggedIn ? session.isProvider : true);
+    final bool isProviderRole = widget.isProviderView ??
+        (currentOrder != null && session.id != null
+            ? currentOrder.penyediaId == session.id
+            : (session.isLoggedIn ? session.isProvider : true));
 
     final statusKode = (currentOrder?.statusKode ?? 'requested').toLowerCase();
     final isSubmitted = statusKode == 'submitted' ||

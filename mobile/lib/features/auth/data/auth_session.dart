@@ -6,6 +6,7 @@ class AuthSession {
 
   String? accessToken;
   String? userId;
+  String? get id => userId;
   String? fullName;
   String? email;
   String? role;

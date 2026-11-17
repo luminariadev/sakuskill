@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_assets.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
@@ -10,6 +14,7 @@ import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_sheets.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/auth_session.dart';
 
 /// Figma "4 · Setup profil" — langkah setelah registrasi.
 class ProfileSetupPage extends StatefulWidget {
@@ -24,10 +29,20 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   static const int bioMaxLength = 300;
 
   final _formKey = GlobalKey<FormState>();
+  late final _bio = TextEditingController(
+    text: 'Desainer grafis & ilustrator digital berdomisili di '
+        'Cibiru. Siap bantu kebutuhan promosi UMKM & proyek kreatif.',
+  );
   final List<String> _offered = ['Desain Grafis', 'UI Design', 'Spanduk Cetak'];
   final List<String> _wanted = ['Video Editing', 'Web Frontend'];
   bool _photo = true;
   String? _portfolioFile = 'Desain_Spanduk_Katering.jpg';
+
+  @override
+  void dispose() {
+    _bio.dispose();
+    super.dispose();
+  }
 
   Future<void> _addTag(List<String> target) async {
     final controller = TextEditingController();
@@ -79,9 +94,28 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     SakuMotion.tick();
+
+    final token = AuthSession.instance.accessToken;
+    if (token != null && !AppConfig.useMockData) {
+      try {
+        final uri = Uri.parse('${AppConfig.apiBaseUrl}/users/me');
+        await http.put(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'deskripsi_profil': _bio.text.trim(),
+          }),
+        );
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
     Navigator.of(context)
         .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
   }
@@ -119,12 +153,10 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
             '+ Unggah Foto',
             onTap: () => setState(() => _photo = true),
           ),
-          const SakuTextField(
-            fieldKey: Key('profile-bio'),
+          SakuTextField(
+            fieldKey: const Key('profile-bio'),
+            controller: _bio,
             label: 'Bio Singkat',
-            initialValue:
-                'Desainer grafis & ilustrator digital berdomisili di '
-                'Cibiru. Siap bantu kebutuhan promosi UMKM & proyek kreatif.',
             minLines: 3,
             maxLines: 5,
             // TextField membatasi input; penghitung "n / 300" tampil.

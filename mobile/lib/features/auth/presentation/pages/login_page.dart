@@ -24,8 +24,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _id = TextEditingController();
-  final _password = TextEditingController();
+  late final _id = TextEditingController(text: AppConfig.useMockData ? '' : 'salma@gmail.com');
+  late final _password = TextEditingController(text: AppConfig.useMockData ? '' : 'rahasia123');
   bool _remember = true;
   bool _failed = false;
   bool _loading = false;

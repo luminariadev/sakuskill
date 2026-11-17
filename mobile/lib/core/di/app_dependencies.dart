@@ -12,6 +12,7 @@ import '../../features/escrow/data/datasources/escrow_remote_data_source.dart';
 import '../../features/escrow/domain/repositories/escrow_repository_impl.dart';
 import '../../features/escrow/domain/repositories/escrow_repository.dart';
 import '../../features/auth/data/auth_session.dart';
+import '../../features/barter/data/datasources/barter_remote_data_source.dart';
 import '../config/app_config.dart';
 
 /// Composition root (dependency injection manual, tanpa paket tambahan).
@@ -19,6 +20,7 @@ class AppDependencies {
   AppDependencies({
     required this.discoveryRepository,
     required this.escrowRepository,
+    required this.barterDataSource,
   });
 
   factory AppDependencies.production() {
@@ -34,6 +36,9 @@ class AppDependencies {
         ),
         local: const EscrowLocalDataSource(),
         forceLocal: AppConfig.useMockData,
+      ),
+      barterDataSource: BarterRemoteDataSource(
+        tokenProvider: () async => AuthSession.instance.accessToken,
       ),
     );
   }
@@ -51,11 +56,13 @@ class AppDependencies {
         local: const EscrowLocalDataSource(),
         forceLocal: true,
       ),
+      barterDataSource: BarterRemoteDataSource(),
     );
   }
 
   final DiscoveryRepository discoveryRepository;
   final EscrowRepository escrowRepository;
+  final BarterRemoteDataSource barterDataSource;
 
   DiscoveryController createDiscoveryController({
     DiscoveryFilter initialFilter = const DiscoveryFilter(),
