@@ -9,6 +9,7 @@ import 'package:sakuskill/core/domain/status.dart';
 import 'package:sakuskill/core/network/api_client.dart';
 import 'package:sakuskill/core/network/api_exception.dart';
 import 'package:sakuskill/core/storage/session_store.dart';
+import 'package:sakuskill/features/auth/data/auth_repository.dart';
 import 'package:sakuskill/features/discovery/data/datasources/discovery_local_data_source.dart';
 import 'package:sakuskill/features/discovery/data/datasources/discovery_remote_data_source.dart';
 import 'package:sakuskill/features/discovery/data/repositories/discovery_repository_impl.dart';
@@ -135,6 +136,7 @@ void main() {
       final deps = AppDependencies(
         api: api,
         session: store,
+        authRepository: DemoAuthRepository(store),
         discoveryRepository: DiscoveryRepositoryImpl(
           remote: DiscoveryRemoteDataSource(api),
           local: const DiscoveryLocalDataSource(),

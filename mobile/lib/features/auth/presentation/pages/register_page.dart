@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -12,8 +14,9 @@ import '../../../../core/widgets/saku_screen.dart';
 ///
 /// Validasi klien memakai [SakuValidators]; setelah tombol ditekan sekali,
 /// field divalidasi ulang setiap diketik.
-/// TODO(anggota-5): kirim ke `POST /auth/register` dan petakan
-/// `error.details[].field` ke `errorText` field terkait.
+/// Terkirim ke `POST /auth/register` lewat [AuthRepository]; error server
+/// (`error.details[].field`, 409 email terdaftar) tampil di field terkait.
+/// No. WhatsApp & domisili belum disimpan backend (belum ada kolomnya).
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -31,6 +34,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final _domicile = TextEditingController();
   bool _agree = true;
   bool _submitted = false;
+  bool _busy = false;
+
+  /// Error dari server per field API (`nama`, `email`, `kata_sandi`).
+  Map<String, String> _serverErrors = const {};
 
   @override
   void dispose() {
@@ -40,12 +47,42 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _submit() {
-    setState(() => _submitted = true);
+  Future<void> _submit() async {
+    setState(() {
+      _submitted = true;
+      _serverErrors = const {};
+    });
     final fieldsValid = _formKey.currentState!.validate();
     if (!fieldsValid || !_agree) return;
-    SakuMotion.tick();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.profileSetup);
+    final auth = AppScope.of(context).authRepository;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _busy = true);
+    try {
+      await auth.register(
+        name: _name.text,
+        email: _email.text,
+        password: _password.text,
+      );
+      SakuMotion.tick();
+      navigator.pushReplacementNamed(AppRoutes.profileSetup);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final errors = {...e.fieldErrors};
+      if (e.code == 'EMAIL_ALREADY_EXISTS') errors['email'] = e.message;
+      if (errors.isEmpty) {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      setState(() => _serverErrors = errors);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _clearServerError(String field) {
+    if (_serverErrors.containsKey(field)) {
+      setState(() => _serverErrors = {..._serverErrors}..remove(field));
+    }
   }
 
   @override
@@ -73,6 +110,8 @@ class _RegisterPageState extends State<RegisterPage> {
             label: 'Nama Lengkap',
             hint: 'Salma Nur Oktavia',
             textInputAction: TextInputAction.next,
+            errorText: _serverErrors['nama'],
+            onChanged: (_) => _clearServerError('nama'),
             validator: SakuValidators.compose([
               SakuValidators.required('Nama lengkap'),
               SakuValidators.maxLength(100),
@@ -85,6 +124,8 @@ class _RegisterPageState extends State<RegisterPage> {
             hint: 'salma@gmail.com',
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            errorText: _serverErrors['email'],
+            onChanged: (_) => _clearServerError('email'),
             validator: SakuValidators.compose([
               SakuValidators.required('Email'),
               SakuValidators.email(),
@@ -109,6 +150,8 @@ class _RegisterPageState extends State<RegisterPage> {
             hint: 'Minimal ${SakuValidators.passwordMinLength} karakter',
             obscure: true,
             textInputAction: TextInputAction.next,
+            errorText: _serverErrors['kata_sandi'],
+            onChanged: (_) => _clearServerError('kata_sandi'),
             validator: SakuValidators.compose([
               SakuValidators.required('Kata sandi'),
               SakuValidators.minLength(),
@@ -144,8 +187,8 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           SakuButton(
             key: const Key('register-submit'),
-            label: 'Daftar Akun Baru',
-            onPressed: _submit,
+            label: _busy ? 'Memproses…' : 'Daftar Akun Baru',
+            onPressed: _busy ? null : _submit,
           ),
           SakuTextLink(
             'Sudah memiliki akun? Masuk di sini',

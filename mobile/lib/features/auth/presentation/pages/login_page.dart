@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -15,8 +17,9 @@ import '../../../../core/widgets/saku_surfaces.dart';
 /// Kegagalan kredensial tampil sebagai pesan generik di kotak merah (FR-05),
 /// tanpa menyebut field mana yang salah.
 ///
-/// TODO(anggota-5): ganti simulasi kredensial di [_submit] dengan
-/// `POST /auth/login` (M2). Sementara: sandi < 8 karakter dianggap salah.
+/// Terhubung ke `POST /auth/login` lewat [AuthRepository]; mode demo/offline
+/// memakai [DemoAuthRepository] (sandi < 8 karakter dianggap salah).
+/// Backend saat ini hanya menerima email (belum No. WhatsApp).
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -30,6 +33,7 @@ class _LoginPageState extends State<LoginPage> {
   final _password = TextEditingController();
   bool _remember = true;
   bool _failed = false;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -38,19 +42,28 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     setState(() => _failed = false);
     if (!_formKey.currentState!.validate()) return;
-    // Simulasi respons server sampai repository auth tersedia (M2).
-    final credentialsOk =
-        _password.text.length >= SakuValidators.passwordMinLength;
-    if (!credentialsOk) {
-      setState(() => _failed = true);
-      return;
+    final auth = AppScope.of(context).authRepository;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _busy = true);
+    try {
+      await auth.login(email: _id.text, password: _password.text);
+      SakuMotion.tick();
+      navigator.pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.isConnectivity || e.code == ApiException.invalidResponseError) {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      } else {
+        // 401 kredensial salah / 422 format: pesan generik (FR-05).
+        setState(() => _failed = true);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    SakuMotion.tick();
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
   }
 
   @override
@@ -125,8 +138,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           SakuButton(
             key: const Key('login-submit'),
-            label: 'Masuk Sekarang',
-            onPressed: _submit,
+            label: _busy ? 'Memproses…' : 'Masuk Sekarang',
+            onPressed: _busy ? null : _submit,
           ),
           AnimatedSwitcher(
             duration: SakuMotion.base,

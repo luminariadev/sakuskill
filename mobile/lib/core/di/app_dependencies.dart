@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../features/auth/data/auth_repository.dart';
 import '../../features/discovery/data/datasources/discovery_local_data_source.dart';
 import '../../features/discovery/data/datasources/discovery_remote_data_source.dart';
 import '../../features/discovery/data/repositories/discovery_repository_impl.dart';
@@ -23,6 +24,7 @@ class AppDependencies {
     required this.api,
     required this.session,
     required this.discoveryRepository,
+    required this.authRepository,
   }) {
     // Server menolak token (401) → sesi dihapus; route guard (M2) yang
     // mendengarkan `session.session` akan membawa pengguna ke Login.
@@ -40,6 +42,9 @@ class AppDependencies {
         local: const DiscoveryLocalDataSource(),
         forceLocal: AppConfig.useMockData,
       ),
+      authRepository: AppConfig.useMockData
+          ? DemoAuthRepository(session)
+          : ApiAuthRepository(api, session),
     );
   }
 
@@ -57,6 +62,7 @@ class AppDependencies {
         local: const DiscoveryLocalDataSource(),
         forceLocal: true,
       ),
+      authRepository: DemoAuthRepository(session),
     );
   }
 
@@ -67,6 +73,9 @@ class AppDependencies {
   /// Token + pengguna aktif (T-07).
   final SessionStore session;
   final DiscoveryRepository discoveryRepository;
+
+  /// Login/registrasi/logout; menyimpan sesi ke [session].
+  final AuthRepository authRepository;
 
   late final StreamSubscription<ApiException> _unauthorizedSub;
 
