@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import '../../domain/repositories/escrow_repository.dart';
 import 'escrow_repository.dart';
 import '../../data/datasources/escrow_local_data_source.dart';
 import '../../data/datasources/escrow_remote_data_source.dart';
@@ -9,10 +10,11 @@ import '../../data/models/escrow_payment_model.dart';
 
 class EscrowRepositoryImpl implements EscrowRepository {
   EscrowRepositoryImpl({
-    required this._remote,
-    required this._local,
+    required EscrowRemoteDataSource remote,
+    required EscrowLocalDataSource local,
     this.forceLocal = false,
-  });
+  })  : _remote = remote,
+        _local = local;
 
   final EscrowRemoteDataSource _remote;
   final EscrowLocalDataSource _local;
@@ -31,11 +33,8 @@ class EscrowRepositoryImpl implements EscrowRepository {
       final result = await remoteCall();
       return EscrowActionResult(data: result, isFallback: false);
     } on EscrowException {
-      // Server merespons dengan error bisnis/validasi (400, 401, 403, 422):
-      // Lempar langsung agar pesan error dari backend tampil di layar pengguna.
       rethrow;
     } catch (error) {
-      // Error jaringan, timeout, atau server mati
       if (isWrite) {
         throw const EscrowException(
           'Server tidak terjangkau. Periksa koneksi internet atau server lokal Anda.',
@@ -48,8 +47,6 @@ class EscrowRepositoryImpl implements EscrowRepository {
       return EscrowActionResult(data: fallbackCall(), isFallback: true);
     }
   }
-
-  // --- Daftar & Detail (Operasi Baca: Aman Fallback) ---
 
   @override
   Future<EscrowActionResult<List<EscrowOrderModel>>> fetchMyOrders({
@@ -74,7 +71,38 @@ class EscrowRepositoryImpl implements EscrowRepository {
     );
   }
 
-  // --- Alur Pelanggan (Operasi Tulis: Wajib Server) ---
+  @override
+  Future<EscrowActionResult<ChatMessageList>> fetchOrderMessages(
+    String orderId,
+  ) {
+    return _runWithFallback(
+      actionName: 'fetchOrderMessages',
+      remoteCall: () => _remote.fetchOrderMessages(orderId),
+      fallbackCall: () => const [],
+    );
+  }
+
+  @override
+  Future<EscrowActionResult<ChatMessageMap>> sendOrderMessage({
+    required String orderId,
+    required String isiPesan,
+  }) {
+    return _runWithFallback(
+      actionName: 'sendOrderMessage',
+      isWrite: true,
+      remoteCall: () => _remote.sendOrderMessage(
+        orderId: orderId,
+        isiPesan: isiPesan,
+      ),
+      fallbackCall: () => {
+        'message_id': 'local-${DateTime.now().millisecondsSinceEpoch}',
+        'order_id': orderId,
+        'sender_id': '',
+        'isi_pesan': isiPesan.trim(),
+        'dibuat_pada': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+  }
 
   @override
   Future<EscrowActionResult<EscrowOrderModel>> createOrder({
@@ -213,8 +241,6 @@ class EscrowRepositoryImpl implements EscrowRepository {
     );
   }
 
-  // --- Alur Penyedia Jasa (Operasi Tulis: Wajib Server) ---
-
   @override
   Future<EscrowActionResult<EscrowOrderModel>> acceptOrder(String orderId) {
     return _runWithFallback(
@@ -265,8 +291,6 @@ class EscrowRepositoryImpl implements EscrowRepository {
       fallbackCall: () {},
     );
   }
-
-  // --- Simulasi Lokal (Belum Didukung Backend v1.3) ---
 
   @override
   Future<EscrowActionResult<void>> requestRevision({

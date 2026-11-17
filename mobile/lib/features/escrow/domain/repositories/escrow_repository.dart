@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import '../../data/models/escrow_order_model.dart';
 import '../../data/models/escrow_payment_model.dart';
+
+typedef ChatMessageMap = Map<String, dynamic>;
+typedef ChatMessageList = List<ChatMessageMap>;
 
 class EscrowActionResult<T> {
   const EscrowActionResult({required this.data, this.isFallback = false});
@@ -9,7 +14,6 @@ class EscrowActionResult<T> {
 }
 
 abstract class EscrowRepository {
-  // --- Daftar & Detail ---
   Future<EscrowActionResult<List<EscrowOrderModel>>> fetchMyOrders({
     String peran = 'pelanggan',
     String? status,
@@ -17,7 +21,15 @@ abstract class EscrowRepository {
 
   Future<EscrowActionResult<EscrowOrderModel>> fetchOrderDetail(String orderId);
 
-  // --- Alur Pelanggan (Didukung Backend) ---
+  Future<EscrowActionResult<ChatMessageList>> fetchOrderMessages(
+    String orderId,
+  );
+
+  Future<EscrowActionResult<ChatMessageMap>> sendOrderMessage({
+    required String orderId,
+    required String isiPesan,
+  });
+
   Future<EscrowActionResult<EscrowOrderModel>> createOrder({
     required String listingId,
     required String deskripsiKebutuhan,
@@ -51,9 +63,11 @@ abstract class EscrowRepository {
     String? komentar,
   });
 
-  Future<EscrowActionResult<void>> cancelOrder(String orderId, {String? alasan});
+  Future<EscrowActionResult<void>> cancelOrder(
+    String orderId, {
+    String? alasan,
+  });
 
-  // --- Alur Penyedia Jasa (Didukung Backend) ---
   Future<EscrowActionResult<EscrowOrderModel>> acceptOrder(String orderId);
 
   Future<EscrowActionResult<EscrowOrderModel>> rejectOrder(
@@ -69,7 +83,6 @@ abstract class EscrowRepository {
     required String catatanPenyedia,
   });
 
-  // --- Simulasi Lokal (Belum Ada Endpoint di Backend v1.3) ---
   Future<EscrowActionResult<void>> requestRevision({
     required String orderId,
     required String catatanRevisi,

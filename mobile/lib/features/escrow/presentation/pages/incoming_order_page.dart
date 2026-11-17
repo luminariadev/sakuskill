@@ -196,7 +196,10 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
     final bool isProviderRole = widget.isProviderView ?? session.isProvider;
 
     final statusKode = (currentOrder?.statusKode ?? 'submitted').toLowerCase();
-    final isSubmitted = statusKode == 'submitted' || statusKode == 'diajukan';
+    final isSubmitted =
+        statusKode == 'requested' ||
+        statusKode == 'submitted' ||
+        statusKode == 'diajukan';
     final isAccepted = statusKode == 'accepted' || statusKode == 'disepakati';
 
     final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
@@ -298,6 +301,15 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
             ],
           ),
         ),
+        if (currentOrder != null && currentOrder.orderId.isNotEmpty)
+          SakuButton(
+            key: const Key('order-open-chat'),
+            label: 'Buka Chat dengan $counterpartyShortName',
+            variant: SakuButtonVariant.outline,
+            onPressed: () =>
+                Navigator.of(context)
+                    .pushNamed(AppRoutes.orderChat, arguments: currentOrder),
+          ),
         if (isProviderRole) ...[
           if (isSubmitted) ...[
             SakuButton(

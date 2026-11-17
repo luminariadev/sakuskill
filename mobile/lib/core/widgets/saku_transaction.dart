@@ -77,15 +77,22 @@ class ChatBubble extends StatelessWidget {
 }
 
 /// Daftar pesan + kolom ketik. Pesan baru meluncur masuk dari bawah.
+/// Daftar pesan + kolom ketik. Pesan baru meluncur masuk dari bawah.
 class ChatThread extends StatefulWidget {
   const ChatThread({
     super.key,
     required this.initial,
+    this.messages,
+    this.onSendMessage,
+    this.sending = false,
     this.hint = 'Ketik pesan kesepakatan...',
     this.barter = false,
   });
 
   final List<ChatMessage> initial;
+  final List<ChatMessage>? messages;
+  final Future<bool> Function(String text)? onSendMessage;
+  final bool sending;
   final String hint;
   final bool barter;
 
@@ -94,7 +101,7 @@ class ChatThread extends StatefulWidget {
 }
 
 class _ChatThreadState extends State<ChatThread> {
-  late final List<ChatMessage> _messages = [...widget.initial];
+  late final List<ChatMessage> _localMessages = [...widget.initial];
   final _input = TextEditingController();
 
   @override
@@ -103,13 +110,22 @@ class _ChatThreadState extends State<ChatThread> {
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || widget.sending) return;
     SakuMotion.tick();
+
+    if (widget.onSendMessage != null) {
+      final ok = await widget.onSendMessage!(text);
+      if (ok && mounted) {
+        _input.clear();
+      }
+      return;
+    }
+
     final now = TimeOfDay.now();
     setState(() {
-      _messages.add(ChatMessage(
+      _localMessages.add(ChatMessage(
         text: text,
         time: '${now.hour.toString().padLeft(2, '0')}:'
             '${now.minute.toString().padLeft(2, '0')}',
@@ -121,14 +137,15 @@ class _ChatThreadState extends State<ChatThread> {
 
   @override
   Widget build(BuildContext context) {
+    final displayed = widget.messages ?? _localMessages;
     return Column(
       spacing: 16,
       children: [
-        for (var i = 0; i < _messages.length; i++)
+        for (var i = 0; i < displayed.length; i++)
           FadeSlideIn(
-            key: ValueKey('msg-$i'),
+            key: ValueKey('msg-$i-${displayed[i].time}-${displayed[i].text.hashCode}'),
             index: i < widget.initial.length ? i : 0,
-            child: ChatBubble(message: _messages[i], barter: widget.barter),
+            child: ChatBubble(message: displayed[i], barter: widget.barter),
           ),
         ChatComposer(controller: _input, hint: widget.hint, onSend: _send),
       ],

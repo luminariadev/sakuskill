@@ -302,6 +302,29 @@ class OrdersService {
 
     return review;
   }
+
+  async listOrderMessages(orderId, user) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) {
+      throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
+    }
+    this.assertParticipant(order, user);
+    return ordersRepository.findMessagesByOrderId(orderId);
+  }
+
+  async sendOrderMessage(orderId, user, payload) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) {
+      throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
+    }
+    this.assertParticipant(order, user);
+
+    return ordersRepository.createMessage({
+      orderId,
+      senderId: user.user_id,
+      isiPesan: payload.isi_pesan.trim(),
+    });
+  }
 }
 
 module.exports = new OrdersService();

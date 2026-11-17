@@ -113,6 +113,19 @@ const createOrderReviewSchema = z.object({
   }),
 });
 
+const createOrderMessageSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Format ID order harus berupa UUID yang valid.'),
+  }),
+  body: z.object({
+    isi_pesan: z
+      .string({ required_error: 'isi_pesan wajib diisi.' })
+      .trim()
+      .min(1, 'Pesan tidak boleh kosong.')
+      .max(2000, 'Pesan maksimal 2000 karakter.'),
+  }),
+});
+
 module.exports = {
   createOrderSchema,
   orderIdParamSchema,
@@ -121,4 +134,5 @@ module.exports = {
   reasonBodySchema,
   updateOrderStatusSchema,
   createOrderReviewSchema,
+  createOrderMessageSchema,
 };

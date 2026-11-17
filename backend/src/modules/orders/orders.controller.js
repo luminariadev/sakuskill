@@ -197,6 +197,39 @@ class OrdersController {
       return next(error);
     }
   }
+
+  async listMessages(req, res, next) {
+    try {
+      const messages = await ordersService.listOrderMessages(
+        req.validated.params.id,
+        req.user
+      );
+      return sendSuccess(res, {
+        statusCode: 200,
+        message: 'Riwayat pesan order berhasil dimuat.',
+        data: messages,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async sendMessage(req, res, next) {
+    try {
+      const created = await ordersService.sendOrderMessage(
+        req.validated.params.id,
+        req.user,
+        req.validated.body
+      );
+      return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Pesan berhasil dikirim.',
+        data: created,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 module.exports = new OrdersController();

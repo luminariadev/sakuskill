@@ -449,4 +449,35 @@ class EscrowRemoteDataSource {
         .timeout(AppConfig.networkTimeout);
     return _parseResponse(response, uri)['data'] as JsonMap;
   }
+
+  /// GET /api/v1/orders/:id/messages
+  Future<List<JsonMap>> fetchOrderMessages(String orderId) async {
+    final uri = Uri.parse('$_baseUrl/orders/$orderId/messages');
+    final response = await _client
+        .get(uri, headers: await _headers())
+        .timeout(AppConfig.networkTimeout);
+
+    final body = _parseResponse(response, uri);
+    final items = body['data'];
+    if (items is! List) return const [];
+    return items.whereType<JsonMap>().toList(growable: false);
+  }
+
+  /// POST /api/v1/orders/:id/messages
+  Future<JsonMap> sendOrderMessage({
+    required String orderId,
+    required String isiPesan,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/orders/$orderId/messages');
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({'isi_pesan': isiPesan.trim()}),
+        )
+        .timeout(AppConfig.networkTimeout);
+
+    final body = _parseResponse(response, uri);
+    return body['data'] as JsonMap;
+  }
 }
