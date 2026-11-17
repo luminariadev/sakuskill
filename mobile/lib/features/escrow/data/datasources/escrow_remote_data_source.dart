@@ -248,7 +248,6 @@ class EscrowRemoteDataSource {
   }
 
   /// Penyedia mengajukan klaim selesai (`POST /orders/:id/request-completion`).
-  /// Jika status order masih `accepted`, otomatis memanggil `/start` terlebih dahulu.
   Future<void> deliverWork({
     required String orderId,
     required String tautanBerkas,
@@ -270,7 +269,6 @@ class EscrowRemoteDataSource {
   }
 
   /// Pelanggan mengonfirmasi selesai (`POST /orders/:id/complete`)
-  /// dan opsional mengirim ulasan (`POST /orders/:id/reviews`).
   Future<void> releaseFund(
     String orderId, {
     int? rating,
@@ -399,5 +397,56 @@ class EscrowRemoteDataSource {
       hargaTawaran: current.harga,
       tenggatUsulan: current.tenggat,
     );
+  }
+
+  /// --- MODUL SIMULASI PEMBAYARAN MVP (`/api/v1/payments`) ---[cite: 7, 11]
+
+  /// POST /api/v1/payments (Pelanggan membuat sesi pembayaran)[cite: 7, 11]
+  Future<JsonMap> createPayment(String orderId) async {
+    final uri = Uri.parse('$_baseUrl/payments');
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({
+            'order_id': orderId,
+            'metode_simulasi': 'SIMULASI_MVP',
+          }),
+        )
+        .timeout(AppConfig.networkTimeout);
+    return _parseResponse(response, uri)['data'] as JsonMap;
+  }
+
+  /// POST /api/v1/payments/:orderId/simulate-success (Hanya dev/demo/test)[cite: 7, 11]
+  Future<JsonMap> simulatePaymentSuccess(String orderId) async {
+    final uri = Uri.parse('$_baseUrl/payments/$orderId/simulate-success');
+    final response = await _client
+        .post(uri, headers: await _headers(), body: jsonEncode({}))
+        .timeout(AppConfig.networkTimeout);
+    return _parseResponse(response, uri)['data'] as JsonMap;
+  }
+
+  /// POST /api/v1/payments/:orderId/simulate-failed[cite: 7, 11]
+  Future<JsonMap> simulatePaymentFailed(String orderId, {String? alasan}) async {
+    final uri = Uri.parse('$_baseUrl/payments/$orderId/simulate-failed');
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({
+            if (alasan != null && alasan.trim().isNotEmpty) 'alasan_gagal': alasan.trim(),
+          }),
+        )
+        .timeout(AppConfig.networkTimeout);
+    return _parseResponse(response, uri)['data'] as JsonMap;
+  }
+
+  /// GET /api/v1/payments/:orderId[cite: 7, 10]
+  Future<JsonMap> fetchPayment(String orderId) async {
+    final uri = Uri.parse('$_baseUrl/payments/$orderId');
+    final response = await _client
+        .get(uri, headers: await _headers())
+        .timeout(AppConfig.networkTimeout);
+    return _parseResponse(response, uri)['data'] as JsonMap;
   }
 }

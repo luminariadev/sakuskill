@@ -8,6 +8,9 @@ class EscrowOrderModel {
     required this.harga,
     required this.stepperTahap,
     this.statusKode = 'requested',
+    this.paymentStatusKode,
+    this.bolehLanjutInProgress = false,
+    this.sudahDiulas = false,
     this.listingId,
     this.pelangganId,
     this.penyediaId,
@@ -16,6 +19,7 @@ class EscrowOrderModel {
     this.peranLawanTransaksi,
     this.tenggat,
     this.detikTersisa,
+    this.terlambatDetik = 0,
     this.isTerlambat = false,
     this.deskripsiBrief,
     this.catatanBrief,
@@ -36,6 +40,12 @@ class EscrowOrderModel {
   final int harga;
   final int stepperTahap;
   final String statusKode;
+
+  // Status Pembayaran Terpisah (Kontrak API v1.3)
+  final String? paymentStatusKode; // pending | failed | success | null
+  final bool bolehLanjutInProgress;
+  final bool sudahDiulas;
+
   final String? listingId;
   final String? pelangganId;
   final String? penyediaId;
@@ -44,6 +54,7 @@ class EscrowOrderModel {
   final String? peranLawanTransaksi;
   final DateTime? tenggat;
   final int? detikTersisa;
+  final int terlambatDetik;
   final bool isTerlambat;
 
   // Detail Brief & Kesepakatan
@@ -60,6 +71,13 @@ class EscrowOrderModel {
   final int batasRevisi;
   final int revisiTerpakai;
   final int sisaRevisi;
+
+  /// Helper untuk menentukan peran pengguna saat ini pada transaksi ini.
+  bool adalahPelanggan(String currentUserId) =>
+      pelangganId != null && pelangganId == currentUserId;
+
+  bool adalahPenyedia(String currentUserId) =>
+      penyediaId != null && penyediaId == currentUserId;
 
   static int _parseMoney(dynamic raw) {
     if (raw is num) return raw.round();
@@ -90,25 +108,33 @@ class EscrowOrderModel {
     }
   }
 
-  static String _mapStatusEscrow(String statusKode, String? explicitEscrow) {
+  static String _mapStatusEscrow(
+    String statusKode,
+    String? paymentKode,
+    String? explicitEscrow,
+  ) {
     if (explicitEscrow != null && explicitEscrow.isNotEmpty) {
       return explicitEscrow;
     }
-    switch (statusKode) {
-      case 'completed':
-        return 'Dana Dilepas ke Penyedia';
-      case 'rejected':
-      case 'cancelled':
-        return 'Dana Dikembalikan (Refund)';
-      case 'completion_requested':
-        return 'Menunggu Konfirmasi Pelanggan';
-      case 'accepted':
-      case 'in_progress':
-        return 'Dana Ditahan Aman (Escrow)';
-      case 'requested':
-      case 'negotiating':
+    if (statusKode == 'completed') {
+      return 'Dana Dilepas ke Penyedia (Simulasi)';
+    }
+    if (statusKode == 'rejected' || statusKode == 'cancelled') {
+      return paymentKode == 'success'
+          ? 'Dana Dikembalikan (Simulasi)'
+          : 'Tidak Ada Dana Ditahan';
+    }
+    switch (paymentKode) {
+      case 'success':
+        return 'Dana Ditahan (Simulasi)';
+      case 'pending':
+        return 'Menunggu Pembayaran (Simulasi)';
+      case 'failed':
+        return 'Pembayaran Gagal (Simulasi)';
       default:
-        return 'Menunggu Kesepakatan / Escrow';
+        return statusKode == 'accepted'
+            ? 'Belum Dibayar'
+            : 'Menunggu Kesepakatan';
     }
   }
 
@@ -116,15 +142,18 @@ class EscrowOrderModel {
     final snapshotGig = json['snapshot_gig'] as Map<String, dynamic>?;
     final kesepakatan = json['kesepakatan'] as Map<String, dynamic>?;
     final lawan = json['lawan_transaksi'] as Map<String, dynamic>?;
-    final pembayaran = json['pembayaran'] as Map<String, dynamic>?;
+    final payment =
+        (json['payment'] ?? json['pembayaran']) as Map<String, dynamic>?;
+    final relasiOrder = payment?['relasi_order'] as Map<String, dynamic>?;
+    final reviews = json['reviews'] as List<dynamic>?;
     final brief = json['brief'] as Map<String, dynamic>?;
     final sla = json['sla'] as Map<String, dynamic>?;
     final deliverable = json['deliverable'] as Map<String, dynamic>?;
     final revisi = json['revisi'] as Map<String, dynamic>?;
-    final proposals = json['proposals'] as List<dynamic>?;
 
     final orderId = (json['order_id'] ?? '') as String;
     final statusKode = (json['status_kode'] ?? 'requested') as String;
+    final paymentKode = payment?['status_kode'] as String?;
 
     final rawTenggat = (kesepakatan?['deadline'] ??
         json['tenggat_pekerjaan'] ??
@@ -139,12 +168,17 @@ class EscrowOrderModel {
       'rejected',
       'cancelled',
     }.contains(statusKode);
+
     final computedLate = (sla?['is_terlambat'] as bool?) ??
         (parsedTenggat != null && !isTerminal && parsedTenggat.isBefore(now));
     final computedRemaining = (sla?['detik_tersisa'] as num?)?.toInt() ??
         (parsedTenggat != null
             ? parsedTenggat.difference(now).inSeconds.clamp(0, 31536000)
             : null);
+    final computedLateSeconds =
+        (parsedTenggat != null && !isTerminal && parsedTenggat.isBefore(now))
+            ? now.difference(parsedTenggat).inSeconds
+            : 0;
 
     final shortCode = orderId.length >= 8
         ? 'ORD-${orderId.substring(0, 8).toUpperCase()}'
@@ -155,9 +189,11 @@ class EscrowOrderModel {
         json['catatan_kebutuhan'] ??
         brief?['deskripsi']) as String?;
 
-    final latestProposal = (proposals?.isNotEmpty ?? false)
-        ? proposals!.last as Map<String, dynamic>?
-        : null;
+    final maxRev = ((revisi?['batas_maksimal'] ?? 2) as num).toInt();
+    final usedRev = ((revisi?['telah_digunakan'] ?? 0) as num).toInt();
+    final remRev = ((revisi?['sisa_kesempatan'] ?? (maxRev - usedRev)) as num)
+        .toInt()
+        .clamp(0, maxRev);
 
     return EscrowOrderModel(
       orderId: orderId,
@@ -170,8 +206,8 @@ class EscrowOrderModel {
       statusPesanan: (json['status_pesanan'] ?? 'Diajukan') as String,
       statusEscrow: _mapStatusEscrow(
         statusKode,
-        (json['status_escrow'] ?? pembayaran?['status_dana_simulasi'])
-            as String?,
+        paymentKode,
+        (json['status_escrow'] ?? payment?['status_dana_simulasi']) as String?,
       ),
       harga: _parseMoney(
         kesepakatan?['harga_final'] ??
@@ -183,7 +219,12 @@ class EscrowOrderModel {
       ),
       stepperTahap: _mapStepperTahap(statusKode, json['stepper_tahap']),
       statusKode: statusKode,
-      listingId: json['listing_id'] as String?,
+      paymentStatusKode: paymentKode,
+      bolehLanjutInProgress:
+          (relasiOrder?['boleh_lanjut_in_progress'] as bool?) ??
+              (paymentKode == 'success'),
+      sudahDiulas: reviews?.isNotEmpty ?? false,
+      listingId: (json['gig_id'] ?? json['listing_id']) as String?,
       pelangganId: json['pelanggan_id'] as String?,
       penyediaId: json['penyedia_id'] as String?,
       labelStepper:
@@ -195,6 +236,7 @@ class EscrowOrderModel {
           (json['nama_penyedia'] != null ? 'Penyedia Jasa' : null)) as String?,
       tenggat: parsedTenggat,
       detikTersisa: computedRemaining,
+      terlambatDetik: computedLateSeconds,
       isTerlambat: computedLate,
       deskripsiBrief: scopeText,
       catatanBrief: (json['catatan_kebutuhan'] ??
@@ -203,16 +245,11 @@ class EscrowOrderModel {
           brief?['catatan']) as String?,
       lampiranKlien: brief?['lampiran_klien'] as String?,
       tautanBerkas: deliverable?['tautan_berkas'] as String?,
-      catatanPenyedia: (deliverable?['catatan_penyedia'] ??
-          latestProposal?['deskripsi_ruang_lingkup']) as String?,
+      catatanPenyedia: deliverable?['catatan_penyedia'] as String?,
       mockupUrl: deliverable?['mockup_url'] as String?,
-      batasRevisi: ((revisi?['batas_maksimal'] ?? 2) as num).toInt(),
-      revisiTerpakai:
-          ((revisi?['telah_digunakan'] ?? (proposals?.length ?? 0)) as num)
-              .toInt(),
-      sisaRevisi: ((revisi?['sisa_kesempatan'] ??
-              (2 - (proposals?.length ?? 0)).clamp(0, 2)) as num)
-          .toInt(),
+      batasRevisi: maxRev,
+      revisiTerpakai: usedRev,
+      sisaRevisi: remRev,
     );
   }
 
@@ -225,6 +262,9 @@ class EscrowOrderModel {
     int? harga,
     int? stepperTahap,
     String? statusKode,
+    String? paymentStatusKode,
+    bool? bolehLanjutInProgress,
+    bool? sudahDiulas,
     String? listingId,
     String? pelangganId,
     String? penyediaId,
@@ -233,6 +273,7 @@ class EscrowOrderModel {
     String? peranLawanTransaksi,
     DateTime? tenggat,
     int? detikTersisa,
+    int? terlambatDetik,
     bool? isTerlambat,
     String? deskripsiBrief,
     String? catatanBrief,
@@ -253,6 +294,10 @@ class EscrowOrderModel {
       harga: harga ?? this.harga,
       stepperTahap: stepperTahap ?? this.stepperTahap,
       statusKode: statusKode ?? this.statusKode,
+      paymentStatusKode: paymentStatusKode ?? this.paymentStatusKode,
+      bolehLanjutInProgress:
+          bolehLanjutInProgress ?? this.bolehLanjutInProgress,
+      sudahDiulas: sudahDiulas ?? this.sudahDiulas,
       listingId: listingId ?? this.listingId,
       pelangganId: pelangganId ?? this.pelangganId,
       penyediaId: penyediaId ?? this.penyediaId,
@@ -261,6 +306,7 @@ class EscrowOrderModel {
       peranLawanTransaksi: peranLawanTransaksi ?? this.peranLawanTransaksi,
       tenggat: tenggat ?? this.tenggat,
       detikTersisa: detikTersisa ?? this.detikTersisa,
+      terlambatDetik: terlambatDetik ?? this.terlambatDetik,
       isTerlambat: isTerlambat ?? this.isTerlambat,
       deskripsiBrief: deskripsiBrief ?? this.deskripsiBrief,
       catatanBrief: catatanBrief ?? this.catatanBrief,

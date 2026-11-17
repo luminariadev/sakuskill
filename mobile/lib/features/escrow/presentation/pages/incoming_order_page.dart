@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/demo/demo_data.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -11,26 +12,101 @@ import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_sheets.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
 /// Figma "12 · Pesanan masuk" (sisi penyedia) + "12B · Tolak pesanan".
-class IncomingOrderPage extends StatelessWidget {
+class IncomingOrderPage extends StatefulWidget {
   const IncomingOrderPage({super.key, this.order});
 
   final EscrowOrderModel? order;
 
+  @override
+  State<IncomingOrderPage> createState() => _IncomingOrderPageState();
+}
+
+class _IncomingOrderPageState extends State<IncomingOrderPage> {
+  bool _processing = false;
+
   EscrowOrderModel? _resolveOrder(BuildContext context) {
-    if (order != null) return order;
+    if (widget.order != null) return widget.order;
     final args = ModalRoute.of(context)?.settings.arguments;
     return args is EscrowOrderModel ? args : null;
   }
 
-  Future<void> _reject(BuildContext context, String clientName) async {
-    final rejected = await showSakuSheet<bool>(
+  /// POST /api/v1/orders/:id/accept
+  Future<void> _accept(EscrowOrderModel? currentOrder) async {
+    if (_processing) return;
+    SakuMotion.tick();
+
+    // Jika tidak ada orderId asli (misal akses langsung dari menu demo)
+    if (currentOrder == null || currentOrder.orderId.isEmpty) {
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.orderChat,
+        arguments: currentOrder,
+      );
+      return;
+    }
+
+    setState(() => _processing = true);
+    final repo = AppScope.of(context).escrowRepository;
+
+    try {
+      final result = await repo.acceptOrder(currentOrder.orderId);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Pesanan disetujui! Status berubah menjadi Disepakati (Menunggu Pembayaran).',
+          ),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.orderChat,
+        arguments: result.data,
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      final pesan = e.code == 'INVALID_STATE_TRANSITION'
+          ? 'Pesanan ini sudah diproses sebelumnya.'
+          : e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pesan),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyetujui pesanan: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  /// POST /api/v1/orders/:id/reject
+  Future<void> _reject(
+    EscrowOrderModel? currentOrder,
+    String clientName,
+  ) async {
+    if (_processing) return;
+
+    final reasonText = await showSakuSheet<String>(
       context,
       builder: (_) => _RejectSheet(clientName: clientName),
     );
-    if (rejected == true && context.mounted) {
+
+    if (reasonText == null || !mounted) return;
+
+    if (currentOrder == null || currentOrder.orderId.isEmpty) {
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
       messenger.showSnackBar(
@@ -38,6 +114,41 @@ class IncomingOrderPage extends StatelessWidget {
           content: Text('Pesanan ditolak. $clientName sudah diberi tahu.'),
         ),
       );
+      return;
+    }
+
+    setState(() => _processing = true);
+    final repo = AppScope.of(context).escrowRepository;
+
+    try {
+      await repo.rejectOrder(currentOrder.orderId, alasan: reasonText);
+      if (!mounted) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Pesanan resmi ditolak. $clientName sudah diberi tahu.'),
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menolak pesanan: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
     }
   }
 
@@ -56,7 +167,9 @@ class IncomingOrderPage extends StatelessWidget {
     final briefNote =
         currentOrder?.catatanBrief ?? 'Warna cerah, lampiran foto menu ayam bakar.';
     final attachment = currentOrder?.lampiranKlien ?? 'Foto_Ayam_Bakar.jpg';
-    final clientShortName = demo.client.split(' ').first;
+    final clientFullName =
+        currentOrder?.namaLawanTransaksi ?? 'Dimas (Katering Berkah Cibiru)';
+    final clientShortName = clientFullName.split(' ').first;
 
     return SakuScreen(
       background: AppColors.canvasLight,
@@ -82,7 +195,7 @@ class IncomingOrderPage extends StatelessWidget {
             spacing: 14,
             children: [
               PersonRow(
-                name: 'Dimas (Katering Berkah Cibiru)',
+                name: clientFullName,
                 subtitle: 'Pelanggan · Cibiru, Bandung',
                 asset: demo.clientAsset,
               ),
@@ -140,20 +253,17 @@ class IncomingOrderPage extends StatelessWidget {
         ),
         SakuButton(
           key: const Key('incoming-accept'),
-          label: 'Terima & Masuk Diskusi Brief',
-          onPressed: () {
-            SakuMotion.tick();
-            Navigator.of(context).pushReplacementNamed(
-              AppRoutes.orderChat,
-              arguments: currentOrder,
-            );
-          },
+          label: _processing
+              ? 'Menyetujui Pesanan...'
+              : 'Terima & Sepakati Pesanan',
+          onPressed: _processing ? null : () => _accept(currentOrder),
         ),
         SakuButton(
           key: const Key('incoming-reject'),
           label: 'Tolak Pesanan',
           variant: SakuButtonVariant.destructive,
-          onPressed: () => _reject(context, clientShortName),
+          onPressed:
+              _processing ? null : () => _reject(currentOrder, clientShortName),
         ),
         const InfoBox(
           text:
@@ -177,6 +287,20 @@ class _RejectSheet extends StatefulWidget {
 
 class _RejectSheetState extends State<_RejectSheet> {
   int _reason = 0;
+  final _noteController = TextEditingController();
+
+  static const _reasons = [
+    'Jadwal pengerjaan saya saat ini sedang penuh',
+    'Spesifikasi brief di luar keahlian/lingkup saya',
+    'Tenggat waktu yang diminta terlalu singkat',
+    'Alasan lainnya...',
+  ];
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,18 +311,14 @@ class _RejectSheetState extends State<_RejectSheet> {
           'agar komunikasi tetap profesional:',
       body: [
         RadioOptions(
-          options: const [
-            'Jadwal pengerjaan saya saat ini sedang penuh',
-            'Spesifikasi brief di luar keahlian/lingkup saya',
-            'Tenggat waktu yang diminta terlalu singkat',
-            'Alasan lainnya...',
-          ],
+          options: _reasons,
           selected: _reason,
           onChanged: (i) => setState(() => _reason = i),
         ),
         SakuTextField(
+          controller: _noteController,
           label: 'Catatan tambahan (opsional)',
-          hint: 'Tuliskan pesan singkat untuk Pak ${widget.clientName}...',
+          hint: 'Tuliskan pesan singkat untuk ${widget.clientName}...',
           minLines: 2,
           maxLines: 4,
         ),
@@ -206,7 +326,13 @@ class _RejectSheetState extends State<_RejectSheet> {
       confirmLabel: 'Konfirmasi Tolak Pesanan',
       confirmVariant: SakuButtonVariant.destructive,
       cancelLabel: 'Kembali (Batal Menolak)',
-      onConfirm: () => Navigator.of(context).pop(true),
+      onConfirm: () {
+        final selectedReason = _reasons[_reason];
+        final extra = _noteController.text.trim();
+        final fullReason =
+            extra.isNotEmpty ? '$selectedReason ($extra)' : selectedReason;
+        Navigator.of(context).pop(fullReason);
+      },
     );
   }
 }

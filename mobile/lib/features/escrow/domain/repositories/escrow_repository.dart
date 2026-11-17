@@ -1,4 +1,5 @@
 import '../../data/models/escrow_order_model.dart';
+import '../../data/models/escrow_payment_model.dart';
 
 class EscrowActionResult<T> {
   const EscrowActionResult({required this.data, this.isFallback = false});
@@ -8,6 +9,15 @@ class EscrowActionResult<T> {
 }
 
 abstract class EscrowRepository {
+  // --- Daftar & Detail ---
+  Future<EscrowActionResult<List<EscrowOrderModel>>> fetchMyOrders({
+    String peran = 'pelanggan',
+    String? status,
+  });
+
+  Future<EscrowActionResult<EscrowOrderModel>> fetchOrderDetail(String orderId);
+
+  // --- Alur Pelanggan (Didukung Backend) ---
   Future<EscrowActionResult<EscrowOrderModel>> createOrder({
     required String listingId,
     required String deskripsiKebutuhan,
@@ -16,23 +26,50 @@ abstract class EscrowRepository {
     String? catatanKlien,
   });
 
-  Future<EscrowActionResult<List<EscrowOrderModel>>> fetchMyOrders({
-    String peran = 'pembeli',
-    String? status,
+  Future<EscrowActionResult<EscrowOrderModel>> submitProposal({
+    required String orderId,
+    required String deskripsiRuangLingkup,
+    required int hargaTawaran,
+    DateTime? tenggatUsulan,
   });
 
-  Future<EscrowActionResult<EscrowOrderModel>> fetchOrderDetail(String orderId);
+  Future<EscrowActionResult<EscrowPaymentModel>> startPayment(String orderId);
 
-  Future<EscrowActionResult<void>> deliverWork({
+  Future<EscrowActionResult<EscrowPaymentModel>> simulatePayment(
+    String orderId, {
+    required bool berhasil,
+    String? alasanGagal,
+  });
+
+  Future<EscrowActionResult<EscrowPaymentModel>> fetchPayment(String orderId);
+
+  Future<EscrowActionResult<void>> confirmCompletion(String orderId);
+
+  Future<EscrowActionResult<void>> submitReview({
+    required String orderId,
+    required int rating,
+    String? komentar,
+  });
+
+  Future<EscrowActionResult<void>> cancelOrder(String orderId, {String? alasan});
+
+  // --- Alur Penyedia Jasa (Didukung Backend) ---
+  Future<EscrowActionResult<EscrowOrderModel>> acceptOrder(String orderId);
+
+  Future<EscrowActionResult<EscrowOrderModel>> rejectOrder(
+    String orderId, {
+    String? alasan,
+  });
+
+  Future<EscrowActionResult<EscrowOrderModel>> startWork(String orderId);
+
+  Future<EscrowActionResult<void>> requestCompletion({
     required String orderId,
     required String tautanBerkas,
     required String catatanPenyedia,
-    String? mockupUrl,
-    bool konfirmasiKesesuaianBrief = true,
   });
 
-  Future<EscrowActionResult<void>> releaseFund(String orderId, {int? rating});
-
+  // --- Simulasi Lokal (Belum Ada Endpoint di Backend v1.3) ---
   Future<EscrowActionResult<void>> requestRevision({
     required String orderId,
     required String catatanRevisi,

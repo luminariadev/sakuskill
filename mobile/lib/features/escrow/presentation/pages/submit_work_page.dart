@@ -68,12 +68,10 @@ class _SubmitWorkPageState extends State<SubmitWorkPage> {
     final cleanLink = _link.text.trim();
     final cleanNotes = _notes.text.trim();
 
-    await repo.deliverWork(
+    await repo.requestCompletion(
       orderId: orderId,
       tautanBerkas: cleanLink,
       catatanPenyedia: cleanNotes,
-      mockupUrl: DemoAssets.spandukBerkah,
-      konfirmasiKesesuaianBrief: _confirmed,
     );
 
     // 4. INTEGRASI: Perbarui model & teruskan ke halaman review klien

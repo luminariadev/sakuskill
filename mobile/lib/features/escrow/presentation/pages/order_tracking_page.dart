@@ -12,10 +12,10 @@ import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_sheets.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/saku_transaction.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
-/// Figma "14B · Tracking pesanan" (sisi klien) + "15C · Keputusan tambahan
-/// waktu" (sheet saat penyedia meminta perpanjangan).
+/// Figma "14B · Tracking pesanan" + "15C · Keputusan tambahan waktu".
 class OrderTrackingPage extends StatefulWidget {
   const OrderTrackingPage({super.key, this.order});
 
@@ -28,10 +28,10 @@ class OrderTrackingPage extends StatefulWidget {
 class _OrderTrackingPageState extends State<OrderTrackingPage> {
   EscrowOrderModel? _order;
   bool _initialized = false;
+  bool _isDemoFallback = false;
   bool? _extensionApproved;
-  bool _submittingDecision = false;
+  bool _submittingAction = false;
 
-  // 1. INTEGRASI: Ambil argumen dari halaman pembayaran dan sinkronkan ke BE
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -44,16 +44,127 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   }
 
   Future<void> _syncLatestDetail() async {
-    final targetId = _order?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    final targetId = _order?.orderId;
+    if (targetId == null || targetId.isEmpty) return;
+
     final result =
         await AppScope.of(context).escrowRepository.fetchOrderDetail(targetId);
     if (!mounted) return;
-    if (!result.isFallback || _order == null) {
-      setState(() => _order = result.data);
+    setState(() {
+      _isDemoFallback = result.isFallback;
+      if (!result.isFallback || _order == null) {
+        _order = result.data;
+      }
+    });
+  }
+
+  /// POST /api/v1/orders/:id/start (Penyedia memulai pengerjaan; wajib payment success)
+  Future<void> _startWork(EscrowOrderModel currentOrder) async {
+    if (_submittingAction) return;
+    setState(() => _submittingAction = true);
+    SakuMotion.tick();
+
+    final repo = AppScope.of(context).escrowRepository;
+    try {
+      final res = await repo.startWork(currentOrder.orderId);
+      if (!mounted) return;
+      setState(() => _order = res.data);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Pengerjaan resmi dimulai (Status: Dikerjakan).'),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      final pesan = e.code == 'PAYMENT_REQUIRED_BEFORE_START'
+          ? 'Pembayaran belum lunas! Pelanggan harus menyelesaikan simulasi pembayaran sebelum pengerjaan dimulai.'
+          : e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pesan),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submittingAction = false);
     }
   }
 
-  // 2. INTEGRASI: Kirim keputusan perpanjangan waktu ke BE via EscrowRepository
+  /// POST /api/v1/orders/:id/request-completion (Penyedia mengirim hasil kerja)
+  Future<void> _requestCompletion(EscrowOrderModel currentOrder) async {
+    if (_submittingAction) return;
+    setState(() => _submittingAction = true);
+    SakuMotion.tick();
+
+    final repo = AppScope.of(context).escrowRepository;
+    try {
+      await repo.requestCompletion(
+        orderId: currentOrder.orderId,
+        tautanBerkas: 'https://sakuskill.id/deliverables/${currentOrder.kodePesanan}',
+        catatanPenyedia: 'Hasil pekerjaan telah diunggah sesuai brief.',
+      );
+      await _syncLatestDetail();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Hasil pekerjaan berhasil dikirim! Menunggu konfirmasi pelanggan.',
+          ),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submittingAction = false);
+    }
+  }
+
+  /// POST /api/v1/orders/:id/complete (Pelanggan konfirmasi selesai & lepas dana)
+  Future<void> _confirmCompletion(EscrowOrderModel currentOrder) async {
+    if (_submittingAction) return;
+    setState(() => _submittingAction = true);
+    SakuMotion.tick();
+
+    final repo = AppScope.of(context).escrowRepository;
+    try {
+      await repo.confirmCompletion(currentOrder.orderId);
+      final updatedRes = await repo.fetchOrderDetail(currentOrder.orderId);
+      final finalOrder = updatedRes.isFallback
+          ? currentOrder.copyWith(
+              statusKode: 'completed',
+              statusPesanan: 'Selesai',
+              statusEscrow: 'Dana Dilepas ke Penyedia (Simulasi)',
+            )
+          : updatedRes.data;
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.orderDone,
+        arguments: finalOrder,
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submittingAction = false);
+    }
+  }
+
   Future<void> _reviewExtension(EscrowOrderModel? currentOrder) async {
     final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
     final providerFullName =
@@ -68,9 +179,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         providerFirstName: providerFirstName,
       ),
     );
-    if (approved == null || !mounted || _submittingDecision) return;
+    if (approved == null || !mounted || _submittingAction) return;
 
-    setState(() => _submittingDecision = true);
+    setState(() => _submittingAction = true);
     final orderId =
         currentOrder?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
 
@@ -81,7 +192,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
 
     if (!mounted) return;
     setState(() {
-      _submittingDecision = false;
+      _submittingAction = false;
       _extensionApproved = approved;
       if (approved && _order != null && _order!.detikTersisa != null) {
         _order = _order!.copyWith(
@@ -94,7 +205,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       SnackBar(
         content: Text(
           approved
-              ? 'Tambahan waktu +12 jam disetujui.'
+              ? 'Tambahan waktu +12 jam disetujui (Simulasi Lokal).'
               : 'Permintaan ditolak. Tenggat tetap sesuai kesepakatan awal.',
         ),
       ),
@@ -106,11 +217,11 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     const demo = DemoData.order;
     final currentOrder = _order;
 
-    // 3. INTEGRASI: Data dinamis status order, status dana escrow, & sisa waktu
     final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
+    final statusKode = currentOrder?.statusKode ?? 'in_progress';
     final statusPesanan =
         (currentOrder?.statusPesanan ?? 'Dikerjakan').toUpperCase();
-    final statusEscrow = currentOrder?.statusEscrow ?? 'Ditahan (Simulasi)';
+    final statusEscrow = currentOrder?.statusEscrow ?? 'Dana Ditahan (Simulasi)';
     final amount = currentOrder?.harga ?? demo.amount;
     final providerFullName =
         currentOrder?.namaLawanTransaksi ?? demo.provider;
@@ -123,11 +234,23 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     final remaining = Duration(seconds: baseSeconds.clamp(0, 31536000));
     final remainingDays = remaining.inDays.clamp(1, 365);
 
+    final isPaid = currentOrder?.bolehLanjutInProgress ?? false;
+
     return SakuScreen(
       background: AppColors.canvasLight,
       showBack: true,
       children: [
-        const PageHeader('Status Pesanan Saya'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const PageHeader('Status Pesanan Saya'),
+            IconButton(
+              onPressed: _syncLatestDetail,
+              icon: const Icon(Icons.refresh, color: AppColors.primary),
+              tooltip: 'Muat ulang status terbaru dari server',
+            ),
+          ],
+        ),
         Text(
           orderCode,
           style: AppTypography.mono.copyWith(
@@ -135,8 +258,16 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             color: AppColors.textSecondary,
           ),
         ),
+        if (_isDemoFallback)
+          const InfoBox(
+            text: 'MODE DEMO: Server tidak terjangkau, menampilkan data simulasi lokal.',
+            tone: SakuTone.warning,
+            fontWeight: FontWeight.w600,
+          ),
         InfoBox(
-          tone: SakuTone.success,
+          tone: statusKode == 'accepted' && !isPaid
+              ? SakuTone.warning
+              : SakuTone.success,
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,7 +283,11 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                 ),
               ),
               Text(
-                'TUGAS TELAH DITERIMA OLEH ${providerFullName.toUpperCase()}!',
+                statusKode == 'accepted'
+                    ? (isPaid
+                        ? 'PEMBAYARAN LUNAS · SIAP DIKERJAKAN'
+                        : 'MENUNGGU PEMBAYARAN PELANGGAN')
+                    : 'PESANAN DITANGANI OLEH ${providerFullName.toUpperCase()}',
                 style: const TextStyle(
                   fontSize: 16,
                   height: 22 / 16,
@@ -161,9 +296,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                 ),
               ),
               Text(
-                '$providerFirstName telah menyetujui brief Anda. Dana '
-                '${formatRupiah(amount)} Anda berstatus $statusEscrow di Rekening '
-                'Bersama Escrow dan proses pengerjaan resmi dimulai.',
+                statusKode == 'accepted' && isPaid
+                    ? 'Dana ${formatRupiah(amount)} telah diamankan di Escrow (Simulasi). Penyedia jasa kini dapat menekan tombol Mulai Kerjakan.'
+                    : 'Status pesanan: $statusPesanan. Dana ${formatRupiah(amount)} berstatus $statusEscrow.',
                 style: const TextStyle(
                   fontSize: 13,
                   height: 18 / 13,
@@ -176,10 +311,80 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         StatusTimeline(items: [
           const ('Pesanan Dibuat', TimelineState.done),
           const ('Diterima Penyedia', TimelineState.done),
-          ('Dana $statusEscrow', TimelineState.done),
-          ('Dikerjakan · Sisa Waktu $remainingDays Hari', TimelineState.current),
-          const ('Pemeriksaan Hasil', TimelineState.pending),
+          ('Dana $statusEscrow', isPaid ? TimelineState.done : TimelineState.current),
+          (
+            'Dikerjakan · Sisa Waktu $remainingDays Hari',
+            statusKode == 'in_progress'
+                ? TimelineState.current
+                : (statusKode == 'completion_requested' || statusKode == 'completed'
+                    ? TimelineState.done
+                    : TimelineState.pending),
+          ),
+          (
+            'Pemeriksaan Hasil',
+            statusKode == 'completion_requested'
+                ? TimelineState.current
+                : (statusKode == 'completed'
+                    ? TimelineState.done
+                    : TimelineState.pending),
+          ),
         ]),
+
+        // --- AKSI SESUAI STATE MACHINE API v1.3 ---
+        if (currentOrder != null) ...[
+          // 1. Jika accepted tapi belum dibayar -> Tombol Bayar untuk Pelanggan
+          if (statusKode == 'accepted' && !isPaid)
+            SakuButton(
+              label: 'Lanjut Simulasi Pembayaran (${formatRupiah(amount)})',
+              onPressed: () => Navigator.of(context).pushNamed(
+                AppRoutes.payment,
+                arguments: currentOrder,
+              ),
+            ),
+
+          // 2. Jika accepted & sudah dibayar -> Tombol Mulai Kerjakan untuk Penyedia
+          if (statusKode == 'accepted' && isPaid)
+            SakuButton(
+              label: _submittingAction
+                  ? 'Memulai Pengerjaan...'
+                  : 'Mulai Kerjakan Pesanan (Penyedia)',
+              onPressed:
+                  _submittingAction ? null : () => _startWork(currentOrder),
+            ),
+
+          // 3. Jika in_progress -> Tombol Kirim Hasil untuk Penyedia
+          if (statusKode == 'in_progress')
+            SakuButton(
+              label: _submittingAction
+                  ? 'Mengirim Hasil...'
+                  : 'Kirim Hasil Kerja & Ajukan Selesai (Penyedia)',
+              onPressed: _submittingAction
+                  ? null
+                  : () => _requestCompletion(currentOrder),
+            ),
+
+          // 4. Jika completion_requested -> Tombol Konfirmasi Selesai untuk Pelanggan
+          if (statusKode == 'completion_requested')
+            SakuButton(
+              label: _submittingAction
+                  ? 'Melepas Dana...'
+                  : 'Konfirmasi Selesai & Lepas Dana (Pelanggan)',
+              onPressed: _submittingAction
+                  ? null
+                  : () => _confirmCompletion(currentOrder),
+            ),
+
+          // 5. Jika completed -> Tombol Beri Ulasan
+          if (statusKode == 'completed')
+            SakuButton(
+              label: 'Lihat Ringkasan & Beri Ulasan',
+              onPressed: () => Navigator.of(context).pushNamed(
+                AppRoutes.orderDone,
+                arguments: currentOrder,
+              ),
+            ),
+        ],
+
         CountdownCard(
           key: ValueKey('${_extensionApproved}_${remaining.inSeconds}'),
           label:
@@ -190,7 +395,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
               'Jaminan Escrow: Jika penyedia terlambat tanpa konfirmasi, Anda '
               'berhak membatalkan dan menarik dana kembali.',
         ),
-        if (_extensionApproved == null)
+        if (_extensionApproved == null && statusKode == 'in_progress')
           StatusStrip(
             '$providerFirstName mengajukan tambahan waktu +12 jam · Tinjau  ›',
             tone: SakuTone.warning,
@@ -228,9 +433,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             ],
           ),
         ),
-        // 4. INTEGRASI: Teruskan currentOrder saat berpindah halaman
         SakuButton(
           label: 'Buka Chat dengan $providerFirstName',
+          variant: SakuButtonVariant.outline,
           onPressed: () => Navigator.of(context).pushNamed(
             AppRoutes.orderChat,
             arguments: currentOrder,

@@ -11,6 +11,7 @@ import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/saku_transaction.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
 /// Figma "14 · Pembayaran escrow" (simulasi — tidak ada uang sungguhan).
@@ -27,58 +28,111 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
   int _method = 0;
   bool _processing = false;
 
-  // 1. INTEGRASI: Ambil data order dari parameter atau argumen navigasi
   EscrowOrderModel? _resolveOrder(BuildContext context) {
     if (widget.order != null) return widget.order;
     final args = ModalRoute.of(context)?.settings.arguments;
     return args is EscrowOrderModel ? args : null;
   }
 
-  // 2. INTEGRASI: Proses pembayaran simulasi & ubah status dana menjadi Ditahan (Simulasi)
-  Future<void> _payAndLockEscrow(EscrowOrderModel? currentOrder) async {
+  /// Menjalankan alur resmi API v1.3:
+  /// 1. POST /api/v1/payments -> status: pending[cite: 4]
+  /// 2. POST /api/v1/payments/:orderId/simulate-success (atau simulate-failed)[cite: 4]
+  /// 3. Ambil detail order terbaru dari server agar status_kode & paymentStatusKode sinkron[cite: 4].
+  Future<void> _processPaymentSimulation(
+    EscrowOrderModel? currentOrder, {
+    required bool isSuccess,
+  }) async {
     if (_processing) return;
+
+    final orderId = currentOrder?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
     setState(() => _processing = true);
     SakuMotion.tick();
 
     final repo = AppScope.of(context).escrowRepository;
-    EscrowOrderModel updatedOrder;
 
-    if (currentOrder != null) {
-      // Coba sinkronkan status terbaru dari BE jika tersedia
-      final detailResult = await repo.fetchOrderDetail(currentOrder.orderId);
-      final base = detailResult.isFallback ? currentOrder : detailResult.data;
+    try {
+      // Langkah 1: Inisiasi (atau reset) record pembayaran di backend -> status "pending"[cite: 4]
+      await repo.startPayment(orderId);
 
-      updatedOrder = base.copyWith(
-        statusPesanan: 'Dikerjakan',
-        statusEscrow: 'Ditahan (Simulasi)',
-        stepperTahap: 2,
+      // Langkah 2: Jalankan simulasi sukses atau gagal[cite: 4]
+      final simResult = await repo.simulatePayment(
+        orderId,
+        berhasil: isSuccess,
+        alasanGagal: isSuccess
+            ? null
+            : 'Simulasi saldo tidak mencukupi untuk demonstrasi alur gagal[cite: 4].',
       );
-    } else {
-      final fallbackResult =
-          await repo.fetchOrderDetail('9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d');
-      updatedOrder = fallbackResult.data.copyWith(
-        statusPesanan: 'Dikerjakan',
-        statusEscrow: 'Ditahan (Simulasi)',
-        stepperTahap: 2,
-      );
-    }
 
-    if (!mounted) return;
-    setState(() => _processing = false);
+      // Langkah 3: Tarik ulang detail order terbaru dari server[cite: 4]
+      final detailResult = await repo.fetchOrderDetail(orderId);
+      final updatedOrder = detailResult.isFallback
+          ? (currentOrder ?? detailResult.data).copyWith(
+              paymentStatusKode: simResult.data.statusKode,
+              bolehLanjutInProgress: simResult.data.bolehLanjutInProgress,
+              statusEscrow: isSuccess
+                  ? 'Dana Ditahan (Simulasi)'
+                  : 'Pembayaran Gagal (Simulasi)',
+            )
+          : detailResult.data;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Pembayaran simulasi berhasil! Status dana: Ditahan (Simulasi).',
+      if (!mounted) return;
+
+      if (isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Pembayaran simulasi berhasil (${simResult.data.referensiSimulasi})! '
+              'Menunggu penyedia memulai pengerjaan.',
+            ),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+
+        Navigator.of(context).pushReplacementNamed(
+          AppRoutes.tracking,
+          arguments: updatedOrder,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Simulasi Pembayaran GAGAL. Order tertahan di status Disepakati '
+              'dan penyedia belum bisa memulai pekerjaan[cite: 4].',
+            ),
+            backgroundColor: Colors.orange.shade800,
+          ),
+        );
+      }
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      String errorMessage = e.message;
+      if (e.code == 'INVALID_ORDER_STATE_FOR_PAYMENT') {
+        errorMessage =
+            'Pesanan harus disetujui penyedia terlebih dahulu sebelum dibayar[cite: 4].';
+      } else if (e.code == 'FORBIDDEN_ONLY_CUSTOMER') {
+        errorMessage =
+            'Hanya pelanggan yang membuat pesanan yang dapat melakukan pembayaran[cite: 4].';
+      } else if (e.code == 'PAYMENT_ALREADY_SUCCESS') {
+        errorMessage = 'Pesanan ini sudah berhasil dibayar sebelumnya[cite: 4].';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red.shade700,
         ),
-      ),
-    );
-
-    // 4. INTEGRASI: Teruskan order dengan status Ditahan (Simulasi) ke OrderTrackingPage
-    Navigator.of(context).pushReplacementNamed(
-      AppRoutes.tracking,
-      arguments: updatedOrder,
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memproses pembayaran: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
   }
 
   @override
@@ -123,7 +177,7 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
               AmountRow('Harga jasa', amount),
               const AmountRow('Biaya Layanan SakuSkill', 'Rp 0'),
               const Text(
-                'Simulasi Gratis',
+                'Simulasi Gratis (MVP)',
                 style: TextStyle(
                   fontSize: 11,
                   height: 15 / 11,
@@ -160,20 +214,32 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
           selected: _method == 2,
           onTap: () => setState(() => _method = 2),
         ),
-        // 3. INTEGRASI: InfoBox dinamis sesuai nama penyedia
         InfoBox(
           text:
-              'Status Dana: Ditahan Simulasi di Penampungan SakuSkill. Dana HANYA '
-              'diteruskan ke $providerName setelah Anda memeriksa dan menyetujui hasil kerja.',
+              'DISCLAIMER MVP: Bukan uang sungguhan & bukan rekening escrow perbankan nyata[cite: 4]. '
+              'Dana simulasi hanya diteruskan ke $providerName setelah Anda menyetujui hasil kerja.',
           tone: SakuTone.escrow,
           fontWeight: FontWeight.w500,
         ),
         SakuButton(
           key: const Key('payment-submit'),
           label: _processing
-              ? 'Memproses Pembayaran...'
+              ? 'Memproses Simulasi...'
               : 'Bayar & Kunci Dana di Escrow ($amount)',
-          onPressed: _processing ? null : () => _payAndLockEscrow(currentOrder),
+          onPressed: _processing
+              ? null
+              : () => _processPaymentSimulation(currentOrder, isSuccess: true),
+        ),
+        OutlinedButton(
+          onPressed: _processing
+              ? null
+              : () => _processPaymentSimulation(currentOrder, isSuccess: false),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.red.shade700,
+            side: BorderSide(color: Colors.red.shade300),
+            minimumSize: const Size.fromHeight(44),
+          ),
+          child: const Text('Uji Simulasi Pembayaran Gagal (Demo MVP)'),
         ),
       ],
     );

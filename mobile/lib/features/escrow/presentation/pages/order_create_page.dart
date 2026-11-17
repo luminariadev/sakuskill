@@ -11,6 +11,7 @@ import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../discovery/domain/entities/service_listing.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 
 /// Figma "11 · Buat pesanan jasa" (sisi klien).
 class OrderCreatePage extends StatefulWidget {
@@ -60,9 +61,17 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     return widget.listing?.deliveryDays ?? DemoData.order.deadlineDays;
   }
 
+  String? _validateTitle() {
+    if (!_submitted) return null;
+    final text = _title.text.trim();
+    if (text.isEmpty) return 'Judul kebutuhan wajib diisi';
+    if (text.length < 10) return 'Judul kebutuhan minimal 10 karakter';
+    return null;
+  }
+
   Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (_title.text.trim().isEmpty || _submitting) return;
+    if (_validateTitle() != null || _submitting) return;
 
     setState(() => _submitting = true);
     SakuMotion.tick();
@@ -87,8 +96,14 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Mode offline: Pesanan dibuat menggunakan data simulasi lokal.',
+              'Mode demo: Pesanan dibuat menggunakan data simulasi lokal.',
             ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan berhasil dikirim ke penyedia jasa!'),
           ),
         );
       }
@@ -97,10 +112,24 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
         AppRoutes.incomingOrders,
         arguments: result.data,
       );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      final pesan = e.code == 'UNAUTHORIZED'
+          ? 'Sesi habis atau Anda belum login. Silakan login terlebih dahulu.'
+          : e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pesan),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengirim pesanan: $e')),
+        SnackBar(
+          content: Text('Terjadi kesalahan tak terduga: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -159,9 +188,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           fieldKey: const Key('order-title'),
           controller: _title,
           label: 'Judul Kebutuhan',
-          errorText: _submitted && _title.text.trim().isEmpty
-              ? 'Judul kebutuhan wajib diisi'
-              : null,
+          errorText: _validateTitle(),
           onChanged: (_) => setState(() {}),
         ),
         SakuTextField(
