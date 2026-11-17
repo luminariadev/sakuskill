@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/database/migrate.js",
+    "db:clean": "node src/database/clean.js",
     "test:api": "node src/database/test-task2.js",
     "test:lifecycle": "node src/database/test-task3.js",
     "test:payment": "node src/database/test-task4.js"

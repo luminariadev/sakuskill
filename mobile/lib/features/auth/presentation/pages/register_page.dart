@@ -219,22 +219,9 @@ class _RegisterPageState extends State<RegisterPage> {
         showBack: true,
         gap: 12,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Buat Akun\nSakuSkill Baru',
-                  style: AppTypography.pageTitle,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings_ethernet, color: AppColors.primary),
-                tooltip: 'Pengaturan Server API',
-                onPressed: _openServerSettings,
-              ),
-            ],
+          const Text(
+            'Buat Akun\nSakuSkill Baru',
+            style: AppTypography.pageTitle,
           ),
           const Text(
             'Satu akun fleksibel untuk mencari jasa maupun menawarkan keahlian',

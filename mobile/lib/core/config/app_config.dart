@@ -22,17 +22,15 @@ abstract final class AppConfig {
     return false;
   }
 
-  /// Base URL sesuai docs/API_CONTRACT.md. Default pada Android fisik diarahkan
-  /// ke IP Wi-Fi host laptop (192.168.101.9) agar HP dapat langsung terhubung.
+  /// Base URL sesuai docs/API_CONTRACT.md. Default menggunakan Cloudflare Tunnel
+  /// publik HTTPS sehingga HP dapat langsung mengakses backend dari jaringan mana pun
+  /// (Wi-Fi kampus, hotspot, maupun kuota seluler HP) tanpa perlu satu jaringan.
   static String get apiBaseUrl {
     if (customServerUrl != null && customServerUrl!.isNotEmpty) {
       return customServerUrl!;
     }
     if (_apiOverride.isNotEmpty) return _apiOverride;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.101.9:3000/api/v1';
-    }
-    return 'http://localhost:3000/api/v1';
+    return 'https://self-consult-allowed-marijuana.trycloudflare.com/api/v1';
   }
 
   static const Duration networkTimeout = Duration(seconds: 6);

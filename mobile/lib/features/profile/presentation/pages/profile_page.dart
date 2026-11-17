@@ -158,13 +158,6 @@ class _ProfilePageState extends State<ProfilePage> {
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_ethernet, color: AppColors.primary),
-            tooltip: 'Pengaturan Server API',
-            onPressed: _openServerSettings,
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -393,13 +386,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   subtitle: 'Laporkan kendala transaksi atau joki ilegal',
                   onTap: () => Navigator.of(context).pushNamed(AppRoutes.complaint),
                 ),
-                const Divider(height: 1, indent: 56),
-                _buildMenuItem(
-                  icon: Icons.dns_outlined,
-                  title: 'Pengaturan Server API',
-                  subtitle: 'Alamat backend (${AppConfig.apiBaseUrl})',
-                  onTap: _openServerSettings,
-                ),
               ],
             ),
           ),
@@ -415,12 +401,15 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
 
           const SizedBox(height: 12),
-          const Center(
-            child: Text(
-              'SakuSkill v1.0.0 · Platform Escrow Mahasiswa Kampus',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textMuted,
+          Center(
+            child: GestureDetector(
+              onLongPress: _openServerSettings,
+              child: const Text(
+                'SakuSkill v1.0.0 · Platform Escrow Mahasiswa Kampus',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
               ),
             ),
           ),

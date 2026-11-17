@@ -24,8 +24,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  late final _id = TextEditingController(text: AppConfig.useMockData ? '' : 'salma@gmail.com');
-  late final _password = TextEditingController(text: AppConfig.useMockData ? '' : 'rahasia123');
+  final _id = TextEditingController();
+  final _password = TextEditingController();
   bool _remember = true;
   bool _failed = false;
   bool _loading = false;
@@ -212,27 +212,14 @@ class _LoginPageState extends State<LoginPage> {
       child: SakuScreen(
         showBack: true,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Selamat Datang\nKembali',
-                  style: TextStyle(
-                    fontSize: 28,
-                    height: 39 / 28,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings_ethernet, color: AppColors.primary),
-                tooltip: 'Pengaturan Server API',
-                onPressed: _openServerSettings,
-              ),
-            ],
+          const Text(
+            'Selamat Datang\nKembali',
+            style: TextStyle(
+              fontSize: 28,
+              height: 39 / 28,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
           const Text(
             'Masuk untuk mencari jasa atau mengelola penawaran Anda',
