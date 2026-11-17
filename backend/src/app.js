@@ -13,6 +13,7 @@ const ordersRoutes = require('./modules/orders/orders.routes');
 const barterRoutes = require('./modules/barter/barter.routes');
 const paymentsRoutes = require('./modules/payments/payments.routes');
 const reportsRoutes = require('./modules/reports/reports.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use(env.apiPrefix + '/barters', barterRoutes);
 app.use(env.apiPrefix + '/payments', paymentsRoutes);
 app.use(env.apiPrefix + '/escrow', paymentsRoutes);
 app.use(env.apiPrefix + '/reports', reportsRoutes);
+app.use(env.apiPrefix + '/admin', adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
