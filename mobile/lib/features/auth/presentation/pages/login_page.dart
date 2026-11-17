@@ -131,6 +131,80 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _openServerSettings() async {
+    final controller = TextEditingController(text: AppConfig.apiBaseUrl);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pengaturan Server API'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Sesuaikan alamat backend untuk pengujian di HP fisik / Wi-Fi:',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'API Base URL',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ActionChip(
+                    label: const Text('Wi-Fi Laptop (192.168.100.201)'),
+                    onPressed: () => controller.text = 'http://192.168.100.201:3000/api/v1',
+                  ),
+                  ActionChip(
+                    label: const Text('Emulator (10.0.2.2)'),
+                    onPressed: () => controller.text = 'http://10.0.2.2:3000/api/v1',
+                  ),
+                  ActionChip(
+                    label: const Text('USB Reverse (127.0.0.1)'),
+                    onPressed: () => controller.text = 'http://127.0.0.1:3000/api/v1',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              AppConfig.customUseMockData = true;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Beralih ke Mode Offline Demo')),
+              );
+              setState(() {});
+            },
+            child: const Text('Mode Demo'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              AppConfig.customServerUrl = controller.text.trim();
+              AppConfig.customUseMockData = false;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Server API diubah: ${AppConfig.apiBaseUrl}')),
+              );
+              setState(() {});
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -138,14 +212,27 @@ class _LoginPageState extends State<LoginPage> {
       child: SakuScreen(
         showBack: true,
         children: [
-          const Text(
-            'Selamat Datang\nKembali',
-            style: TextStyle(
-              fontSize: 28,
-              height: 39 / 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Selamat Datang\nKembali',
+                  style: TextStyle(
+                    fontSize: 28,
+                    height: 39 / 28,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings_ethernet, color: AppColors.primary),
+                tooltip: 'Pengaturan Server API',
+                onPressed: _openServerSettings,
+              ),
+            ],
           ),
           const Text(
             'Masuk untuk mencari jasa atau mengelola penawaran Anda',

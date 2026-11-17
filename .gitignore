@@ -41,3 +41,7 @@ postman/
 
 # Output graphify (knowledge graph lokal, bisa dibangun ulang)
 graphify-out/
+
+# Android build outputs & binaries
+*.apk
+*.aab

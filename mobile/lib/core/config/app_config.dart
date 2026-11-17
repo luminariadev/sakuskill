@@ -9,9 +9,12 @@ import '../utils/geo.dart';
 ///   flutter run --dart-define=USE_MOCK_DATA=true
 abstract final class AppConfig {
   static const String _apiOverride = String.fromEnvironment('API_BASE_URL');
+  static String? customServerUrl;
+  static bool? customUseMockData;
 
   /// Paksa memakai data contoh lokal (berguna untuk demo / saat backend mati / dalam widget test).
   static bool get useMockData {
+    if (customUseMockData != null) return customUseMockData!;
     const fromEnv = bool.fromEnvironment('USE_MOCK_DATA');
     if (fromEnv) return true;
     final binding = WidgetsBinding.instance.runtimeType.toString();
@@ -21,6 +24,9 @@ abstract final class AppConfig {
 
   /// Base URL sesuai docs/API_CONTRACT.md. Emulator Android memakai 10.0.2.2.
   static String get apiBaseUrl {
+    if (customServerUrl != null && customServerUrl!.isNotEmpty) {
+      return customServerUrl!;
+    }
     if (_apiOverride.isNotEmpty) return _apiOverride;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:3000/api/v1';
