@@ -301,26 +301,49 @@ class EscrowRepositoryImpl implements EscrowRepository {
   }
 
   @override
-  Future<EscrowActionResult<void>> requestTimeExtension({
+  Future<EscrowActionResult<EscrowOrderModel>> requestTimeExtension({
     required String orderId,
     required int tambahanJam,
     required String alasan,
-    required int progresPersen,
-  }) async {
-    return const EscrowActionResult<void>(data: null, isFallback: true);
+    int progresPersen = 75,
+  }) {
+    return _runWithFallback(
+      actionName: 'requestTimeExtension',
+      isWrite: true,
+      remoteCall: () => _remote.requestTimeExtension(
+        orderId: orderId,
+        tambahanJam: tambahanJam,
+        alasan: alasan,
+        progresPersen: progresPersen,
+      ),
+      fallbackCall: () => _local.getSampleOrder(orderId),
+    );
   }
 
   @override
-  Future<EscrowActionResult<void>> decideTimeExtension({
+  Future<EscrowActionResult<EscrowOrderModel>> decideTimeExtension({
     required String orderId,
     required bool disetujui,
-  }) async {
-    return const EscrowActionResult<void>(data: null, isFallback: true);
+  }) {
+    return _runWithFallback(
+      actionName: 'decideTimeExtension',
+      isWrite: true,
+      remoteCall: () => _remote.decideTimeExtension(
+        orderId: orderId,
+        disetujui: disetujui,
+      ),
+      fallbackCall: () => _local.getSampleOrder(orderId),
+    );
   }
 
   @override
-  Future<EscrowActionResult<void>> cancelOverdueOrder(String orderId) async {
-    return const EscrowActionResult<void>(data: null, isFallback: true);
+  Future<EscrowActionResult<void>> cancelOverdueOrder(String orderId) {
+    return _runWithFallback(
+      actionName: 'cancelOverdueOrder',
+      isWrite: true,
+      remoteCall: () => _remote.cancelOverdueOrder(orderId),
+      fallbackCall: () {},
+    );
   }
 
   @override
@@ -329,7 +352,17 @@ class EscrowRepositoryImpl implements EscrowRepository {
     required String alasan,
     required int progresPersen,
     String? tautanBukti,
-  }) async {
-    return const EscrowActionResult<void>(data: null, isFallback: true);
+  }) {
+    return _runWithFallback(
+      actionName: 'submitAppeal',
+      isWrite: true,
+      remoteCall: () => _remote.submitAppeal(
+        orderId: orderId,
+        alasan: alasan,
+        progresPersen: progresPersen,
+        tautanBukti: tautanBukti,
+      ),
+      fallbackCall: () {},
+    );
   }
 }

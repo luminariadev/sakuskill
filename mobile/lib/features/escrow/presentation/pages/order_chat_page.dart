@@ -85,23 +85,42 @@ class _OrderChatPageState extends State<OrderChatPage> {
     super.dispose();
   }
 
+  String? _resolveCurrentUserId(EscrowOrderModel? order) {
+    final sessionId = AuthSession.instance.userId?.trim();
+    if (sessionId != null && sessionId.isNotEmpty) return sessionId;
+
+    if (order != null) {
+      final opponentRole = (order.peranLawanTransaksi ?? '').toLowerCase();
+      if (opponentRole.contains('penyedia') &&
+          (order.pelangganId?.isNotEmpty ?? false)) {
+        return order.pelangganId!.trim();
+      }
+      if (opponentRole.contains('pelanggan') &&
+          (order.penyediaId?.isNotEmpty ?? false)) {
+        return order.penyediaId!.trim();
+      }
+    }
+    return null;
+  }
+
   ChatMessage _mapJsonToChatMessage(
     Map<String, dynamic> json,
     String? currentUserId,
   ) {
-    final senderId = json['sender_id']?.toString() ?? '';
-    final rawTime = json['dibuat_pada']?.toString();
+    final senderId =
+        (json['sender_id'] ?? json['pengirim_id'])?.toString().trim() ?? '';
+    final rawTime = (json['dibuat_pada'] ?? json['created_at'])?.toString();
     final dt = rawTime != null ? DateTime.tryParse(rawTime)?.toLocal() : null;
     final timeStr = dt != null
         ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
         : '--:--';
 
     return ChatMessage(
-      text: json['isi_pesan']?.toString() ?? '',
+      text: (json['isi_pesan'] ?? json['pesan'])?.toString() ?? '',
       time: timeStr,
       mine: currentUserId != null &&
           currentUserId.isNotEmpty &&
-          senderId == currentUserId,
+          senderId.toLowerCase() == currentUserId.toLowerCase(),
     );
   }
 
@@ -110,9 +129,9 @@ class _OrderChatPageState extends State<OrderChatPage> {
     try {
       final repo = AppScope.of(context).escrowRepository;
       final res = await repo.fetchOrderMessages(orderId);
-      final myId = AuthSession.instance.userId;
-
       if (!mounted) return;
+      final myId = _resolveCurrentUserId(_resolveOrder(context));
+
       setState(() {
         _messages = res.data.map((e) => _mapJsonToChatMessage(e, myId)).toList();
       });
@@ -150,8 +169,8 @@ class _OrderChatPageState extends State<OrderChatPage> {
         orderId: currentOrder.orderId,
         isiPesan: text,
       );
-      final myId = AuthSession.instance.userId;
       if (!mounted) return false;
+      final myId = _resolveCurrentUserId(currentOrder);
       setState(() {
         _messages = [..._messages, _mapJsonToChatMessage(res.data, myId)];
       });

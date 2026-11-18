@@ -331,37 +331,49 @@ class EscrowRemoteDataSource {
     );
   }
 
-  /// Pengajuan perpanjangan tenggat (`POST /orders/:id/proposals`).
-  Future<void> requestTimeExtension({
+  /// Pengajuan perpanjangan tenggat (`POST /orders/:id/time-extensions`).
+  Future<EscrowOrderModel> requestTimeExtension({
     required String orderId,
     required int tambahanJam,
     required String alasan,
-    required int progresPersen,
+    int progresPersen = 75,
   }) async {
-    final current = await fetchOrderDetail(orderId);
-    final baseDeadline = current.tenggat ?? DateTime.now().toUtc();
-    final newDeadline = baseDeadline.add(Duration(hours: tambahanJam));
-    final scopeWithNote =
-        '${current.deskripsiBrief ?? current.judulLayanan} | Perpanjangan +$tambahanJam jam ($progresPersen%): $alasan';
+    final uri = Uri.parse('$_baseUrl/orders/$orderId/time-extensions');
+    final safeReason = alasan.trim().length >= 5
+        ? '${alasan.trim()} (Progres: $progresPersen%)'
+        : '${alasan.trim()} - Permintaan tambahan waktu $tambahanJam jam (Progres: $progresPersen%)';
 
-    await submitProposal(
-      orderId: orderId,
-      deskripsiRuangLingkup: scopeWithNote,
-      hargaTawaran: current.harga,
-      tenggatUsulan: newDeadline,
-    );
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({
+            'tambahan_jam': tambahanJam,
+            'alasan': safeReason,
+          }),
+        )
+        .timeout(AppConfig.networkTimeout);
+
+    final body = _parseResponse(response, uri);
+    return EscrowOrderModel.fromJson(body['data'] as JsonMap);
   }
 
-  /// Keputusan persetujuan penyesuaian (`POST /orders/:id/accept` atau `/reject`).
-  Future<void> decideTimeExtension({
+  /// Keputusan persetujuan perpanjangan waktu (`POST /orders/:id/time-extensions/decide`).
+  Future<EscrowOrderModel> decideTimeExtension({
     required String orderId,
     required bool disetujui,
   }) async {
-    if (disetujui) {
-      await acceptOrder(orderId);
-    } else {
-      await rejectOrder(orderId, alasan: 'Perpanjangan waktu ditolak oleh pelanggan.');
-    }
+    final uri = Uri.parse('$_baseUrl/orders/$orderId/time-extensions/decide');
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({'disetujui': disetujui}),
+        )
+        .timeout(AppConfig.networkTimeout);
+
+    final body = _parseResponse(response, uri);
+    return EscrowOrderModel.fromJson(body['data'] as JsonMap);
   }
 
   /// Pembatalan order (`POST /orders/:id/cancel`).

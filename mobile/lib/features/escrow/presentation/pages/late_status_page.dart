@@ -11,26 +11,25 @@ import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_sheets.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
-/// Figma "15D · Status terlambat" (sisi klien) + "15D-2 · Konfirmasi
-/// pembatalan".
+/// Figma "15D · Status terlambat" (sisi klien) + "15D-2 · Konfirmasi pembatalan".
 class LateStatusPage extends StatelessWidget {
   const LateStatusPage({super.key, this.order});
 
   final EscrowOrderModel? order;
 
-  // 1. INTEGRASI: Ambil objek order dari parameter atau argumen navigasi
   EscrowOrderModel? _resolveOrder(BuildContext context) {
     if (order != null) return order;
     final args = ModalRoute.of(context)?.settings.arguments;
     return args is EscrowOrderModel ? args : null;
   }
 
-  // 2. INTEGRASI: Batalkan order terlambat & tarik dana 100% via EscrowRepository
   Future<void> _cancel(
     BuildContext context,
     EscrowOrderModel? currentOrder,
+    int lateHours,
   ) async {
     final rawAmount = currentOrder?.harga ?? DemoData.order.amount;
     final amount = formatRupiah(rawAmount);
@@ -39,8 +38,9 @@ class LateStatusPage extends StatelessWidget {
       context,
       builder: (ctx) => SakuSheetContent(
         title: 'Batalkan Pesanan & Tarik Dana 100%?',
-        message: 'Karena penyedia telah terlambat lebih dari 12 jam, Anda berhak '
-            'membatalkan pesanan ini secara sepihak.',
+        message:
+            'Karena penyedia telah melewati tenggat ($lateHours jam berjalan), Anda berhak '
+            'membatalkan pesanan ini.',
         body: [
           InfoBox(
             tone: SakuTone.neutral,
@@ -91,15 +91,26 @@ class LateStatusPage extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      final repo = AppScope.of(context).escrowRepository;
-      final orderId =
-          currentOrder?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    if (confirmed != true || !context.mounted) return;
 
-      await repo.cancelOverdueOrder(
-        orderId
+    final repo = AppScope.of(context).escrowRepository;
+    final orderId = currentOrder?.orderId;
+
+    if (orderId == null || orderId.isEmpty) {
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Simulasi: Pesanan dibatalkan. $amount kembali ke Dompet SakuSkill.',
+          ),
+        ),
       );
+      return;
+    }
 
+    try {
+      await repo.cancelOverdueOrder(orderId);
       if (!context.mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).popUntil((r) => r.isFirst);
@@ -108,6 +119,15 @@ class LateStatusPage extends StatelessWidget {
           content: Text(
             'Pesanan dibatalkan. $amount kembali ke Dompet SakuSkill.',
           ),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
         ),
       );
     }
@@ -118,10 +138,14 @@ class LateStatusPage extends StatelessWidget {
     const late = TextStyle(color: AppColors.danger);
     final currentOrder = _resolveOrder(context);
 
-    // 3. INTEGRASI: Data dinamis dari EscrowOrderModel
     final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
     final providerFirstName =
-        currentOrder?.namaLawanTransaksi?.split(' ').first ?? 'Salma';
+        currentOrder?.namaLawanTransaksi?.split(' ').first ?? 'Penyedia';
+
+    final actualLateSeconds = currentOrder?.terlambatDetik ?? 0;
+    final lateHours =
+        actualLateSeconds > 0 ? (actualLateSeconds / 3600).ceil() : 14;
+    final graceRemaining = (24 - lateHours).clamp(0, 24);
 
     return SakuScreen(
       background: AppColors.canvasLight,
@@ -171,7 +195,7 @@ class LateStatusPage extends StatelessWidget {
                 ),
               ),
               Text(
-                '14 Jam Berjalan',
+                '$lateHours Jam Berjalan',
                 style: late.copyWith(
                   fontSize: 26,
                   height: 36 / 26,
@@ -179,18 +203,20 @@ class LateStatusPage extends StatelessWidget {
                 ),
               ),
               Text(
-                'Sisa 10 Jam dari masa tenggang 24 jam',
+                graceRemaining > 0
+                    ? 'Sisa $graceRemaining Jam dari masa tenggang 24 jam'
+                    : 'Masa tenggang 24 jam telah habis',
                 style: late.copyWith(fontSize: 13, height: 18 / 13),
               ),
             ],
           ),
         ),
-        const SakuCard(
+        SakuCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 12,
             children: [
-              Text(
+              const Text(
                 'Hak Pembatalan Klien',
                 style: TextStyle(
                   fontSize: 17,
@@ -200,10 +226,9 @@ class LateStatusPage extends StatelessWidget {
                 ),
               ),
               Text(
-                'Keterlambatan telah berjalan lebih dari 12 jam (Jam ke-14). Anda berhak '
-                'membatalkan pesanan secara sepihak dan menarik seluruh dana simulasi '
-                'Anda 100%.',
-                style: TextStyle(
+                'Keterlambatan telah berjalan $lateHours jam dari tenggat kesepakatan. Anda berhak '
+                'membatalkan pesanan dan menarik seluruh dana simulasi Anda 100%.',
+                style: const TextStyle(
                   fontSize: 14,
                   height: 20 / 14,
                   color: AppColors.textSecondary,
@@ -216,9 +241,8 @@ class LateStatusPage extends StatelessWidget {
           key: const Key('late-cancel'),
           label: 'Batalkan Pesanan & Tarik Dana 100%',
           variant: SakuButtonVariant.destructive,
-          onPressed: () => _cancel(context, currentOrder),
+          onPressed: () => _cancel(context, currentOrder, lateHours),
         ),
-        // 4. INTEGRASI: Teruskan currentOrder ke halaman chat & banding
         SakuButton(
           label: 'Beri Kesempatan & Hubungi $providerFirstName via Chat',
           variant: SakuButtonVariant.outline,

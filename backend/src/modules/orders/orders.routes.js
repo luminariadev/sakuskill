@@ -10,6 +10,8 @@ const {
   updateOrderStatusSchema,
   createOrderReviewSchema,
   createOrderMessageSchema,
+  requestTimeExtensionSchema,
+  decideTimeExtensionSchema,
 } = require('./orders.validation');
 const ordersController = require('./orders.controller');
 
@@ -69,6 +71,14 @@ router.get('/:id/messages', validateRequest(orderIdParamSchema), (req, res, next
 
 router.post('/:id/messages', validateRequest(createOrderMessageSchema), (req, res, next) =>
   ordersController.sendMessage(req, res, next)
+);
+
+router.post('/:id/time-extensions', validateRequest(requestTimeExtensionSchema), (req, res, next) =>
+  ordersController.requestTimeExtension(req, res, next)
+);
+
+router.post('/:id/time-extensions/decide', validateRequest(decideTimeExtensionSchema), (req, res, next) =>
+  ordersController.decideTimeExtension(req, res, next)
 );
 
 module.exports = router;

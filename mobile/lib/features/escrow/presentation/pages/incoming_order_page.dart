@@ -18,7 +18,7 @@ import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
 /// Figma "12 · Pesanan masuk" (sisi penyedia) + "12B · Tolak pesanan"
-/// serta status menunggu / lanjut bayar escrow (sisi pelanggan).
+/// serta status menunggu / lanjut bayar / batalkan pesanan (sisi pelanggan).
 class IncomingOrderPage extends StatefulWidget {
   const IncomingOrderPage({super.key, this.order, this.isProviderView});
 
@@ -186,6 +186,57 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
     }
   }
 
+  /// POST /api/v1/orders/:id/cancel (FR-40: pembatalan sebelum pembayaran terverifikasi)
+  Future<void> _cancelOrder(EscrowOrderModel? currentOrder) async {
+    if (_processing || currentOrder == null || currentOrder.orderId.isEmpty) {
+      return;
+    }
+
+    final reasonText = await showSakuSheet<String>(
+      context,
+      builder: (_) => const _CancelSheet(),
+    );
+
+    if (reasonText == null || !mounted) return;
+
+    setState(() => _processing = true);
+    final repo = AppScope.of(context).escrowRepository;
+
+    try {
+      await repo.cancelOrder(currentOrder.orderId, alasan: reasonText);
+      if (!mounted) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Pesanan berhasil dibatalkan (Status: Dibatalkan).',
+          ),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal membatalkan pesanan: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const demo = DemoData.order;
@@ -193,7 +244,11 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
     final session = AuthSession.instance;
 
     // Tentukan apakah pengguna aktif adalah Penyedia Jasa pada pesanan ini
-    final bool isProviderRole = widget.isProviderView ?? session.isProvider;
+    final lawanRole = (currentOrder?.peranLawanTransaksi ?? '').toLowerCase();
+    final bool isProviderRole = widget.isProviderView ??
+        (lawanRole.contains('pelanggan')
+            ? true
+            : (lawanRole.contains('penyedia') ? false : session.isProvider));
 
     final statusKode = (currentOrder?.statusKode ?? 'submitted').toLowerCase();
     final isSubmitted =
@@ -201,6 +256,14 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
         statusKode == 'submitted' ||
         statusKode == 'diajukan';
     final isAccepted = statusKode == 'accepted' || statusKode == 'disepakati';
+    final isPaid = currentOrder?.bolehLanjutInProgress ?? false;
+    final canCancelPrePayment = !isPaid &&
+        (statusKode == 'requested' ||
+            statusKode == 'submitted' ||
+            statusKode == 'diajukan' ||
+            statusKode == 'negotiating' ||
+            statusKode == 'accepted' ||
+            statusKode == 'disepakati');
 
     final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
     final serviceTitle =
@@ -209,10 +272,20 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
     final deadlineDays = currentOrder?.detikTersisa != null
         ? (currentOrder!.detikTersisa! / 86400).ceil().clamp(1, 365)
         : demo.deadlineDays;
-    final briefNote =
-        currentOrder?.catatanBrief ??
-        'Warna cerah, lampiran foto menu ayam bakar.';
-    final attachment = currentOrder?.lampiranKlien ?? 'Foto_Ayam_Bakar.jpg';
+
+    final rawBrief =
+        currentOrder?.catatanBrief ?? currentOrder?.deskripsiBrief ?? '';
+    final briefNote = rawBrief.trim().isNotEmpty
+        ? rawBrief.trim()
+        : (currentOrder == null
+            ? 'Warna cerah, lampiran foto menu ayam bakar.'
+            : 'Tidak ada catatan tambahan pada brief.');
+
+    final rawAttachment = currentOrder?.lampiranKlien ?? '';
+    final attachment = rawAttachment.trim().isNotEmpty
+        ? rawAttachment.trim()
+        : (currentOrder == null ? 'Foto_Ayam_Bakar.jpg' : null);
+
     final counterpartyName =
         currentOrder?.namaLawanTransaksi ?? 'Dimas (Katering Berkah Cibiru)';
     final counterpartyShortName = counterpartyName.split(' ').first;
@@ -247,7 +320,7 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
                 subtitle: isProviderRole
                     ? 'Pelanggan · Cibiru, Bandung'
                     : 'Penyedia Jasa · Cibiru, Bandung',
-                asset: demo.clientAsset,
+                asset: currentOrder == null ? demo.clientAsset : null,
               ),
               Text(
                 serviceTitle,
@@ -293,11 +366,12 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              InfoBox(
-                text: 'Lampiran · $attachment',
-                tone: SakuTone.neutral,
-                fontWeight: FontWeight.w500,
-              ),
+              if (attachment != null)
+                InfoBox(
+                  text: 'Lampiran · $attachment',
+                  tone: SakuTone.neutral,
+                  fontWeight: FontWeight.w500,
+                ),
             ],
           ),
         ),
@@ -344,6 +418,13 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
               label: _processing ? 'Memuat...' : 'Segarkan Status Pesanan',
               onPressed: _processing ? null : () => _refreshOrder(currentOrder),
             ),
+            if (canCancelPrePayment)
+              SakuButton(
+                label: 'Batalkan Pesanan',
+                variant: SakuButtonVariant.destructive,
+                onPressed:
+                    _processing ? null : () => _cancelOrder(currentOrder),
+              ),
           ],
         ] else ...[
           if (isAccepted) ...[
@@ -379,6 +460,13 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
               onPressed: _processing ? null : () => _refreshOrder(currentOrder),
             ),
           ],
+          if (canCancelPrePayment)
+            SakuButton(
+              key: const Key('customer-cancel-order'),
+              label: 'Batalkan Pesanan',
+              variant: SakuButtonVariant.destructive,
+              onPressed: _processing ? null : () => _cancelOrder(currentOrder),
+            ),
         ],
       ],
     );
@@ -435,6 +523,66 @@ class _RejectSheetState extends State<_RejectSheet> {
       confirmLabel: 'Konfirmasi Tolak Pesanan',
       confirmVariant: SakuButtonVariant.destructive,
       cancelLabel: 'Kembali (Batal Menolak)',
+      onConfirm: () {
+        final selectedReason = _reasons[_reason];
+        final extra = _noteController.text.trim();
+        final fullReason = extra.isNotEmpty
+            ? '$selectedReason ($extra)'
+            : selectedReason;
+        Navigator.of(context).pop(fullReason);
+      },
+    );
+  }
+}
+
+class _CancelSheet extends StatefulWidget {
+  const _CancelSheet();
+
+  @override
+  State<_CancelSheet> createState() => _CancelSheetState();
+}
+
+class _CancelSheetState extends State<_CancelSheet> {
+  int _reason = 0;
+  final _noteController = TextEditingController();
+
+  static const _reasons = [
+    'Ingin mengubah spesifikasi atau jadwal pesanan',
+    'Menemukan alternatif layanan lain',
+    'Kebutuhan layanan dibatalkan',
+    'Alasan lainnya...',
+  ];
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SakuSheetContent(
+      title: 'Batalkan Pesanan Ini?',
+      message:
+          'Karena pembayaran belum diverifikasi, pesanan dapat dibatalkan tanpa penalti. '
+          'Pilih alasan pembatalan:',
+      body: [
+        RadioOptions(
+          options: _reasons,
+          selected: _reason,
+          onChanged: (i) => setState(() => _reason = i),
+        ),
+        SakuTextField(
+          controller: _noteController,
+          label: 'Catatan tambahan (opsional)',
+          hint: 'Tuliskan alasan singkat...',
+          minLines: 2,
+          maxLines: 4,
+        ),
+      ],
+      confirmLabel: 'Konfirmasi Batalkan Pesanan',
+      confirmVariant: SakuButtonVariant.destructive,
+      cancelLabel: 'Kembali',
       onConfirm: () {
         final selectedReason = _reasons[_reason];
         final extra = _noteController.text.trim();

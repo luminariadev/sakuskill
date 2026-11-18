@@ -88,14 +88,14 @@ abstract class EscrowRepository {
     required String catatanRevisi,
   });
 
-  Future<EscrowActionResult<void>> requestTimeExtension({
+  Future<EscrowActionResult<EscrowOrderModel>> requestTimeExtension({
     required String orderId,
     required int tambahanJam,
     required String alasan,
-    required int progresPersen,
+    int progresPersen = 75,
   });
 
-  Future<EscrowActionResult<void>> decideTimeExtension({
+  Future<EscrowActionResult<EscrowOrderModel>> decideTimeExtension({
     required String orderId,
     required bool disetujui,
   });

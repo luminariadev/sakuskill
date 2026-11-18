@@ -325,7 +325,7 @@ class _ActionBar extends StatelessWidget {
               key: const Key('detail-chat'),
               label: 'Chat Diskusi',
               variant: SakuButtonVariant.outline,
-              onPressed: () => go(AppRoutes.chat),
+              onPressed: () => openDirectOrderChat(context, listing),
             ),
           ),
           Expanded(
@@ -334,7 +334,13 @@ class _ActionBar extends StatelessWidget {
               key: const Key('detail-order'),
               label: label,
               variant: variant,
-              onPressed: () => go(route),
+              onPressed: () {
+                if (listing.isRequest) {
+                  openDirectOrderChat(context, listing);
+                } else {
+                  go(route);
+                }
+              },
             ),
           ),
         ],
