@@ -11,17 +11,24 @@
 
 ---
 
-## 🏗️ Struktur Direktori Monorepo (Branch: develop)
+## 🏗️ Struktur Direktori Monorepo
 ```text
 sakuskill/
-├── mobile/         # Aplikasi klien Flutter + Dart (Frontend)
+├── mobile/         # Aplikasi klien Flutter + Dart (Mobile App)
+├── admin/          # Web Admin Panel React 18 + Vite (Dashboard Moderasi & Escrow)
 ├── backend/        # REST API Node.js + Express & migrasi PostgreSQL/PostGIS (Backend)
 ├── docs/           # Dokumen SKPL, ERD Ringkas, API Contract, dan Pengujian
 │   ├── API_CONTRACT.md
 │   ├── ERD_RINGKAS.md
 │   └── qa/         # Dokumen Test Plan, Test Cases, & Bug Report Template
-└── .github/        # Konfigurasi Issue template & Pull Request template
+└── .github/        # Konfigurasi Issue template, PR template, & CI/CD workflow
 ```
+
+---
+
+## 📋 Catatan Rilis & Changelog
+Riwayat pembaruan dan versi rilis terperinci dicatat pada berkas [`CHANGELOG.md`](./CHANGELOG.md).
+Rilis biner APK Android resmi dapat diunduh pada tab [GitHub Releases](https://github.com/luminariadev/sakuskill/releases).
 
 ---
 
@@ -45,6 +52,10 @@ Jika menggunakan PostgreSQL lokal, pastikan database kosong bernama `sakuskill_d
 ```bash
 npm install
 npm run db:migrate
+```
+*(Opsional) Untuk membersihkan data transaksi residu sebelum pengujian/demonstrasi:*
+```bash
+npm run db:clean
 ```
 
 ### 4. Jalankan Server Express API
