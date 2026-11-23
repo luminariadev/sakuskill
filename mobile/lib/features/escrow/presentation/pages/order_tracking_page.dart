@@ -102,7 +102,8 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     try {
       await repo.requestCompletion(
         orderId: currentOrder.orderId,
-        tautanBerkas: 'https://sakuskill.id/deliverables/${currentOrder.kodePesanan}',
+        tautanBerkas:
+            'https://sakuskill.id/deliverables/${currentOrder.kodePesanan}',
         catatanPenyedia: 'Hasil pekerjaan telah diunggah sesuai brief.',
       );
       await _syncLatestDetail();
@@ -165,51 +166,89 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     }
   }
 
-  Future<void> _reviewExtension(EscrowOrderModel? currentOrder) async {
-    final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
+  /// POST /api/v1/orders/:id/time-extensions/decide (Pelanggan menyetujui/menolak tambahan waktu)
+  Future<void> _reviewExtension(EscrowOrderModel currentOrder) async {
+    final ext = currentOrder.activeTimeExtension;
+    if (ext == null || !ext.isPending) return;
+
     final providerFullName =
-        currentOrder?.namaLawanTransaksi ?? DemoData.order.provider;
+        currentOrder.namaLawanTransaksi ?? DemoData.order.provider;
     final providerFirstName = providerFullName.split(' ').first;
 
     final approved = await showSakuSheet<bool>(
       context,
       builder: (ctx) => _ExtensionDecisionSheet(
-        orderCode: orderCode,
+        orderCode: currentOrder.kodePesanan,
         providerFullName: providerFullName,
         providerFirstName: providerFirstName,
+        tambahanJam: ext.tambahanJam,
+        alasan: ext.alasan,
       ),
     );
     if (approved == null || !mounted || _submittingAction) return;
 
     setState(() => _submittingAction = true);
-    final orderId =
-        currentOrder?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    try {
+      final res =
+          await AppScope.of(context).escrowRepository.decideTimeExtension(
+                orderId: currentOrder.orderId,
+                disetujui: approved,
+              );
+      if (!mounted) return;
+      setState(() {
+        _order = res.data;
+        _extensionApproved = approved;
+      });
 
-    await AppScope.of(context).escrowRepository.decideTimeExtension(
-          orderId: orderId,
-          disetujui: approved,
-        );
-
-    if (!mounted) return;
-    setState(() {
-      _submittingAction = false;
-      _extensionApproved = approved;
-      if (approved && _order != null && _order!.detikTersisa != null) {
-        _order = _order!.copyWith(
-          detikTersisa: _order!.detikTersisa! + (12 * 3600),
-        );
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          approved
-              ? 'Tambahan waktu +12 jam disetujui (Simulasi Lokal).'
-              : 'Permintaan ditolak. Tenggat tetap sesuai kesepakatan awal.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            approved
+                ? 'Tambahan waktu +${ext.tambahanJam} jam disetujui. Tenggat diperpanjang.'
+                : 'Permintaan ditolak. Tenggat tetap sesuai kesepakatan awal.',
+          ),
+          backgroundColor:
+              approved ? Colors.green.shade700 : Colors.orange.shade800,
         ),
-      ),
-    );
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submittingAction = false);
+    }
+  }
+
+  List<String> _buildBriefLines(EscrowOrderModel? currentOrder) {
+    if (currentOrder == null) {
+      return const [
+        '✓ Foto_Ayam_Bakar.jpg (3 MB)',
+        'Output: CMYK 300 DPI (PDF & JPG)',
+      ];
+    }
+
+    final lines = <String>[];
+    if (currentOrder.deskripsiBrief != null &&
+        currentOrder.deskripsiBrief!.trim().isNotEmpty) {
+      lines.add('Brief: ${currentOrder.deskripsiBrief!.trim()}');
+    }
+    if (currentOrder.catatanBrief != null &&
+        currentOrder.catatanBrief!.trim().isNotEmpty) {
+      lines.add('Catatan: ${currentOrder.catatanBrief!.trim()}');
+    }
+    if (currentOrder.lampiranKlien != null &&
+        currentOrder.lampiranKlien!.trim().isNotEmpty) {
+      lines.add('✓ Lampiran: ${currentOrder.lampiranKlien!.trim()}');
+    }
+    if (lines.isEmpty) {
+      lines.add('✓ Pesanan terverifikasi melalui SakuSkill Escrow');
+    }
+    return lines;
   }
 
   @override
@@ -218,7 +257,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     final currentOrder = _order;
 
     final orderCode = currentOrder?.kodePesanan ?? '#SK-2026-091';
-    final statusKode = currentOrder?.statusKode ?? 'in_progress';
+    final statusKode = (currentOrder?.statusKode ?? 'in_progress').toLowerCase();
+    final isCancelled = statusKode == 'cancelled' || statusKode == 'dibatalkan';
+
     final statusPesanan =
         (currentOrder?.statusPesanan ?? 'Dikerjakan').toUpperCase();
     final statusEscrow = currentOrder?.statusEscrow ?? 'Dana Ditahan (Simulasi)';
@@ -235,6 +276,8 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     final remainingDays = remaining.inDays.clamp(1, 365);
 
     final isPaid = currentOrder?.bolehLanjutInProgress ?? false;
+    final pendingExt = currentOrder?.activeTimeExtension;
+    final briefLines = _buildBriefLines(currentOrder);
 
     return SakuScreen(
       background: AppColors.canvasLight,
@@ -260,21 +303,26 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         ),
         if (_isDemoFallback)
           const InfoBox(
-            text: 'MODE DEMO: Server tidak terjangkau, menampilkan data simulasi lokal.',
+            text:
+                'MODE DEMO: Server tidak terjangkau, menampilkan data simulasi lokal.',
             tone: SakuTone.warning,
             fontWeight: FontWeight.w600,
           ),
         InfoBox(
-          tone: statusKode == 'accepted' && !isPaid
-              ? SakuTone.warning
-              : SakuTone.success,
+          tone: isCancelled
+              ? SakuTone.neutral
+              : (statusKode == 'accepted' && !isPaid
+                  ? SakuTone.warning
+                  : SakuTone.success),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 10,
             children: [
               Text(
-                '✓  STATUS: $statusPesanan',
+                isCancelled
+                    ? 'STATUS: DIBATALKAN · DANA DIKEMBALIKAN KE DOMPET'
+                    : '✓  STATUS: $statusPesanan · DANA: ${statusEscrow.toUpperCase()}',
                 style: const TextStyle(
                   fontSize: 11,
                   height: 15 / 11,
@@ -283,11 +331,13 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                 ),
               ),
               Text(
-                statusKode == 'accepted'
-                    ? (isPaid
-                        ? 'PEMBAYARAN LUNAS · SIAP DIKERJAKAN'
-                        : 'MENUNGGU PEMBAYARAN PELANGGAN')
-                    : 'PESANAN DITANGANI OLEH ${providerFullName.toUpperCase()}',
+                isCancelled
+                    ? 'PESANAN TELAH DIBATALKAN'
+                    : (statusKode == 'accepted'
+                        ? (isPaid
+                            ? 'PEMBAYARAN LUNAS · SIAP DIKERJAKAN'
+                            : 'MENUNGGU PEMBAYARAN PELANGGAN')
+                        : 'PESANAN DITANGANI OLEH ${providerFullName.toUpperCase()}'),
                 style: const TextStyle(
                   fontSize: 16,
                   height: 22 / 16,
@@ -296,9 +346,11 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                 ),
               ),
               Text(
-                statusKode == 'accepted' && isPaid
-                    ? 'Dana ${formatRupiah(amount)} telah diamankan di Escrow (Simulasi). Penyedia jasa kini dapat menekan tombol Mulai Kerjakan.'
-                    : 'Status pesanan: $statusPesanan. Dana ${formatRupiah(amount)} berstatus $statusEscrow.',
+                isCancelled
+                    ? 'Status pesanan: DIBATALKAN. Seluruh dana sebesar ${formatRupiah(amount)} telah dikembalikan ke Dompet SakuSkill.'
+                    : (statusKode == 'accepted' && isPaid
+                        ? 'Dana ${formatRupiah(amount)} telah diamankan di Escrow (Simulasi). Penyedia jasa kini dapat menekan tombol Mulai Kerjakan.'
+                        : 'Status pesanan: $statusPesanan. Dana ${formatRupiah(amount)} berstatus $statusEscrow.'),
                 style: const TextStyle(
                   fontSize: 13,
                   height: 18 / 13,
@@ -308,30 +360,35 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             ],
           ),
         ),
-        StatusTimeline(items: [
-          const ('Pesanan Dibuat', TimelineState.done),
-          const ('Diterima Penyedia', TimelineState.done),
-          ('Dana $statusEscrow', isPaid ? TimelineState.done : TimelineState.current),
-          (
-            'Dikerjakan · Sisa Waktu $remainingDays Hari',
-            statusKode == 'in_progress'
-                ? TimelineState.current
-                : (statusKode == 'completion_requested' || statusKode == 'completed'
-                    ? TimelineState.done
-                    : TimelineState.pending),
-          ),
-          (
-            'Pemeriksaan Hasil',
-            statusKode == 'completion_requested'
-                ? TimelineState.current
-                : (statusKode == 'completed'
-                    ? TimelineState.done
-                    : TimelineState.pending),
-          ),
-        ]),
+        if (!isCancelled)
+          StatusTimeline(items: [
+            const ('Pesanan Dibuat', TimelineState.done),
+            const ('Diterima Penyedia', TimelineState.done),
+            (
+              'Dana $statusEscrow',
+              isPaid ? TimelineState.done : TimelineState.current,
+            ),
+            (
+              'Dikerjakan · Sisa Waktu $remainingDays Hari',
+              statusKode == 'in_progress'
+                  ? TimelineState.current
+                  : (statusKode == 'completion_requested' ||
+                          statusKode == 'completed'
+                      ? TimelineState.done
+                      : TimelineState.pending),
+            ),
+            (
+              'Pemeriksaan Hasil',
+              statusKode == 'completion_requested'
+                  ? TimelineState.current
+                  : (statusKode == 'completed'
+                      ? TimelineState.done
+                      : TimelineState.pending),
+            ),
+          ]),
 
         // --- AKSI SESUAI STATE MACHINE API v1.3 ---
-        if (currentOrder != null) ...[
+        if (currentOrder != null && !isCancelled) ...[
           // 1. Jika accepted tapi belum dibayar -> Tombol Bayar untuk Pelanggan
           if (statusKode == 'accepted' && !isPaid)
             SakuButton(
@@ -352,8 +409,8 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                   _submittingAction ? null : () => _startWork(currentOrder),
             ),
 
-          // 3. Jika in_progress -> Tombol Kirim Hasil untuk Penyedia
-          if (statusKode == 'in_progress')
+          // 3. Jika in_progress -> Tombol Kirim Hasil & Buka Workroom untuk Penyedia
+          if (statusKode == 'in_progress') ...[
             SakuButton(
               label: _submittingAction
                   ? 'Mengirim Hasil...'
@@ -362,17 +419,41 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                   ? null
                   : () => _requestCompletion(currentOrder),
             ),
+            SakuButton(
+              label: 'Buka Ruang Pengerjaan / Ajukan Tambahan Waktu',
+              variant: SakuButtonVariant.outline,
+              onPressed: () async {
+                await Navigator.of(context).pushNamed(
+                  AppRoutes.workroom,
+                  arguments: currentOrder,
+                );
+                _syncLatestDetail();
+              },
+            ),
+          ],
 
-          // 4. Jika completion_requested -> Tombol Konfirmasi Selesai untuk Pelanggan
-          if (statusKode == 'completion_requested')
+          // 4. Jika completion_requested -> Tombol Periksa Hasil / Konfirmasi Selesai untuk Pelanggan
+          if (statusKode == 'completion_requested') ...[
+            SakuButton(
+              label: 'Periksa Hasil Kerja & Ajukan Revisi',
+              onPressed: () async {
+                await Navigator.of(context).pushNamed(
+                  AppRoutes.reviewWork,
+                  arguments: currentOrder,
+                );
+                _syncLatestDetail();
+              },
+            ),
             SakuButton(
               label: _submittingAction
                   ? 'Melepas Dana...'
                   : 'Konfirmasi Selesai & Lepas Dana (Pelanggan)',
+              variant: SakuButtonVariant.outline,
               onPressed: _submittingAction
                   ? null
                   : () => _confirmCompletion(currentOrder),
             ),
+          ],
 
           // 5. Jika completed -> Tombol Beri Ulasan
           if (statusKode == 'completed')
@@ -385,19 +466,23 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             ),
         ],
 
-        CountdownCard(
-          key: ValueKey('${_extensionApproved}_${remaining.inSeconds}'),
-          label:
-              'ESTIMASI TENGGAT PENGERJAAN OLEH ${providerFirstName.toUpperCase()}',
-          remaining: remaining,
-          showDays: true,
-          note:
-              'Jaminan Escrow: Jika penyedia terlambat tanpa konfirmasi, Anda '
-              'berhak membatalkan dan menarik dana kembali.',
-        ),
-        if (_extensionApproved == null && statusKode == 'in_progress')
+        if (!isCancelled)
+          CountdownCard(
+            key: ValueKey('${_extensionApproved}_${remaining.inSeconds}'),
+            label:
+                'ESTIMASI TENGGAT PENGERJAAN OLEH ${providerFirstName.toUpperCase()}',
+            remaining: remaining,
+            showDays: true,
+            note:
+                'Jaminan Escrow: Jika penyedia terlambat tanpa konfirmasi, Anda '
+                'berhak membatalkan dan menarik dana kembali.',
+          ),
+        if (currentOrder != null &&
+            pendingExt != null &&
+            pendingExt.isPending &&
+            statusKode == 'in_progress')
           StatusStrip(
-            '$providerFirstName mengajukan tambahan waktu +12 jam · Tinjau  ›',
+            '$providerFirstName mengajukan tambahan waktu +${pendingExt.tambahanJam} jam · Tinjau  ›',
             tone: SakuTone.warning,
             bordered: true,
             onTap: () => _reviewExtension(currentOrder),
@@ -418,18 +503,55 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
               ),
               PersonRow(
                 name: providerFullName,
-                subtitle: '4.9 ★ · Desainer Grafis Cibiru',
-                asset: demo.providerAsset,
+                subtitle: currentOrder != null
+                    ? '${currentOrder.peranLawanTransaksi ?? 'Penyedia Jasa'} · $orderCode'
+                    : '4.9 ★ · Desainer Grafis Cibiru',
+                asset: currentOrder == null ? demo.providerAsset : null,
               ),
               Text(
-                '✓ ${currentOrder?.lampiranKlien ?? 'Foto_Ayam_Bakar.jpg (3 MB)'}\n'
-                '${currentOrder?.catatanBrief ?? 'Output: CMYK 300 DPI (PDF & JPG)'}',
+                briefLines.join('\n'),
                 style: const TextStyle(
                   fontSize: 12,
                   height: 17 / 12,
                   color: AppColors.textSecondary,
                 ),
               ),
+              if (currentOrder?.tautanBerkas != null &&
+                  currentOrder!.tautanBerkas!.trim().isNotEmpty)
+                InfoBox(
+                  tone: SakuTone.escrow,
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 4,
+                    children: [
+                      const Text(
+                        'Hasil Pekerjaan Penyedia:',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        currentOrder.tautanBerkas!,
+                        style: AppTypography.mono.copyWith(
+                          fontSize: 11,
+                          color: AppColors.escrow,
+                        ),
+                      ),
+                      if (currentOrder.catatanPenyedia != null &&
+                          currentOrder.catatanPenyedia!.trim().isNotEmpty)
+                        Text(
+                          currentOrder.catatanPenyedia!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -446,14 +568,15 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
           variant: SakuButtonVariant.outline,
           onPressed: () => Navigator.of(context).pushNamed(AppRoutes.wallet),
         ),
-        SakuTextLink(
-          'Lihat simulasi: penyedia terlambat  ›',
-          color: AppColors.textSecondary,
-          onTap: () => Navigator.of(context).pushNamed(
-            AppRoutes.lateStatus,
-            arguments: currentOrder,
+        if (!isCancelled)
+          SakuTextLink(
+            'Lihat simulasi: penyedia terlambat  ›',
+            color: AppColors.textSecondary,
+            onTap: () => Navigator.of(context).pushNamed(
+              AppRoutes.lateStatus,
+              arguments: currentOrder,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -464,11 +587,15 @@ class _ExtensionDecisionSheet extends StatelessWidget {
     required this.orderCode,
     required this.providerFullName,
     required this.providerFirstName,
+    required this.tambahanJam,
+    required this.alasan,
   });
 
   final String orderCode;
   final String providerFullName;
   final String providerFirstName;
+  final int tambahanJam;
+  final String alasan;
 
   @override
   Widget build(BuildContext context) {
@@ -507,26 +634,18 @@ class _ExtensionDecisionSheet extends StatelessWidget {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const Text(
-                '+12 Jam Tambahan',
-                style: TextStyle(
+              Text(
+                '+$tambahanJam Jam Tambahan',
+                style: const TextStyle(
                   fontSize: 20,
                   height: 28 / 20,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
                 ),
               ),
-              const Text(
-                '75% Selesai (Draf Spanduk Telah Dibuat)',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 17 / 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const Text(
-                'Memerlukan penyesuaian format cetak CMYK 300 DPI agar hasil print tajam.',
-                style: TextStyle(
+              Text(
+                alasan,
+                style: const TextStyle(
                   fontSize: 13,
                   height: 18 / 13,
                   color: AppColors.textSecondary,
@@ -546,7 +665,7 @@ class _ExtensionDecisionSheet extends StatelessWidget {
         ),
         SakuButton(
           key: const Key('extension-approve'),
-          label: 'Setujui Tambahan Waktu (+12 Jam)',
+          label: 'Setujui Tambahan Waktu (+$tambahanJam Jam)',
           onPressed: () {
             SakuMotion.tick();
             Navigator.of(context).pop(true);

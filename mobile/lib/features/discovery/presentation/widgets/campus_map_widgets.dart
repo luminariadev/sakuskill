@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/demo/demo_assets.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -9,8 +10,75 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../../escrow/data/datasources/escrow_remote_data_source.dart';
+import '../../../escrow/data/models/escrow_order_model.dart';
 import '../../domain/entities/service_listing.dart';
 import 'service_card.dart';
+
+/// Membuka ruang chat order asli berdasarkan [listing]:
+/// 1. Cari order aktif milik pengguna untuk `listing.id` (atau nama penyedia).
+/// 2. Jika belum ada, buat pesanan awal (`requested`) di backend agar room chat tersimpan.
+Future<void> openDirectOrderChat(
+  BuildContext context,
+  ServiceListing listing,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  final repo = AppScope.of(context).escrowRepository;
+
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+
+  EscrowOrderModel? targetOrder;
+  try {
+    final ordersRes = await repo.fetchMyOrders(peran: 'pelanggan');
+    const terminalStatuses = {'completed', 'rejected', 'cancelled'};
+
+    for (final o in ordersRes.data) {
+      if (terminalStatuses.contains(o.statusKode)) continue;
+      final sameListing = o.listingId != null && o.listingId == listing.id;
+      final sameProvider = (o.namaLawanTransaksi ?? '').toLowerCase() ==
+          listing.providerName.toLowerCase();
+      if (sameListing || sameProvider) {
+        targetOrder = o;
+        break;
+      }
+    }
+
+    if (targetOrder == null && listing.id.isNotEmpty) {
+      final createdRes = await repo.createOrder(
+        listingId: listing.id,
+        deskripsiKebutuhan: 'Diskusi brief awal: ${listing.title}',
+        hargaDisepakati: listing.price?.round() ?? 50000,
+        durasiHari: listing.deliveryDays ?? 3,
+        catatanKlien: 'Memulai diskusi melalui Chat Langsung.',
+      );
+      if (!createdRes.isFallback) {
+        targetOrder = createdRes.data;
+      }
+    }
+  } on EscrowException catch (e) {
+    if (navigator.canPop()) navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(e.message),
+        backgroundColor: Colors.red.shade700,
+      ),
+    );
+    return;
+  } catch (_) {
+    // Bila mode demo / offline, lanjut ke fallback
+  }
+
+  if (navigator.canPop()) navigator.pop();
+  navigator.pushNamed(
+    AppRoutes.orderChat,
+    arguments: targetOrder ?? listing,
+  );
+}
 
 /// Jarak ringkas tanpa spasi, mis. "600m" / "1.2km".
 String compactDistance(double meters) =>
@@ -235,10 +303,7 @@ class TalentPreviewCard extends StatelessWidget {
                   label: 'Chat Langsung',
                   variant: SakuButtonVariant.outline,
                   height: 42,
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    AppRoutes.chat,
-                    arguments: listing,
-                  ),
+                  onPressed: () => openDirectOrderChat(context, listing),
                 ),
               ),
               Expanded(

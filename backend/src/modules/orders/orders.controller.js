@@ -197,6 +197,75 @@ class OrdersController {
       return next(error);
     }
   }
+
+  async listMessages(req, res, next) {
+    try {
+      const messages = await ordersService.listOrderMessages(
+        req.validated.params.id,
+        req.user
+      );
+      return sendSuccess(res, {
+        statusCode: 200,
+        message: 'Riwayat pesan order berhasil dimuat.',
+        data: messages,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async sendMessage(req, res, next) {
+    try {
+      const created = await ordersService.sendOrderMessage(
+        req.validated.params.id,
+        req.user,
+        req.validated.body
+      );
+      return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Pesan berhasil dikirim.',
+        data: created,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async requestTimeExtension(req, res, next) {
+    try {
+      const updated = await ordersService.requestTimeExtension(
+        req.validated.params.id,
+        req.user,
+        req.validated.body
+      );
+      return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Permintaan perpanjangan waktu berhasil dikirim ke pelanggan.',
+        data: updated,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async decideTimeExtension(req, res, next) {
+    try {
+      const updated = await ordersService.decideTimeExtension(
+        req.validated.params.id,
+        req.user,
+        req.validated.body
+      );
+      return sendSuccess(res, {
+        statusCode: 200,
+        message: req.validated.body.disetujui
+          ? 'Permintaan tambahan waktu disetujui. Tenggat pekerjaan diperpanjang otomatis.'
+          : 'Permintaan tambahan waktu ditolak. Tenggat tetap sesuai kesepakatan awal.',
+        data: updated,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 module.exports = new OrdersController();

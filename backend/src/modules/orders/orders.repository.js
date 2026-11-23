@@ -90,6 +90,14 @@ class OrdersRepository {
        FROM reviews WHERE order_id = $1`,
       [orderId]
     );
+    const { rows: extensions } = await db.query(
+      `SELECT extension_id, pengaju_id, tambahan_jam, alasan, status_persetujuan, dibuat_pada, diputuskan_pada
+       FROM order_time_extensions
+       WHERE order_id = $1
+       ORDER BY dibuat_pada DESC
+       LIMIT 1`,
+      [orderId]
+    );
 
     return {
       ...order,
@@ -105,6 +113,7 @@ class OrdersRepository {
       },
       proposals,
       reviews,
+      active_time_extension: extensions[0] || null,
     };
   }
 
@@ -251,6 +260,90 @@ class OrdersRepository {
        VALUES ($1, $2, 'Orders', $3, $4, $5)`,
       [aktorId, aksi, objekId, statusSebelum, statusSesudah]
     );
+  }
+
+  async findMessagesByOrderId(orderId) {
+    const sql = `
+      SELECT
+        m.message_id,
+        m.order_id,
+        m.sender_id,
+        u.nama AS sender_nama,
+        m.isi_pesan,
+        m.dibuat_pada
+      FROM order_messages m
+      JOIN users u ON u.user_id = m.sender_id
+      WHERE m.order_id = $1
+      ORDER BY m.dibuat_pada ASC;
+    `;
+    const { rows } = await db.query(sql, [orderId]);
+    return rows;
+  }
+
+  async createMessage({ orderId, senderId, isiPesan }) {
+    const insertSql = `
+      INSERT INTO order_messages (order_id, sender_id, isi_pesan)
+      VALUES ($1, $2, $3)
+      RETURNING message_id;
+    `;
+    const { rows } = await db.query(insertSql, [orderId, senderId, isiPesan]);
+
+    const detailSql = `
+      SELECT
+        m.message_id,
+        m.order_id,
+        m.sender_id,
+        u.nama AS sender_nama,
+        m.isi_pesan,
+        m.dibuat_pada
+      FROM order_messages m
+      JOIN users u ON u.user_id = m.sender_id
+      WHERE m.message_id = $1
+      LIMIT 1;
+    `;
+    const detail = await db.query(detailSql, [rows[0].message_id]);
+    return detail.rows[0];
+  }
+
+  async createTimeExtension({ orderId, pengajuId, tambahanJam, alasan }) {
+    await db.query(
+      `INSERT INTO order_time_extensions (order_id, pengaju_id, tambahan_jam, alasan, status_persetujuan)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [orderId, pengajuId, tambahanJam, alasan]
+    );
+    return this.findById(orderId);
+  }
+
+  async decideTimeExtension({ orderId, extensionId, tambahanJam, disetujui }) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE order_time_extensions
+         SET status_persetujuan = $1,
+             diputuskan_pada = NOW()
+         WHERE extension_id = $2`,
+        [disetujui ? 'approved' : 'rejected', extensionId]
+      );
+
+      if (disetujui) {
+        await client.query(
+          `UPDATE orders
+           SET tenggat_pekerjaan = COALESCE(tenggat_pekerjaan, NOW()) + ($1 * INTERVAL '1 hour'),
+               diubah_pada = NOW()
+           WHERE order_id = $2`,
+          [tambahanJam, orderId]
+        );
+      }
+
+      await client.query('COMMIT');
+      return this.findById(orderId);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 

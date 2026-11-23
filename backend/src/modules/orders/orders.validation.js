@@ -113,6 +113,46 @@ const createOrderReviewSchema = z.object({
   }),
 });
 
+const createOrderMessageSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Format ID order harus berupa UUID yang valid.'),
+  }),
+  body: z.object({
+    isi_pesan: z
+      .string({ required_error: 'isi_pesan wajib diisi.' })
+      .trim()
+      .min(1, 'Pesan tidak boleh kosong.')
+      .max(2000, 'Pesan maksimal 2000 karakter.'),
+  }),
+});
+
+const requestTimeExtensionSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Format ID order harus berupa UUID yang valid.'),
+  }),
+  body: z.object({
+    tambahan_jam: z.coerce
+      .number({ required_error: 'tambahan_jam wajib diisi.' })
+      .int()
+      .min(1, 'Tambahan waktu minimal 1 jam.')
+      .max(168, 'Tambahan waktu maksimal 168 jam (7 hari).'),
+    alasan: z
+      .string({ required_error: 'Alasan permintaan tambahan waktu wajib diisi.' })
+      .trim()
+      .min(5, 'Alasan minimal 5 karakter.')
+      .max(1000, 'Alasan maksimal 1000 karakter.'),
+  }),
+});
+
+const decideTimeExtensionSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Format ID order harus berupa UUID yang valid.'),
+  }),
+  body: z.object({
+    disetujui: z.boolean({ required_error: 'Field disetujui (true/false) wajib diisi.' }),
+  }),
+});
+
 module.exports = {
   createOrderSchema,
   orderIdParamSchema,
@@ -121,4 +161,7 @@ module.exports = {
   reasonBodySchema,
   updateOrderStatusSchema,
   createOrderReviewSchema,
+  createOrderMessageSchema,
+  requestTimeExtensionSchema,
+  decideTimeExtensionSchema,
 };

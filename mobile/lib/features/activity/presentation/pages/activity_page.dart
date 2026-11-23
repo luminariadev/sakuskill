@@ -51,7 +51,7 @@ class _ActivityPageState extends State<ActivityPage> {
         _providerOrders = results[1];
       });
     } catch (_) {
-      // Tetap pertahankan state terakhir / fallback demo jika server belum merespons
+      // Tetap pertahankan state terakhir jika server belum merespons
     } finally {
       if (mounted) setState(() => _loadingOrders = false);
     }
@@ -62,6 +62,7 @@ class _ActivityPageState extends State<ActivityPage> {
     final isPrePayment =
         status == 'submitted' ||
         status == 'diajukan' ||
+        status == 'negotiating' ||
         status == 'accepted' ||
         status == 'disepakati';
 
@@ -94,19 +95,39 @@ class _ActivityPageState extends State<ActivityPage> {
 
   @override
   Widget build(BuildContext context) {
-    const order = DemoData.order;
     const barter = DemoData.barter;
     void go(String route) => Navigator.of(context).pushNamed(route);
 
     final hasLiveOrders =
         _customerOrders.isNotEmpty || _providerOrders.isNotEmpty;
 
+    // Hitung saldo tersedia dari order penyedia yang sudah selesai (completed)
+    final earnedBalance = _providerOrders
+        .where((o) => o.statusKode.toLowerCase() == 'completed')
+        .fold<int>(0, (sum, o) => sum + o.harga);
+
+    // Hitung total dana ditahan & jumlah transaksi berjalan dari order aktif
+    const terminalStatuses = {'completed', 'rejected', 'cancelled'};
+    final allLiveOrders = [..._providerOrders, ..._customerOrders];
+    final activeOrders = allLiveOrders
+        .where((o) => !terminalStatuses.contains(o.statusKode.toLowerCase()))
+        .toList();
+    final totalEscrowHeld = activeOrders
+        .where((o) => o.bolehLanjutInProgress)
+        .fold<int>(0, (sum, o) => sum + o.harga);
+    final activeCount = activeOrders.length;
+
     final items = <Widget>[
       const PageHeader(
         'Aktivitas Saya',
         subtitle: 'Kelola pesanan jasa, pengerjaan proyek, dan barter di satu tempat.',
       ),
-      WalletSummaryCard(onWithdraw: () => go(AppRoutes.wallet)),
+      WalletSummaryCard(
+        balance: earnedBalance,
+        escrowHeld: totalEscrowHeld,
+        activeTransactions: activeCount,
+        onWithdraw: () => go(AppRoutes.wallet),
+      ),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -128,6 +149,7 @@ class _ActivityPageState extends State<ActivityPage> {
         for (final item in _providerOrders)
           _LiveOrderCard(
             order: item,
+            asProvider: true,
             roleBadge: 'PESANAN MASUK · PENYEDIA JASA',
             actionLabel: _actionTextFor(item, asProvider: true),
             onPrimaryTap: () => _openOrder(item, asProvider: true),
@@ -138,6 +160,7 @@ class _ActivityPageState extends State<ActivityPage> {
         for (final item in _customerOrders)
           _LiveOrderCard(
             order: item,
+            asProvider: false,
             roleBadge: 'PESANAN SAYA · PELANGGAN',
             actionLabel: _actionTextFor(item, asProvider: false),
             onPrimaryTap: () => _openOrder(item, asProvider: false),
@@ -146,43 +169,13 @@ class _ActivityPageState extends State<ActivityPage> {
                     .pushNamed(AppRoutes.orderChat, arguments: item),
           ),
       ] else
-        SakuCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 10,
-            children: [
-              const StatusStrip('DANA DITAHAN SIMULASI', tone: SakuTone.escrow),
-              Text(
-                '${order.code}  ·  ${formatRupiah(order.amount)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              PersonRow(
-                name: order.clientLabel,
-                subtitle: order.title,
-                asset: order.clientAsset,
-              ),
-              const MilestoneSteps(current: 1),
-              const StatusStrip(
-                'Sisa 4 Jam · Segera kirim hasil kerja',
-                tone: SakuTone.warning,
-                bordered: true,
-              ),
-              SakuButton(
-                key: const Key('activity-open-project'),
-                label: 'Buka Ruang Proyek',
-                onPressed: () => go(AppRoutes.workroom),
-              ),
-              SakuButton(
-                label: 'Chat Klien',
-                variant: SakuButtonVariant.outline,
-                onPressed: () => go(AppRoutes.orderChat),
-              ),
-            ],
+        const SakuCard(
+          child: Text(
+            'Belum ada pesanan jasa atau transaksi escrow aktif saat ini.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       const SectionLabel('SMART BARTER · TUKAR KEAHLIAN'),
@@ -262,13 +255,16 @@ class _ActivityPageState extends State<ActivityPage> {
 
   String _actionTextFor(EscrowOrderModel order, {required bool asProvider}) {
     final s = order.statusKode.toLowerCase();
-    if (s == 'submitted' || s == 'diajukan') {
+    if (s == 'submitted' || s == 'diajukan' || s == 'negotiating') {
       return asProvider ? 'Tinjau & Terima Pesanan' : 'Lihat Status Pengajuan';
     }
     if (s == 'accepted' || s == 'disepakati') {
       return asProvider
           ? 'Lihat Detail (Menunggu Bayar)'
           : 'Bayar Sekarang (Escrow)';
+    }
+    if (s == 'cancelled' || s == 'rejected') {
+      return 'Lihat Riwayat Pesanan';
     }
     return asProvider ? 'Buka Ruang Proyek' : 'Pantau Progres Pesanan';
   }
@@ -277,6 +273,7 @@ class _ActivityPageState extends State<ActivityPage> {
 class _LiveOrderCard extends StatelessWidget {
   const _LiveOrderCard({
     required this.order,
+    required this.asProvider,
     required this.roleBadge,
     required this.actionLabel,
     required this.onPrimaryTap,
@@ -284,13 +281,68 @@ class _LiveOrderCard extends StatelessWidget {
   });
 
   final EscrowOrderModel order;
+  final bool asProvider;
   final String roleBadge;
   final String actionLabel;
   final VoidCallback onPrimaryTap;
   final VoidCallback onChatTap;
 
+  int _milestoneStep() {
+    switch (order.statusKode.toLowerCase()) {
+      case 'in_progress':
+        return 1;
+      case 'completion_requested':
+        return 2;
+      case 'completed':
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
+  String? _deadlineNotice() {
+    final s = order.statusKode.toLowerCase();
+    if (s == 'completed' || s == 'cancelled' || s == 'rejected') return null;
+
+    if (s == 'in_progress') {
+      final secs = order.detikTersisa;
+      if (secs != null && secs > 0) {
+        final hours = (secs / 3600).ceil();
+        final timeLabel = hours >= 24
+            ? 'Sisa ${(hours / 24).ceil()} Hari'
+            : 'Sisa $hours Jam';
+        return asProvider
+            ? '$timeLabel · Segera kirim hasil kerja'
+            : '$timeLabel · Proyek sedang dikerjakan penyedia';
+      }
+      return asProvider
+          ? 'Proyek berjalan · Segera selesaikan sesuai tenggat'
+          : 'Proyek sedang dikerjakan penyedia';
+    }
+
+    if (s == 'completion_requested') {
+      return asProvider
+          ? 'Hasil terkirim · Menunggu konfirmasi pelanggan'
+          : 'Hasil kerja siap diperiksa · Konfirmasi selesai';
+    }
+
+    if (s == 'accepted' || s == 'disepakati') {
+      return asProvider
+          ? 'Menunggu pelanggan menyelesaikan pembayaran Escrow'
+          : 'Kesepakatan disetujui · Lanjutkan pembayaran Escrow';
+    }
+
+    return asProvider
+        ? 'Pesanan baru masuk · Tinjau & terima brief klien'
+        : 'Menunggu konfirmasi & kesepakatan penyedia jasa';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final s = order.statusKode.toLowerCase();
+    final isTerminated = s == 'cancelled' || s == 'rejected';
+    final notice = _deadlineNotice();
+
     return SakuCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,9 +366,16 @@ class _LiveOrderCard extends StatelessWidget {
             subtitle: order.judulLayanan,
             asset: DemoData.order.clientAsset,
           ),
+          if (!isTerminated) MilestoneSteps(current: _milestoneStep()),
+          if (notice != null)
+            StatusStrip(
+              notice,
+              tone: SakuTone.warning,
+              bordered: true,
+            ),
           SakuButton(label: actionLabel, onPressed: onPrimaryTap),
           SakuButton(
-            label: 'Buka Chat Transaksi',
+            label: asProvider ? 'Chat Klien' : 'Buka Chat Transaksi',
             variant: SakuButtonVariant.outline,
             onPressed: onChatTap,
           ),
@@ -349,9 +408,18 @@ class _LinkStrip extends StatelessWidget {
 
 /// Ringkasan dompet gelap (Figma "Wallet summary"): padding 18, saldo 28/800.
 class WalletSummaryCard extends StatelessWidget {
-  const WalletSummaryCard({super.key, required this.onWithdraw});
+  const WalletSummaryCard({
+    super.key,
+    required this.onWithdraw,
+    required this.balance,
+    required this.escrowHeld,
+    required this.activeTransactions,
+  });
 
   final VoidCallback onWithdraw;
+  final num balance;
+  final num escrowHeld;
+  final int activeTransactions;
 
   @override
   Widget build(BuildContext context) {
@@ -375,9 +443,9 @@ class WalletSummaryCard extends StatelessWidget {
               color: AppColors.textMuted,
             ),
           ),
-          const CountUpRupiah(
-            value: DemoData.balance,
-            style: TextStyle(
+          CountUpRupiah(
+            value: balance,
+            style: const TextStyle(
               fontSize: 28,
               height: 39 / 28,
               fontWeight: FontWeight.w800,
@@ -385,8 +453,8 @@ class WalletSummaryCard extends StatelessWidget {
             ),
           ),
           Text(
-            'Dana Ditahan di Escrow: ${formatRupiah(DemoData.escrowHeld)}\n'
-            '1 Transaksi Berjalan',
+            'Dana Ditahan di Escrow: ${formatRupiah(escrowHeld)}\n'
+            '$activeTransactions Transaksi Berjalan',
             style: const TextStyle(
               fontSize: 12,
               height: 17 / 12,

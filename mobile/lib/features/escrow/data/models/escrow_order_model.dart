@@ -1,3 +1,33 @@
+class OrderTimeExtensionModel {
+  const OrderTimeExtensionModel({
+    required this.extensionId,
+    required this.pengajuId,
+    required this.tambahanJam,
+    required this.alasan,
+    required this.statusPersetujuan,
+  });
+
+  final String extensionId;
+  final String pengajuId;
+  final int tambahanJam;
+  final String alasan;
+  final String statusPersetujuan; // pending | approved | rejected
+
+  bool get isPending => statusPersetujuan == 'pending';
+  bool get isApproved => statusPersetujuan == 'approved';
+  bool get isRejected => statusPersetujuan == 'rejected';
+
+  factory OrderTimeExtensionModel.fromJson(Map<String, dynamic> json) {
+    return OrderTimeExtensionModel(
+      extensionId: (json['extension_id'] ?? '') as String,
+      pengajuId: (json['pengaju_id'] ?? '') as String,
+      tambahanJam: ((json['tambahan_jam'] ?? 0) as num).toInt(),
+      alasan: (json['alasan'] ?? '') as String,
+      statusPersetujuan: (json['status_persetujuan'] ?? 'pending') as String,
+    );
+  }
+}
+
 class EscrowOrderModel {
   const EscrowOrderModel({
     required this.orderId,
@@ -30,6 +60,7 @@ class EscrowOrderModel {
     this.batasRevisi = 2,
     this.revisiTerpakai = 0,
     this.sisaRevisi = 2,
+    this.activeTimeExtension,
   });
 
   final String orderId;
@@ -71,6 +102,9 @@ class EscrowOrderModel {
   final int batasRevisi;
   final int revisiTerpakai;
   final int sisaRevisi;
+
+  // Perpanjangan Waktu Aktif / Terbaru
+  final OrderTimeExtensionModel? activeTimeExtension;
 
   /// Helper untuk menentukan peran pengguna saat ini pada transaksi ini.
   bool adalahPelanggan(String currentUserId) =>
@@ -150,6 +184,7 @@ class EscrowOrderModel {
     final sla = json['sla'] as Map<String, dynamic>?;
     final deliverable = json['deliverable'] as Map<String, dynamic>?;
     final revisi = json['revisi'] as Map<String, dynamic>?;
+    final rawExt = json['active_time_extension'] as Map<String, dynamic>?;
 
     final orderId = (json['order_id'] ?? '') as String;
     final statusKode = (json['status_kode'] ?? 'requested') as String;
@@ -250,6 +285,8 @@ class EscrowOrderModel {
       batasRevisi: maxRev,
       revisiTerpakai: usedRev,
       sisaRevisi: remRev,
+      activeTimeExtension:
+          rawExt != null ? OrderTimeExtensionModel.fromJson(rawExt) : null,
     );
   }
 
@@ -284,6 +321,7 @@ class EscrowOrderModel {
     int? batasRevisi,
     int? revisiTerpakai,
     int? sisaRevisi,
+    OrderTimeExtensionModel? activeTimeExtension,
   }) {
     return EscrowOrderModel(
       orderId: orderId ?? this.orderId,
@@ -317,6 +355,7 @@ class EscrowOrderModel {
       batasRevisi: batasRevisi ?? this.batasRevisi,
       revisiTerpakai: revisiTerpakai ?? this.revisiTerpakai,
       sisaRevisi: sisaRevisi ?? this.sisaRevisi,
+      activeTimeExtension: activeTimeExtension ?? this.activeTimeExtension,
     );
   }
 }

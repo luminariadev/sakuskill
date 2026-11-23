@@ -123,9 +123,17 @@ class OrdersService {
     }
     this.assertParticipant(order, user);
 
-    if (!['requested', 'negotiating'].includes(order.status_kode)) {
+    const isAppealProposal = String(payload.deskripsi_ruang_lingkup || '')
+      .trim()
+      .startsWith('Banding (');
+
+    const allowedStatuses = isAppealProposal
+      ? ['requested', 'negotiating', 'in_progress', 'cancelled']
+      : ['requested', 'negotiating'];
+
+    if (!allowedStatuses.includes(order.status_kode)) {
       throw new AppError(
-        `Proposal negosiasi tidak dapat diajukan karena status order saat ini adalah '${order.status_kode}'.`,
+        `Proposal tidak dapat diajukan karena status order saat ini adalah '${order.status_kode}'.`,
         400,
         'INVALID_STATE_TRANSITION'
       );
@@ -141,10 +149,10 @@ class OrdersService {
 
     await ordersRepository.writeAuditLog({
       aktorId: user.user_id,
-      aksi: 'PROPOSE_ORDER_TERMS',
+      aksi: isAppealProposal ? 'SUBMIT_APPEAL_50_50' : 'PROPOSE_ORDER_TERMS',
       objekId: orderId,
       statusSebelum: order.status_kode,
-      statusSesudah: 'negotiating',
+      statusSesudah: isAppealProposal ? order.status_kode : 'negotiating',
     });
 
     return updated;
@@ -196,9 +204,9 @@ class OrdersService {
         actorError: 'Hanya Pelanggan yang dapat mengonfirmasi penyelesaian akhir (completed).',
       },
       cancelled: {
-        allowedFrom: ['requested', 'negotiating', 'accepted'],
+        allowedFrom: ['requested', 'negotiating', 'accepted', 'in_progress'],
         actorCheck: () => isCustomer,
-        actorError: 'Hanya Pelanggan yang dapat membatalkan (cancel) order sebelum pengerjaan dimulai.',
+        actorError: 'Hanya Pelanggan yang dapat membatalkan (cancel) order.',
       },
     };
 
@@ -215,7 +223,19 @@ class OrdersService {
       throw new AppError(rule.actorError, 403, 'FORBIDDEN_ROLE_ACTION');
     }
 
-    // Kerjaan #6 & #7: Order HANYA boleh lanjut ke in_progress setelah payment berstatus "success"!
+    // Jika membatalkan order yang sedang in_progress, wajib sudah melewati tenggat pengerjaan
+    if (normalizedTarget === 'cancelled' && currentStatus === 'in_progress') {
+      const deadline = order.tenggat_pekerjaan ? new Date(order.tenggat_pekerjaan) : null;
+      if (!deadline || deadline > new Date()) {
+        throw new AppError(
+          'Order yang sedang dikerjakan hanya dapat dibatalkan pelanggan apabila sudah melewati tenggat pengerjaan.',
+          400,
+          'ORDER_NOT_OVERDUE'
+        );
+      }
+    }
+
+    // Order HANYA boleh lanjut ke in_progress setelah payment berstatus "success"!
     const paymentRecord = await paymentsRepository.findByOrderId(orderId);
     if (normalizedTarget === 'in_progress') {
       if (!paymentRecord) {
@@ -301,6 +321,118 @@ class OrdersService {
     });
 
     return review;
+  }
+
+  async listOrderMessages(orderId, user) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) {
+      throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
+    }
+    this.assertParticipant(order, user);
+    return ordersRepository.findMessagesByOrderId(orderId);
+  }
+
+  async sendOrderMessage(orderId, user, payload) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) {
+      throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
+    }
+    this.assertParticipant(order, user);
+
+    return ordersRepository.createMessage({
+      orderId,
+      senderId: user.user_id,
+      isiPesan: payload.isi_pesan.trim(),
+    });
+  }
+
+  async requestTimeExtension(orderId, user, payload) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) {
+      throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
+    }
+    if (order.penyedia_id !== user.user_id) {
+      throw new AppError(
+        'Hanya penyedia jasa pada order ini yang dapat mengajukan tambahan waktu.',
+        403,
+        'FORBIDDEN_ROLE'
+      );
+    }
+    if (order.status_kode !== 'in_progress') {
+      throw new AppError(
+        'Tambahan waktu hanya dapat diajukan saat pesanan sedang dikerjakan (in_progress).',
+        409,
+        'INVALID_STATE_TRANSITION'
+      );
+    }
+    if (order.active_time_extension?.status_persetujuan === 'pending') {
+      throw new AppError(
+        'Masih ada pengajuan tambahan waktu yang menunggu keputusan pelanggan.',
+        409,
+        'EXTENSION_ALREADY_PENDING'
+      );
+    }
+
+    const updated = await ordersRepository.createTimeExtension({
+      orderId,
+      pengajuId: user.user_id,
+      tambahanJam: payload.tambahan_jam,
+      alasan: payload.alasan,
+    });
+
+    await ordersRepository.writeAuditLog({
+      aktorId: user.user_id,
+      aksi: `TIME_EXTENSION_REQUESTED (+${payload.tambahan_jam}h)`,
+      objekId: orderId,
+      statusSebelum: order.status_kode,
+      statusSesudah: order.status_kode,
+    });
+
+    const payment = await paymentsRepository.findByOrderId(orderId);
+    return { ...updated, payment };
+  }
+
+  async decideTimeExtension(orderId, user, { disetujui }) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) {
+      throw new AppError('Data order tidak ditemukan.', 404, 'ORDER_NOT_FOUND');
+    }
+    if (order.pelanggan_id !== user.user_id) {
+      throw new AppError(
+        'Hanya pelanggan pada order ini yang dapat menyetujui atau menolak tambahan waktu.',
+        403,
+        'FORBIDDEN_ROLE'
+      );
+    }
+
+    const pendingExt = order.active_time_extension;
+    if (!pendingExt || pendingExt.status_persetujuan !== 'pending') {
+      throw new AppError(
+        'Tidak ada pengajuan tambahan waktu yang sedang menunggu keputusan.',
+        409,
+        'NO_PENDING_EXTENSION'
+      );
+    }
+
+    const updated = await ordersRepository.decideTimeExtension({
+      orderId,
+      extensionId: pendingExt.extension_id,
+      tambahanJam: pendingExt.tambahan_jam,
+      disetujui: Boolean(disetujui),
+    });
+
+    await ordersRepository.writeAuditLog({
+      aktorId: user.user_id,
+      aksi: disetujui
+        ? `TIME_EXTENSION_APPROVED (+${pendingExt.tambahan_jam}h)`
+        : 'TIME_EXTENSION_REJECTED',
+      objekId: orderId,
+      statusSebelum: order.status_kode,
+      statusSesudah: order.status_kode,
+    });
+
+    const payment = await paymentsRepository.findByOrderId(orderId);
+    return { ...updated, payment };
   }
 }
 

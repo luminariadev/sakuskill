@@ -7,6 +7,7 @@ import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
 /// Figma "15E · Banding kompensasi" (sisi penyedia setelah dibatalkan).
@@ -20,7 +21,6 @@ class AppealPage extends StatefulWidget {
 }
 
 class _AppealPageState extends State<AppealPage> {
-  // 2. INTEGRASI: Controller untuk menangkap isian form banding penyedia
   final _progressCtrl = TextEditingController(
     text: '80% Selesai (Draf Utama Siap Pakai)',
   );
@@ -43,7 +43,6 @@ class _AppealPageState extends State<AppealPage> {
     super.dispose();
   }
 
-  // 1. INTEGRASI: Ambil objek order dari parameter atau argumen navigasi
   EscrowOrderModel? _resolveOrder(BuildContext context) {
     if (widget.order != null) return widget.order;
     final args = ModalRoute.of(context)?.settings.arguments;
@@ -57,36 +56,62 @@ class _AppealPageState extends State<AppealPage> {
     return 80;
   }
 
-  // 3. INTEGRASI: Kirim permohonan banding ke BE via EscrowRepository.submitAppeal
   Future<void> _submitAppeal(EscrowOrderModel? currentOrder) async {
     if (_submitting) return;
+    if (_chronologyCtrl.text.trim().length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kronologi banding minimal 5 karakter.')),
+      );
+      return;
+    }
+
+    final orderId = currentOrder?.orderId;
+    if (orderId == null || orderId.isEmpty) {
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Simulasi: Banding terkirim (Status: Dalam Sengketa). Admin Mediasi akan meninjau.',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
     SakuMotion.tick();
 
-    final repo = AppScope.of(context).escrowRepository;
-    final orderId =
-        currentOrder?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    try {
+      await AppScope.of(context).escrowRepository.submitAppeal(
+            orderId: orderId,
+            alasan: _chronologyCtrl.text.trim(),
+            progresPersen: _parseProgressPercent(),
+            tautanBukti: _linkCtrl.text.trim(),
+          );
 
-    await repo.submitAppeal(
-      orderId: orderId,
-      alasan: _chronologyCtrl.text.trim(),
-      progresPersen: _parseProgressPercent(),
-      tautanBukti: _linkCtrl.text.trim(),
-    );
-
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    // 4. INTEGRASI: Kembali ke beranda & tampilkan pesan konfirmasi mediasi
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).popUntil((r) => r.isFirst);
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Banding terkirim (Status: Dalam Sengketa). Admin Mediasi akan meninjau.',
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Banding terkirim (Status: Dalam Sengketa). Admin Mediasi akan meninjau.',
+          ),
+          backgroundColor: Colors.green.shade700,
         ),
-      ),
-    );
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -160,8 +185,6 @@ class _AppealPageState extends State<AppealPage> {
   }
 }
 
-/// Pratinjau screenshot layer kerja (Figma "Screenshot layer"): toolbar,
-/// daftar layer, dan kanvas desain mini.
 class _LayerScreenshot extends StatelessWidget {
   const _LayerScreenshot();
 

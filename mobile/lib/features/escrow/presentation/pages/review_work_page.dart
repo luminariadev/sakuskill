@@ -47,7 +47,8 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
     final targetId = _order?.orderId;
     if (targetId == null || targetId.isEmpty) return;
 
-    final result = await AppScope.of(context).escrowRepository
+    final result = await AppScope.of(context)
+        .escrowRepository
         .fetchOrderDetail(targetId);
     if (!mounted) return;
     if (!result.isFallback || _order == null) {
@@ -62,7 +63,7 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
     SakuMotion.tick();
 
     final repo = AppScope.of(context).escrowRepository;
-    final orderId = _order?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    final orderId = _order?.orderId ?? '';
 
     try {
       await repo.confirmCompletion(orderId);
@@ -100,7 +101,7 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
     }
   }
 
-  /// Ajukan revisi hasil kerja (Simulasi Lokal sesuai kontrak v1.3)
+  /// Ajukan revisi hasil kerja ke backend
   Future<void> _requestRevision(int remainingQuota, String providerName) async {
     if (_processing) return;
 
@@ -116,10 +117,11 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
 
     setState(() => _processing = true);
     final repo = AppScope.of(context).escrowRepository;
-    final orderId = _order?.orderId ?? '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    final orderId = _order?.orderId ?? '';
 
     try {
       await repo.requestRevision(orderId: orderId, catatanRevisi: notes);
+      await _syncLatestDetail();
 
       if (!mounted) return;
       setState(() {
@@ -127,7 +129,8 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
         final maxRev = _order?.batasRevisi ?? 2;
         final nextUsed = (currentUsed + 1).clamp(0, maxRev);
         _order = _order?.copyWith(
-          statusPesanan: 'Revisi Diajukan (Simulasi)',
+          statusKode: 'in_progress',
+          statusPesanan: 'Revisi Diajukan',
           revisiTerpakai: nextUsed,
           sisaRevisi: (maxRev - nextUsed).clamp(0, maxRev),
         );
@@ -135,9 +138,22 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Catatan revisi terkirim ke $providerName (Simulasi Lokal).',
-          ),
+          content: Text('Permintaan revisi berhasil dikirim ke $providerName.'),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+      Navigator.of(context).pop(_order);
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red.shade700),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengirim permintaan revisi: $e'),
+          backgroundColor: Colors.red.shade700,
         ),
       );
     } finally {
@@ -156,13 +172,23 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
     final amount = currentOrder?.harga ?? demo.amount;
     final providerName = currentOrder?.namaLawanTransaksi ?? demo.provider;
     final providerFirstName = providerName.split(' ').first;
-    final deliverableLink =
-        currentOrder?.tautanBerkas ??
-        'https://drive.google.com/file/d/spanduk-berkah-cmyk-final';
-    final providerNotes =
-        currentOrder?.catatanPenyedia ??
-        'File sudah siap cetak ukuran 3×1 meter (CMYK 300 DPI). Silakan dicek dulu ya!';
+
+    final deliverableLink = (currentOrder?.tautanBerkas != null &&
+            currentOrder!.tautanBerkas!.trim().isNotEmpty)
+        ? currentOrder.tautanBerkas!.trim()
+        : (currentOrder == null
+            ? 'https://drive.google.com/file/d/spanduk-berkah-cmyk-final'
+            : 'https://sakuskill.id/deliverables/$orderCode');
+
+    final providerNotes = (currentOrder?.catatanPenyedia != null &&
+            currentOrder!.catatanPenyedia!.trim().isNotEmpty)
+        ? currentOrder.catatanPenyedia!.trim()
+        : (currentOrder == null
+            ? 'File sudah siap cetak ukuran 3×1 meter (CMYK 300 DPI). Silakan dicek dulu ya!'
+            : 'Hasil pekerjaan telah dikirim oleh penyedia jasa untuk diperiksa.');
+
     final remainingRevision = currentOrder?.sisaRevisi ?? 2;
+    final mockupUrl = currentOrder?.mockupUrl;
 
     return SakuScreen(
       background: AppColors.canvasLight,
@@ -198,17 +224,36 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
               PersonRow(
                 name: providerName,
                 subtitle: 'Penyedia Jasa',
-                asset: demo.providerAsset,
+                asset: currentOrder == null ? demo.providerAsset : null,
               ),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  currentOrder?.mockupUrl ?? DemoAssets.spandukBerkah,
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+              if (currentOrder == null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    DemoAssets.spandukBerkah,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else if (mockupUrl != null && mockupUrl.trim().isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: mockupUrl.startsWith('http')
+                      ? Image.network(
+                          mockupUrl,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        )
+                      : Image.asset(
+                          mockupUrl,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                 ),
-              ),
               const Text(
                 'TAUTAN BERKAS HASIL KERJA',
                 style: TextStyle(
