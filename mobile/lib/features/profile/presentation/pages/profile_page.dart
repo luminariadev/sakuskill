@@ -21,72 +21,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  Future<void> _openServerSettings() async {
-    final controller = TextEditingController(text: AppConfig.apiBaseUrl);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pengaturan Server API'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Sesuaikan URL server backend Cloud (Render/Production) atau gunakan Mode Demo:',
-                style: TextStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'API Base URL',
-                  hintText: 'https://sakuskill-backend.onrender.com/api/v1',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ActionChip(
-                    label: const Text('Render Cloud (Default)'),
-                    onPressed: () => controller.text = 'https://sakuskill-backend.onrender.com/api/v1',
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              AppConfig.customUseMockData = true;
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Beralih ke Mode Offline Demo')),
-              );
-              setState(() {});
-            },
-            child: const Text('Mode Demo'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              AppConfig.customServerUrl = controller.text.trim();
-              AppConfig.customUseMockData = false;
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Server API diubah: ${AppConfig.apiBaseUrl}')),
-              );
-              setState(() {});
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
+  bool _loggingOut = false;
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -394,15 +329,12 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
 
           const SizedBox(height: 12),
-          Center(
-            child: GestureDetector(
-              onLongPress: _openServerSettings,
-              child: const Text(
-                'SakuSkill v1.0.0 · Platform Escrow Mahasiswa Kampus',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
+          const Center(
+            child: Text(
+              'SakuSkill v1.0.0 · Platform Escrow Mahasiswa Kampus',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textMuted,
               ),
             ),
           ),
