@@ -33,7 +33,7 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Sesuaikan alamat backend untuk pengujian di HP fisik / Wi-Fi:',
+                'Sesuaikan URL server backend Cloud (Render/Production) atau gunakan Mode Demo:',
                 style: TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 10),
@@ -42,6 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'API Base URL',
+                  hintText: 'https://sakuskill-backend.onrender.com/api/v1',
                 ),
               ),
               const SizedBox(height: 12),
@@ -50,16 +51,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 runSpacing: 8,
                 children: [
                   ActionChip(
-                    label: const Text('Wi-Fi Laptop (192.168.101.9)'),
-                    onPressed: () => controller.text = 'http://192.168.101.9:3000/api/v1',
-                  ),
-                  ActionChip(
-                    label: const Text('Emulator (10.0.2.2)'),
-                    onPressed: () => controller.text = 'http://10.0.2.2:3000/api/v1',
-                  ),
-                  ActionChip(
-                    label: const Text('USB Reverse (127.0.0.1)'),
-                    onPressed: () => controller.text = 'http://127.0.0.1:3000/api/v1',
+                    label: const Text('Render Cloud (Default)'),
+                    onPressed: () => controller.text = 'https://sakuskill-backend.onrender.com/api/v1',
                   ),
                 ],
               ),

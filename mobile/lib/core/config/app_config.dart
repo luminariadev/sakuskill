@@ -5,7 +5,7 @@ import '../utils/geo.dart';
 
 /// Konfigurasi runtime. Bisa diubah tanpa mengedit kode lewat --dart-define:
 ///
-///   flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000/api/v1
+///   flutter run --dart-define=API_BASE_URL=https://sakuskill-backend.onrender.com/api/v1
 ///   flutter run --dart-define=USE_MOCK_DATA=true
 abstract final class AppConfig {
   static const String _apiOverride = String.fromEnvironment('API_BASE_URL');
