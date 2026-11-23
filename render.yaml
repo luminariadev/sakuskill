@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: sakuskill-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: API_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: DEFAULT_CAMPUS_LAT
+        value: -6.9311
+      - key: DEFAULT_CAMPUS_LNG
+        value: 107.7175
+      - key: DEFAULT_HYPERLOCAL_RADIUS_METERS
+        value: 3000
