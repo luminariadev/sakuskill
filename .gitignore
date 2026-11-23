@@ -8,6 +8,8 @@ yarn-error.log*
 !.env.example
 
 # Flutter / Dart
+build/
+.dart_tool/
 mobile/.dart_tool/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
