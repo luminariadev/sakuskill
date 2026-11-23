@@ -30,7 +30,7 @@ abstract final class AppConfig {
       return customServerUrl!;
     }
     if (_apiOverride.isNotEmpty) return _apiOverride;
-    return 'https://self-consult-allowed-marijuana.trycloudflare.com/api/v1';
+    return 'https://sakuskill-backend.onrender.com/api/v1';
   }
 
   static const Duration networkTimeout = Duration(seconds: 6);
