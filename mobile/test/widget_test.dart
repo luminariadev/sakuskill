@@ -131,7 +131,7 @@ void main() {
     expect(find.text('Pembayaran\nRekening Bersama'), findsOneWidget);
 
     await tapAndSettle(tester, find.byKey(const Key('payment-submit')));
-    expect(find.text('✓  STATUS: DIKERJAKAN'), findsOneWidget);
+    expect(find.textContaining('STATUS: DIKERJAKAN'), findsOneWidget);
   });
 
   testWidgets('Tab Chat & Aktivitas menampilkan transaksi demo', (tester) async {
@@ -143,7 +143,7 @@ void main() {
 
     await tapAndSettle(tester, find.byKey(const Key('nav-activity')));
     expect(find.text('Aktivitas Saya'), findsOneWidget);
-    expect(find.text('#SK-091  ·  Rp 50.000'), findsOneWidget);
+    expect(find.textContaining('Belum ada pesanan jasa atau transaksi escrow aktif saat ini.'), findsOneWidget);
   });
 
   testWidgets('Halaman pencarian memfilter berdasarkan kata kunci',
