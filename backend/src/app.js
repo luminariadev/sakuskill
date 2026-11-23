@@ -24,6 +24,9 @@ app.use(globalRateLimiter);
 app.use(express.json({ limit: '2mb' }));
 app.use(requestLogger);
 
+// Health check root untuk Render / Cloud platforms
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'sakuskill-backend', timestamp: new Date().toISOString() }));
+
 // Registrasi seluruh modul endpoint SakuSkill
 app.use(env.apiPrefix + '/health', healthRoutes);
 app.use(env.apiPrefix + '/auth', authRoutes);
