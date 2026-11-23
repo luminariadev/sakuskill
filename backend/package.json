@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "start:prod": "node src/database/migrate.js && node src/server.js",
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/database/migrate.js",
     "db:clean": "node src/database/clean.js",
