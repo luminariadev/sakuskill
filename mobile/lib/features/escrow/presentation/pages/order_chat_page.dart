@@ -36,12 +36,23 @@ class _OrderChatPageState extends State<OrderChatPage> {
   bool _sendingMessage = false;
   bool _initialized = false;
   Timer? _pollTimer;
+  Timer? _clockTimer;
+  String _liveClock = formatClockSeconds(DateTime.now());
 
   EscrowOrderModel? _resolveOrder(BuildContext context) {
     if (_overrideOrder != null) return _overrideOrder;
     if (widget.order != null) return widget.order;
     final args = ModalRoute.of(context)?.settings.arguments;
     return args is EscrowOrderModel ? args : null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _liveClock = formatClockSeconds(DateTime.now()));
+    });
   }
 
   @override
@@ -54,25 +65,26 @@ class _OrderChatPageState extends State<OrderChatPage> {
     if (order != null && order.orderId.isNotEmpty) {
       _loadMessages(order.orderId);
       _pollTimer = Timer.periodic(
-        const Duration(seconds: 5),
+        const Duration(seconds: 3),
         (_) => _loadMessages(order.orderId, silent: true),
       );
     } else {
-      _messages = const [
+      final now = DateTime.now();
+      _messages = [
         ChatMessage(
           text: 'Halo Mbak Salma, spanduk kateringnya ukuran 3×1 m ya. '
               'Foto ayam bakarnya sudah saya lampirkan.',
-          time: '10:14',
+          time: formatTimeWib(now.subtract(const Duration(minutes: 8))),
         ),
         ChatMessage(
           text: 'Halo Pak Dimas! Siap, materi sudah saya terima. Saya kerjakan '
               'format CMYK siap cetak selesai dalam 3 hari dengan tarif Rp 50.000.',
-          time: '10:15',
+          time: formatTimeWib(now.subtract(const Duration(minutes: 5))),
           mine: true,
         ),
         ChatMessage(
           text: 'Baik Mbak, saya setuju. Saya langsung proses pembayarannya ya.',
-          time: '10:16',
+          time: formatTimeWib(now.subtract(const Duration(minutes: 2))),
         ),
       ];
     }
@@ -80,6 +92,7 @@ class _OrderChatPageState extends State<OrderChatPage> {
 
   @override
   void dispose() {
+    _clockTimer?.cancel();
     _pollTimer?.cancel();
     super.dispose();
   }
@@ -110,9 +123,7 @@ class _OrderChatPageState extends State<OrderChatPage> {
         (json['sender_id'] ?? json['pengirim_id'])?.toString().trim() ?? '';
     final rawTime = (json['dibuat_pada'] ?? json['created_at'])?.toString();
     final dt = rawTime != null ? DateTime.tryParse(rawTime)?.toLocal() : null;
-    final timeStr = dt != null
-        ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
-        : '--:--';
+    final timeStr = dt != null ? formatTimeWib(dt) : formatTimeWib(DateTime.now());
 
     return ChatMessage(
       text: (json['isi_pesan'] ?? json['pesan'])?.toString() ?? '',
@@ -146,14 +157,13 @@ class _OrderChatPageState extends State<OrderChatPage> {
     EscrowOrderModel? currentOrder,
   ) async {
     if (currentOrder == null || currentOrder.orderId.isEmpty) {
-      final now = TimeOfDay.now();
+      final now = DateTime.now();
       setState(() {
         _messages = [
           ..._messages,
           ChatMessage(
             text: text,
-            time:
-                '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+            time: formatTimeWib(now),
             mine: true,
           ),
         ];
@@ -315,14 +325,27 @@ class _OrderChatPageState extends State<OrderChatPage> {
       showBack: true,
       children: [
         PageHeader(providerName),
-        const Text(
-          'Online · Diskusi Brief & Tenggat',
-          style: TextStyle(
-            fontSize: 11,
-            height: 15 / 11,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Online · Sinkronisasi Realtime $_liveClock',
+              style: const TextStyle(
+                fontSize: 11,
+                height: 15 / 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
         ),
         InfoBox(
           tone: SakuTone.escrow,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/demo/demo_data.dart';
@@ -24,18 +25,36 @@ class _ActivityPageState extends State<ActivityPage> {
   bool _loadingOrders = false;
   List<EscrowOrderModel> _customerOrders = const [];
   List<EscrowOrderModel> _providerOrders = const [];
+  Timer? _clockTimer;
+  Timer? _pollTimer;
+  String _liveClock = formatClockSeconds(DateTime.now());
 
   @override
   void initState() {
     super.initState();
     _loadOrders();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _liveClock = formatClockSeconds(DateTime.now()));
+    });
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      _loadOrders(silent: true);
+    });
   }
 
-  Future<void> _loadOrders() async {
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadOrders({bool silent = false}) async {
     final token = AuthSession.instance.accessToken;
     if (token == null || token.isEmpty) return;
 
-    setState(() => _loadingOrders = true);
+    if (!silent) setState(() => _loadingOrders = true);
     final remote = EscrowRemoteDataSource(
       tokenProvider: () async => AuthSession.instance.accessToken,
     );
@@ -53,7 +72,7 @@ class _ActivityPageState extends State<ActivityPage> {
     } catch (_) {
       // Tetap pertahankan state terakhir jika server belum merespons
     } finally {
-      if (mounted) setState(() => _loadingOrders = false);
+      if (!silent && mounted) setState(() => _loadingOrders = false);
     }
   }
 
@@ -121,6 +140,27 @@ class _ActivityPageState extends State<ActivityPage> {
       const PageHeader(
         'Aktivitas Saya',
         subtitle: 'Kelola pesanan jasa, pengerjaan proyek, dan barter di satu tempat.',
+      ),
+      Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Sinkronisasi Realtime · $_liveClock',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       ),
       WalletSummaryCard(
         balance: earnedBalance,

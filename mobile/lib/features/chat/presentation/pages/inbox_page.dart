@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/demo/demo_data.dart';
@@ -5,6 +6,7 @@ import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../discovery/presentation/widgets/discovery_filters.dart';
@@ -23,6 +25,18 @@ class _InboxPageState extends State<InboxPage> {
   List<EscrowOrderModel> _liveOrders = const [];
   bool _loading = false;
   bool _initialized = false;
+  Timer? _pollTimer;
+  Timer? _clockTimer;
+  String _liveClock = formatClockSeconds(DateTime.now());
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _liveClock = formatClockSeconds(DateTime.now()));
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -30,10 +44,21 @@ class _InboxPageState extends State<InboxPage> {
     if (_initialized) return;
     _initialized = true;
     _loadConversations();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadConversations(silent: true),
+    );
   }
 
-  Future<void> _loadConversations() async {
-    if (mounted) setState(() => _loading = true);
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadConversations({bool silent = false}) async {
+    if (!silent && mounted) setState(() => _loading = true);
     try {
       final repo = AppScope.of(context).escrowRepository;
       final res = await repo.fetchMyOrders();
@@ -44,12 +69,13 @@ class _InboxPageState extends State<InboxPage> {
     } catch (_) {
       // Tetap gunakan fallback demo bila offline
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (!silent && mounted) setState(() => _loading = false);
     }
   }
 
   List<_InboxItem> _buildItems() {
     final items = <_InboxItem>[];
+    final now = DateTime.now();
 
     // 1. Masukkan semua transaksi Escrow aktif dari backend
     for (final order in _liveOrders) {
@@ -80,6 +106,15 @@ class _InboxPageState extends State<InboxPage> {
       if (c.kind == ConversationKind.escrow && _liveOrders.isNotEmpty) {
         continue;
       }
+      String dynamicTime;
+      if (c.kind == ConversationKind.escrow) {
+        dynamicTime = formatRelativeTime(now.subtract(const Duration(minutes: 8)));
+      } else if (c.kind == ConversationKind.barter) {
+        dynamicTime = formatRelativeTime(now.subtract(const Duration(hours: 3)));
+      } else {
+        dynamicTime = formatRelativeTime(now.subtract(const Duration(days: 2)));
+      }
+
       items.add(
         _InboxItem(
           kind: c.kind,
@@ -88,7 +123,7 @@ class _InboxPageState extends State<InboxPage> {
           asset: c.asset,
           contextLabel: c.contextLabel,
           lastMessage: c.lastMessage,
-          time: c.time,
+          time: dynamicTime,
           unread: c.unread,
         ),
       );
@@ -117,15 +152,42 @@ class _InboxPageState extends State<InboxPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
-                    child: PageHeader(
-                      'Pesan & Diskusi',
-                      subtitle: 'Diskusi lancar, kolaborasi lebih dekat.',
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const PageHeader(
+                          'Pesan & Diskusi',
+                          subtitle: 'Diskusi lancar, kolaborasi lebih dekat.',
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Sinkronisasi Realtime · $_liveClock',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
                     tooltip: 'Segarkan daftar chat',
-                    onPressed: _loading ? null : _loadConversations,
+                    onPressed: _loading ? null : () => _loadConversations(),
                     icon: const Icon(Icons.refresh, color: AppColors.primary),
                   ),
                 ],

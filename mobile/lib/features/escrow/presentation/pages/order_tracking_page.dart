@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/demo/demo_data.dart';
@@ -31,6 +32,18 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   bool _isDemoFallback = false;
   bool? _extensionApproved;
   bool _submittingAction = false;
+  Timer? _clockTimer;
+  Timer? _pollTimer;
+  String _liveClock = formatClockSeconds(DateTime.now());
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _liveClock = formatClockSeconds(DateTime.now()));
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -41,6 +54,17 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     _order = widget.order ?? (args is EscrowOrderModel ? args : null);
     _syncLatestDetail();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _syncLatestDetail(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _syncLatestDetail() async {
@@ -300,6 +324,27 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             fontSize: 11,
             color: AppColors.textSecondary,
           ),
+        ),
+        Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Sinkronisasi Realtime · $_liveClock',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
         ),
         if (_isDemoFallback)
           const InfoBox(

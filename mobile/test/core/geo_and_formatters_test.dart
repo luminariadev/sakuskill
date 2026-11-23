@@ -62,5 +62,20 @@ void main() {
       expect(walkingMinutes(10), 1);
       expect(walkingMinutes(240), 3);
     });
+
+    test('formatTimeWib & formatClockSeconds', () {
+      final dt = DateTime(2026, 11, 24, 14, 5, 9);
+      expect(formatTimeWib(dt), '14:05 WIB');
+      expect(formatClockSeconds(dt), '14:05:09 WIB');
+    });
+
+    test('formatRelativeTime', () {
+      final base = DateTime(2026, 11, 24, 14, 30, 0);
+      expect(formatRelativeTime(base.subtract(const Duration(seconds: 20)), baseTime: base), 'Baru saja');
+      expect(formatRelativeTime(base.subtract(const Duration(minutes: 5)), baseTime: base), '5 mnt lalu');
+      expect(formatRelativeTime(base.subtract(const Duration(hours: 2)), baseTime: base), '12:30 WIB');
+      expect(formatRelativeTime(base.subtract(const Duration(days: 1)), baseTime: base), 'Kemarin, 14:30 WIB');
+      expect(formatRelativeTime(base.subtract(const Duration(days: 3)), baseTime: base), '3 hari lalu');
+    });
   });
 }

@@ -31,6 +31,17 @@ class BarterWorkroomPage extends StatelessWidget {
           tone: SakuTone.barter,
           fontWeight: FontWeight.w500,
         ),
+        const CountdownCard(
+          label: 'SISA ESTIMASI TENGGAT KONTRAK BERSAMA',
+          remaining: Duration(days: 3, hours: 14, minutes: 22, seconds: 40),
+          showDays: true,
+          note: 'Waktu berdetak real-time. Kedua pihak wajib mengunggah karya sebelum batas waktu berakhir.',
+        ),
+        const StatusStrip(
+          '● Live Log: Salma memperbarui draf karya · Baru saja',
+          tone: SakuTone.barter,
+          bordered: true,
+        ),
         _ProgressCard(
           name: DemoData.me,
           skill: 'Desain UI Web',

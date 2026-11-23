@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../utils/formatters.dart';
 import 'saku_icon.dart';
 
 /// Satu pesan chat.
@@ -123,12 +124,11 @@ class _ChatThreadState extends State<ChatThread> {
       return;
     }
 
-    final now = TimeOfDay.now();
+    final now = DateTime.now();
     setState(() {
       _localMessages.add(ChatMessage(
         text: text,
-        time: '${now.hour.toString().padLeft(2, '0')}:'
-            '${now.minute.toString().padLeft(2, '0')}',
+        time: formatTimeWib(now),
         mine: true,
       ));
       _input.clear();
