@@ -33,7 +33,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirm = TextEditingController();
   final _domicile = TextEditingController();
 
-  String _role = 'Pelanggan';
   bool _agree = true;
   bool _submitted = false;
   bool _busy = false;
@@ -73,7 +72,6 @@ class _RegisterPageState extends State<RegisterPage> {
         id: authSession.user.id,
         name: authSession.user.name,
         userEmail: authSession.user.email,
-        userRole: _role,
       );
       if (!mounted) return;
       SakuMotion.tick();
@@ -115,36 +113,6 @@ class _RegisterPageState extends State<RegisterPage> {
           const Text(
             'Satu akun fleksibel untuk mencari jasa maupun menawarkan keahlian',
             style: AppTypography.body,
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Daftar Sebagai', style: AppTypography.body),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('Pelanggan')),
-                      selected: _role == 'Pelanggan',
-                      onSelected: _busy
-                          ? null
-                          : (_) => setState(() => _role = 'Pelanggan'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('Penyedia Jasa')),
-                      selected: _role == 'Penyedia Jasa',
-                      onSelected: _busy
-                          ? null
-                          : (_) => setState(() => _role = 'Penyedia Jasa'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
           SakuTextField(
             fieldKey: const Key('register-name'),
