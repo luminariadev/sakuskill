@@ -61,6 +61,28 @@ void main() {
     expect(find.byKey(const ValueKey('login-error')), findsNothing);
   });
 
+  testWidgets('Tombol kembali di Login (saat root) kembali ke Awalan',
+      (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await pumpAt(tester, AppRoutes.login);
+    await tapSubmit(tester, const Key('back-arrow-button'));
+    expect(find.text('Masuk ke Akun Anda'), findsOneWidget);
+  });
+
+  testWidgets('Tombol kembali di Register (saat root) kembali ke Awalan',
+      (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await pumpAt(tester, AppRoutes.register);
+    await tapSubmit(tester, const Key('back-arrow-button'));
+    expect(find.text('Masuk ke Akun Anda'), findsOneWidget);
+  });
+
   testWidgets('Setup profil: tautan portofolio harus https', (tester) async {
     tester.platformDispatcher.accessibilityFeaturesTestValue =
         const FakeAccessibilityFeatures(disableAnimations: true);

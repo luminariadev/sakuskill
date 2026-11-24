@@ -62,7 +62,7 @@ class SakuScreen extends StatelessWidget {
   }
 }
 
-/// Panah kembali hijau (Figma "←" 22–24px emerald).
+/// Panah kembali hijau (Figma "←" 22–24px emerald) dengan area sentuh minimal 44×44 dp.
 class BackArrowButton extends StatelessWidget {
   const BackArrowButton({super.key, this.onPressed, this.color = AppColors.primary});
 
@@ -76,11 +76,19 @@ class BackArrowButton extends StatelessWidget {
       label: 'Kembali',
       excludeSemantics: true,
       child: PressableScale(
+        key: const Key('back-arrow-button'),
         scale: 0.9,
         onTap: onPressed ?? () => Navigator.of(context).maybePop(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: SakuIcon(SakuIcons.back, size: 24, color: color),
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: SakuIcon(SakuIcons.back, size: 22, color: color),
         ),
       ),
     );

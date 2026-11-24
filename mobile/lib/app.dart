@@ -30,6 +30,9 @@ class SakuSkillApp extends StatelessWidget {
           ),
         ),
         initialRoute: initialRoute,
+        onGenerateInitialRoutes: (name) => [
+          AppRouter.onGenerateRoute(RouteSettings(name: name)),
+        ],
         onGenerateRoute: AppRouter.onGenerateRoute,
       ),
     );

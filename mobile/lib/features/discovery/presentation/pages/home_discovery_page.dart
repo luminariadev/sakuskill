@@ -6,6 +6,7 @@ import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/main_shell.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/state_views.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../domain/entities/service_listing.dart';
 import '../controllers/discovery_controller.dart';
 import '../controllers/discovery_scope.dart';
@@ -25,6 +26,7 @@ class HomeDiscoveryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = DiscoveryScope.of(context);
+    final activeUserName = AuthSession.instance.userName ?? _demoUserName;
 
     return Scaffold(
       backgroundColor: AppColors.canvasLight,
@@ -41,7 +43,7 @@ class HomeDiscoveryPage extends StatelessWidget {
                 sliver: SliverList.list(
                   children: [
                     MarketplaceHeader(
-                      userName: _demoUserName,
+                      userName: activeUserName,
                       balance: _demoBalance,
                       avatarAsset: DemoAssets.salma,
                       onBalanceTap: () =>

@@ -98,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
 
         AuthSession.instance.save(
           token: token,
-          id: user['id']?.toString(),
+          id: (user['user_id'] ?? user['id'])?.toString(),
           name: (user['nama'] ?? user['nama_lengkap'] ?? user['name'])?.toString(),
           userEmail: user['email']?.toString(),
           userRole: user['peran']?.toString(),
@@ -131,12 +131,22 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _handleBack() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      nav.pushReplacementNamed(AppRoutes.welcome);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
       child: SakuScreen(
         showBack: true,
+        onBack: _handleBack,
         children: [
           const Text(
             'Selamat Datang\nKembali',

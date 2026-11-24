@@ -106,7 +106,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
         AuthSession.instance.save(
           token: token,
-          id: user['id']?.toString(),
+          id: (user['user_id'] ?? user['id'])?.toString(),
           name: (user['nama'] ?? _name.text.trim()).toString(),
           userEmail: (user['email'] ?? _email.text.trim()).toString(),
           userRole: (user['peran'] ?? 'Mahasiswa').toString(),
@@ -125,12 +125,22 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } catch (e) {
       setState(() {
-        _authError = 'Gagal terhubung ke server (${AppConfig.apiBaseUrl}). Periksa koneksi Wi-Fi atau ganti alamat server.';
+        _authError =
+            'Gagal terhubung ke server. Periksa koneksi internet Anda lalu coba lagi.';
       });
     } finally {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  void _handleBack() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      nav.pushReplacementNamed(AppRoutes.welcome);
     }
   }
 
@@ -143,6 +153,7 @@ class _RegisterPageState extends State<RegisterPage> {
           : AutovalidateMode.disabled,
       child: SakuScreen(
         showBack: true,
+        onBack: _handleBack,
         gap: 12,
         children: [
           const Text(
