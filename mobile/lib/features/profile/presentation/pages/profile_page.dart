@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_assets.dart';
@@ -49,7 +52,22 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (confirmed == true && mounted) {
+      final token = AuthSession.instance.accessToken;
+      if (!AppConfig.useMockData && token != null && token.isNotEmpty) {
+        try {
+          await http.post(
+            Uri.parse('${AppConfig.apiBaseUrl}/auth/logout'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(const Duration(seconds: 4));
+        } catch (_) {
+          // Gagal jaringan tidak menghalangi logout di perangkat.
+        }
+      }
       AuthSession.instance.clear();
+      if (!mounted) return;
       SakuMotion.tick();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Anda telah berhasil keluar dari akun.')),

@@ -14,6 +14,8 @@ abstract final class ServiceListingModel {
     final lat = _toDouble(json['lat'] ?? json['latitude']);
     final lng = _toDouble(json['lng'] ?? json['longitude']);
     final jarakKm = _toDouble(json['jarak_km']);
+    final reviewCount = _toDouble(json['jumlah_ulasan'])?.toInt() ?? 0;
+    final rating = _toDouble(json['rating'] ?? json['rata_rata_rating']);
 
     return ServiceListing(
       id: json['listing_id'].toString(),
@@ -28,10 +30,11 @@ abstract final class ServiceListingModel {
       location: (lat != null && lng != null) ? GeoPoint(lat, lng) : null,
       distanceMeters: jarakKm != null ? jarakKm * 1000 : null,
       landmark: json['patokan'] as String?,
-      rating: _toDouble(json['rating']),
-      reviewCount: _toDouble(json['jumlah_ulasan'])?.toInt() ?? 0,
+      rating: (reviewCount == 0 && (rating ?? 0) == 0) ? null : rating,
+      reviewCount: reviewCount,
       kind: ListingKind.fromApi(json['jenis'] as String?),
-      barterWant: json['tukar_dengan'] as String?,
+      barterWant:
+          (json['tukar_dengan'] ?? json['deskripsi_imbalan_barter']) as String?,
       deliveryDays: _toDouble(json['lama_hari'])?.toInt(),
       scopeItems: (json['cakupan'] as List?)?.map((e) => e.toString()).toList() ??
           const [],
