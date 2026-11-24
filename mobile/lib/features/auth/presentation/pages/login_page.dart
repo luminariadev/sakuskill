@@ -1,11 +1,9 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../data/auth_session.dart';
-import '../../../../core/config/app_config.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -15,6 +13,14 @@ import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 
 /// Figma "2 · Login pengguna".
+///
+/// Validasi klien (FE-02): kedua field wajib diisi lewat [SakuValidators].
+/// Kegagalan kredensial tampil sebagai pesan generik di kotak merah (FR-05),
+/// tanpa menyebut field mana yang salah.
+///
+/// Terhubung ke `POST /auth/login` lewat [AuthRepository]; mode demo/offline
+/// memakai [DemoAuthRepository] (sandi < 8 karakter dianggap salah).
+/// Backend saat ini hanya menerima email (belum No. WhatsApp).
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -28,8 +34,8 @@ class _LoginPageState extends State<LoginPage> {
   final _password = TextEditingController();
   bool _remember = true;
   bool _failed = false;
-  bool _loading = false;
-  String _errorMessage =
+  bool _busy = false;
+  static const String _errorMessage =
       'Email atau kata sandi tidak sesuai. Silakan coba lagi.';
 
   @override
@@ -40,94 +46,38 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (_loading) return;
     setState(() => _failed = false);
     if (!_formKey.currentState!.validate()) return;
-
-    if (AppConfig.useMockData) {
-      final credentialsOk =
-          _password.text.length >= SakuValidators.passwordMinLength;
-      if (!credentialsOk) {
-        setState(() => _failed = true);
-        return;
-      }
-      SakuMotion.tick();
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
-      return;
-    }
-
-    setState(() => _loading = true);
-
+    final deps = AppScope.of(context);
+    final auth = deps.authRepository;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _busy = true);
     try {
-      final uri = Uri.parse('${AppConfig.apiBaseUrl}/auth/login');
-      final response = await http.post(
-        uri,
-        headers: const {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'email': _id.text.trim(),
-          'kata_sandi': _password.text,
-        }),
+      final authSession = await auth.login(
+        email: _id.text,
+        password: _password.text,
       );
-
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = decoded['data'] is Map<String, dynamic>
-            ? decoded['data'] as Map<String, dynamic>
-            : decoded;
-        final tokens = data['tokens'] is Map<String, dynamic>
-            ? data['tokens'] as Map<String, dynamic>
-            : data;
-        final user = data['user'] is Map<String, dynamic>
-            ? data['user'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-
-        final token = (tokens['access_token'] ??
-                tokens['accessToken'] ??
-                tokens['token'] ??
-                '')
-            .toString();
-
-        if (token.isEmpty) {
-          throw Exception('Token autentikasi tidak ditemukan pada respons.');
-        }
-
-        AuthSession.instance.save(
-          token: token,
-          id: user['id']?.toString(),
-          name: (user['nama'] ?? user['nama_lengkap'] ?? user['name'])?.toString(),
-          userEmail: user['email']?.toString(),
-          userRole: user['peran']?.toString(),
-        );
-
-        if (!mounted) return;
-        SakuMotion.tick();
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
-      } else {
-        final errorObj = decoded['error'] is Map<String, dynamic>
-            ? decoded['error'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-        setState(() {
-          _errorMessage = (errorObj['message'] ??
-                  decoded['message'] ??
-                  'Email atau kata sandi tidak sesuai. Silakan coba lagi.')
-              .toString();
-          _failed = true;
-        });
-      }
-    } catch (e) {
+      // Sinkronkan juga ke AuthSession.instance agar modul Escrow tetap terbaca
+      AuthSession.instance.save(
+        token: authSession.token,
+        id: authSession.user.id,
+        name: authSession.user.name,
+        userEmail: authSession.user.email,
+      );
       if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Gagal terhubung ke server: $e';
-        _failed = true;
-      });
+      SakuMotion.tick();
+      navigator.pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.isConnectivity || e.code == ApiException.invalidResponseError) {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      } else {
+        // 401 kredensial salah / 422 format: pesan generik (FR-05).
+        setState(() => _failed = true);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -203,8 +153,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           SakuButton(
             key: const Key('login-submit'),
-            label: _loading ? 'Memproses Masuk...' : 'Masuk Sekarang',
-            onPressed: _loading ? null : _submit,
+            label: _busy ? 'Memproses…' : 'Masuk Sekarang',
+            onPressed: _busy ? null : _submit,
           ),
           AnimatedSwitcher(
             duration: SakuMotion.base,
@@ -213,8 +163,8 @@ class _LoginPageState extends State<LoginPage> {
               child: FadeTransition(opacity: a, child: child),
             ),
             child: _failed
-                ? InfoBox(
-                    key: const ValueKey('login-error'),
+                ? const InfoBox(
+                    key: ValueKey('login-error'),
                     text: _errorMessage,
                     tone: SakuTone.danger,
                   )

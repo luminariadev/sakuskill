@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
@@ -7,10 +7,13 @@ import 'app_colors.dart';
 /// Heading 2 16/22/600 · Body large 14/20/500 · Body 13/18/400 ·
 /// Caption 11/16/600. Data/ID memakai JetBrains Mono 12.
 ///
-/// Font desain: Inter. Selama file font belum ditambahkan ke `assets/fonts/`
-/// + `pubspec.yaml`, Flutter memakai font default platform (fallback aman).
+/// Font: **Plus Jakarta Sans** (PRD T-04), dibundel di `assets/fonts/`
+/// dan dipasang global lewat `AppTheme`. Figma User Design memakai Inter;
+/// PRD lebih tinggi dalam hierarki kebenaran, jadi Plus Jakarta Sans dipakai
+/// sampai UI/UX memutuskan lain (cukup ganti [fontFamily] + aset).
+/// Bobot yang tersedia: 400, 500, 600, 700, 800.
 abstract final class AppTypography {
-  static const String fontFamily = 'Inter';
+  static const String fontFamily = 'PlusJakartaSans';
   static const String monoFamily = 'JetBrainsMono';
 
   static const TextStyle display = TextStyle(

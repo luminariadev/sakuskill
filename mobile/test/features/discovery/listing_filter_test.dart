@@ -132,6 +132,43 @@ void main() {
       expect(l.location?.longitude, 107.719);
     });
 
+    test('respons GET /listings backend develop (17 Nov 2026)', () {
+      final l = ServiceListingModel.fromJson(const {
+        'listing_id': '822ba5a5-5b28-48ea-afd2-46ba54fb63a9',
+        'penyedia_id': '32b4e288-2865-4a02-9124-afec832ca2de',
+        'skill_id': 1,
+        'judul': 'Jasa Instalasi Dual-Boot Linux',
+        'deskripsi': 'Melayani instalasi Linux.',
+        'harga': '50000.00',
+        'tipe_penawaran': 'Berbayar dan Barter',
+        'deskripsi_imbalan_barter': 'Desain poster kegiatan kampus.',
+        'status': 'Aktif',
+        'latitude': -6.9315,
+        'longitude': 107.718,
+        'jarak_km': 0.08,
+        'nama_penyedia': 'Arya',
+        'verifikasi_penyedia': 'Belum Terverifikasi',
+        'nama_keterampilan': 'Instalasi OS & Perbaikan Laptop',
+        'kategori': 'Jasa Teknis',
+        'rata_rata_rating': 0,
+        'jumlah_ulasan': 0,
+        'dibuat_pada': '2026-11-17T07:53:50.960Z',
+      });
+      expect(l.location?.latitude, -6.9315);
+      expect(l.distanceMeters, 80);
+      expect(l.barterWant, 'Desain poster kegiatan kampus.');
+      expect(l.rating, isNull, reason: 'rating 0 tanpa ulasan = belum dinilai');
+      expect(l.reviewCount, 0);
+
+      final rated = ServiceListingModel.fromJson(const {
+        'listing_id': 'r',
+        'harga': 1,
+        'rata_rata_rating': '4.75',
+        'jumlah_ulasan': 4,
+      });
+      expect(rated.rating, 4.75);
+    });
+
     test('tipe penawaran tidak dikenal → Berbayar', () {
       expect(OfferType.fromApi('???'), OfferType.paid);
       expect(OfferType.fromApi(null), OfferType.paid);

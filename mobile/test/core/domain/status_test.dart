@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'package:sakuskill/core/domain/status.dart';
 import 'package:sakuskill/core/widgets/saku_pill.dart';
 import 'package:sakuskill/core/widgets/status_tones.dart';

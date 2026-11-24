@@ -4,7 +4,9 @@ import '../../domain/entities/service_listing.dart';
 /// Mapper JSON <-> entitas untuk respons `GET /api/v1/listings`.
 ///
 /// Field wajib dari backend saat ini: listing_id, judul, deskripsi, harga,
-/// tipe_penawaran, nama_penyedia, nama_keterampilan, kategori, jarak_km.
+/// tipe_penawaran, nama_penyedia, nama_keterampilan, kategori, jarak_km,
+/// latitude/longitude, rata_rata_rating, jumlah_ulasan,
+/// deskripsi_imbalan_barter (dicek langsung ke backend develop, 17 Nov 2026).
 /// Field opsional (`lat`, `lng`, `prodi`, `patokan`, `rating`,
 /// `jumlah_ulasan`, `jenis` = penawaran|permintaan, `tukar_dengan`,
 /// `lama_hari`) akan otomatis terpakai begitu backend menambahkannya —
@@ -14,6 +16,10 @@ abstract final class ServiceListingModel {
     final lat = _toDouble(json['lat'] ?? json['latitude']);
     final lng = _toDouble(json['lng'] ?? json['longitude']);
     final jarakKm = _toDouble(json['jarak_km']);
+    final reviewCount = _toDouble(json['jumlah_ulasan'])?.toInt() ?? 0;
+    // Backend v1.1 mengirim `rata_rata_rating` = 0 bila belum ada ulasan;
+    // tampilkan sebagai "belum ada rating", bukan bintang 0.
+    final rating = _toDouble(json['rating'] ?? json['rata_rata_rating']);
 
     return ServiceListing(
       id: json['listing_id'].toString(),
@@ -28,10 +34,11 @@ abstract final class ServiceListingModel {
       location: (lat != null && lng != null) ? GeoPoint(lat, lng) : null,
       distanceMeters: jarakKm != null ? jarakKm * 1000 : null,
       landmark: json['patokan'] as String?,
-      rating: _toDouble(json['rating']),
-      reviewCount: _toDouble(json['jumlah_ulasan'])?.toInt() ?? 0,
+      rating: (reviewCount == 0 && (rating ?? 0) == 0) ? null : rating,
+      reviewCount: reviewCount,
       kind: ListingKind.fromApi(json['jenis'] as String?),
-      barterWant: json['tukar_dengan'] as String?,
+      barterWant: (json['tukar_dengan'] ?? json['deskripsi_imbalan_barter'])
+          as String?,
       deliveryDays: _toDouble(json['lama_hari'])?.toInt(),
       scopeItems: (json['cakupan'] as List?)?.map((e) => e.toString()).toList() ??
           const [],

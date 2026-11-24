@@ -1,19 +1,22 @@
-import 'dart:convert';
+import 'package:flutter/material.dart';
 
-import 'package:http/http.dart' as http;
-import 'package:material_ui/material_ui.dart';
-
-import '../../../../core/config/app_config.dart';
+import '../../data/auth_session.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
-import '../../data/auth_session.dart';
 
 /// Figma "3 · Registrasi akun" (FE-01: FR-01, FR-02).
+///
+/// Validasi klien memakai [SakuValidators]; setelah tombol ditekan sekali,
+/// field divalidasi ulang setiap diketik.
+/// Terkirim ke `POST /auth/register` lewat [AuthRepository]; error server
+/// (`error.details[].field`, 409 email terdaftar) tampil di field terkait.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -33,8 +36,10 @@ class _RegisterPageState extends State<RegisterPage> {
   String _role = 'Pelanggan';
   bool _agree = true;
   bool _submitted = false;
-  bool _loading = false;
-  String? _authError;
+  bool _busy = false;
+
+  /// Error dari server per field API (`nama`, `email`, `kata_sandi`).
+  Map<String, String> _serverErrors = const {};
 
   @override
   void dispose() {
@@ -47,85 +52,48 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _submit() async {
     setState(() {
       _submitted = true;
-      _authError = null;
+      _serverErrors = const {};
     });
-
     final fieldsValid = _formKey.currentState!.validate();
     if (!fieldsValid || !_agree) return;
-
-    setState(() => _loading = true);
-
+    final deps = AppScope.of(context);
+    final auth = deps.authRepository;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _busy = true);
     try {
-      final phone = _phone.text.trim();
-      final domicile = _domicile.text.trim();
-      final profileNotes = [
-        if (phone.isNotEmpty) 'WA: $phone',
-        if (domicile.isNotEmpty) 'Domisili: $domicile',
-      ].join(' · ');
-
-      final uri = Uri.parse('${AppConfig.apiBaseUrl}/auth/register');
-      final response = await http.post(
-        uri,
-        headers: const {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'nama': _name.text.trim(),
-          'email': _email.text.trim(),
-          'kata_sandi': _password.text,
-          'peran': _role,
-          if (profileNotes.isNotEmpty) 'deskripsi_profil': profileNotes,
-        }),
+      final authSession = await auth.register(
+        name: _name.text,
+        email: _email.text,
+        password: _password.text,
       );
-
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = decoded['data'] is Map<String, dynamic>
-            ? decoded['data'] as Map<String, dynamic>
-            : decoded;
-        final token = (data['token'] ??
-                data['accessToken'] ??
-                data['access_token'] ??
-                '')
-            .toString();
-
-        if (token.isEmpty) {
-          throw Exception('Token autentikasi tidak ditemukan pada respons.');
-        }
-
-        final user = data['user'] is Map<String, dynamic>
-            ? data['user'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-
-        AuthSession.instance.save(
-          token: token,
-          id: user['id']?.toString(),
-          name: (user['nama'] ?? _name.text.trim()).toString(),
-          userEmail: (user['email'] ?? _email.text.trim()).toString(),
-          userRole: (user['peran'] ?? _role).toString(),
-        );
-
-        SakuMotion.tick();
-        if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed(AppRoutes.profileSetup);
-      } else {
-        final errorObj = decoded['error'];
-        final message = errorObj is Map<String, dynamic>
-            ? (errorObj['message'] ?? 'Registrasi gagal.').toString()
-            : (decoded['message'] ?? 'Registrasi gagal.').toString();
-
-        setState(() => _authError = message);
+      // Sinkronkan juga ke AuthSession.instance agar modul Escrow tetap terbaca
+      AuthSession.instance.save(
+        token: authSession.token,
+        id: authSession.user.id,
+        name: authSession.user.name,
+        userEmail: authSession.user.email,
+        userRole: _role,
+      );
+      if (!mounted) return;
+      SakuMotion.tick();
+      navigator.pushReplacementNamed(AppRoutes.profileSetup);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final errors = {...e.fieldErrors};
+      if (e.code == 'EMAIL_ALREADY_EXISTS') errors['email'] = e.message;
+      if (errors.isEmpty) {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
       }
-    } catch (e) {
-      setState(() {
-        _authError = 'Gagal terhubung ke server (${AppConfig.apiBaseUrl}).';
-      });
+      setState(() => _serverErrors = errors);
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _clearServerError(String field) {
+    if (_serverErrors.containsKey(field)) {
+      setState(() => _serverErrors = {..._serverErrors}..remove(field));
     }
   }
 
@@ -159,7 +127,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: ChoiceChip(
                       label: const Center(child: Text('Pelanggan')),
                       selected: _role == 'Pelanggan',
-                      onSelected: _loading
+                      onSelected: _busy
                           ? null
                           : (_) => setState(() => _role = 'Pelanggan'),
                     ),
@@ -169,7 +137,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: ChoiceChip(
                       label: const Center(child: Text('Penyedia Jasa')),
                       selected: _role == 'Penyedia Jasa',
-                      onSelected: _loading
+                      onSelected: _busy
                           ? null
                           : (_) => setState(() => _role = 'Penyedia Jasa'),
                     ),
@@ -184,6 +152,8 @@ class _RegisterPageState extends State<RegisterPage> {
             label: 'Nama Lengkap',
             hint: 'Salma Nur Oktavia',
             textInputAction: TextInputAction.next,
+            errorText: _serverErrors['nama'],
+            onChanged: (_) => _clearServerError('nama'),
             validator: SakuValidators.compose([
               SakuValidators.required('Nama lengkap'),
               SakuValidators.maxLength(100),
@@ -196,6 +166,8 @@ class _RegisterPageState extends State<RegisterPage> {
             hint: 'salma@gmail.com',
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            errorText: _serverErrors['email'],
+            onChanged: (_) => _clearServerError('email'),
             validator: SakuValidators.compose([
               SakuValidators.required('Email'),
               SakuValidators.email(),
@@ -220,6 +192,8 @@ class _RegisterPageState extends State<RegisterPage> {
             hint: 'Minimal ${SakuValidators.passwordMinLength} karakter',
             obscure: true,
             textInputAction: TextInputAction.next,
+            errorText: _serverErrors['kata_sandi'],
+            onChanged: (_) => _clearServerError('kata_sandi'),
             validator: SakuValidators.compose([
               SakuValidators.required('Kata sandi'),
               SakuValidators.minLength(),
@@ -253,23 +227,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 ? AppColors.danger
                 : AppColors.textSecondary,
           ),
-          if (_authError != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.danger),
-              ),
-              child: Text(
-                _authError!,
-                style: AppTypography.body.copyWith(color: AppColors.danger),
-              ),
-            ),
           SakuButton(
             key: const Key('register-submit'),
-            label: _loading ? 'Mendaftarkan Akun...' : 'Daftar Akun Baru',
-            onPressed: _loading ? null : _submit,
+            label: _busy ? 'Memproses…' : 'Daftar Akun Baru',
+            onPressed: _busy ? null : _submit,
           ),
           SakuTextLink(
             'Sudah memiliki akun? Masuk di sini',

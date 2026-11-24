@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
 import 'app_colors.dart';
@@ -31,6 +31,9 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      // Font global (T-04). TextStyle di fitur tidak perlu menyebut
+      // fontFamily karena mewarisi DefaultTextStyle dari tema ini.
+      fontFamily: AppTypography.fontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.canvasLight,
       textTheme: AppTypography.textTheme,

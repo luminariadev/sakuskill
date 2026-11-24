@@ -12,12 +12,12 @@ import '../datasources/discovery_remote_data_source.dart';
 /// jatuh ke data contoh lokal, lalu terapkan [ListingFilter] di klien supaya
 /// perilaku pencarian, kategori & radius konsisten di kedua sumber.
 class DiscoveryRepositoryImpl implements DiscoveryRepository {
-  // Private named parameter: tetap dipanggil dengan `remote:` / `local:`.
   DiscoveryRepositoryImpl({
-    required this._remote,
-    required this._local,
+    required DiscoveryRemoteDataSource remote,
+    required DiscoveryLocalDataSource local,
     this.forceLocal = false,
-  });
+  })  : _remote = remote,
+        _local = local;
 
   final DiscoveryRemoteDataSource _remote;
   final DiscoveryLocalDataSource _local;

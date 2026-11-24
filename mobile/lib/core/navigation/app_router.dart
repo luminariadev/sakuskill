@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../features/activity/presentation/pages/my_services_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';

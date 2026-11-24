@@ -16,12 +16,12 @@ enum DiscoveryStatus { initial, loading, success, failure }
 /// "bocor" ke feed Home.
 class DiscoveryController extends ChangeNotifier {
   DiscoveryController({
-    // Private named parameter (Dart 3.13+): tetap dipanggil dengan
-    // `searchNearby:` / `getCategories:`.
-    required this._searchNearby,
-    required this._getCategories,
+    required SearchNearbyServices searchNearby,
+    required GetServiceCategories getCategories,
     DiscoveryFilter initialFilter = const DiscoveryFilter(),
-  }) : _filter = initialFilter;
+  })  : _searchNearby = searchNearby,
+        _getCategories = getCategories,
+        _filter = initialFilter;
 
   final SearchNearbyServices _searchNearby;
   final GetServiceCategories _getCategories;

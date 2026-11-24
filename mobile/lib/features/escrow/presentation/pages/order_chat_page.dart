@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/di/app_dependencies.dart';
@@ -72,7 +72,8 @@ class _OrderChatPageState extends State<OrderChatPage> {
           mine: true,
         ),
         ChatMessage(
-          text: 'Baik Mbak, saya setuju. Saya langsung proses pembayarannya ya.',
+          text:
+              'Baik Mbak, saya setuju. Saya langsung proses pembayarannya ya.',
           time: '10:16',
         ),
       ];
@@ -133,7 +134,8 @@ class _OrderChatPageState extends State<OrderChatPage> {
       final myId = _resolveCurrentUserId(_resolveOrder(context));
 
       setState(() {
-        _messages = res.data.map((e) => _mapJsonToChatMessage(e, myId)).toList();
+        _messages =
+            res.data.map((e) => _mapJsonToChatMessage(e, myId)).toList();
       });
     } catch (_) {
       // Abaikan error saat background polling
@@ -212,7 +214,8 @@ class _OrderChatPageState extends State<OrderChatPage> {
     if (currentOrder.orderId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Mode demo: Proposal negosiasi diperbarui secara lokal.'),
+          content:
+              Text('Mode demo: Proposal negosiasi diperbarui secara lokal.'),
         ),
       );
       return;
@@ -466,7 +469,8 @@ class _ProposalSheetState extends State<_ProposalSheet> {
   Widget build(BuildContext context) {
     return SakuSheetContent(
       title: 'Ajukan Penyesuaian Kesepakatan',
-      message: 'Usulkan perubahan ruang lingkup, harga tawaran, atau tenggat waktu:',
+      message:
+          'Usulkan perubahan ruang lingkup, harga tawaran, atau tenggat waktu:',
       body: [
         SakuTextField(
           controller: _scopeCtrl,
@@ -489,7 +493,8 @@ class _ProposalSheetState extends State<_ProposalSheet> {
       cancelLabel: 'Batal',
       onConfirm: () {
         final scope = _scopeCtrl.text.trim();
-        final price = int.tryParse(_priceCtrl.text.trim()) ?? widget.order.harga;
+        final price =
+            int.tryParse(_priceCtrl.text.trim()) ?? widget.order.harga;
         final days = int.tryParse(_daysCtrl.text.trim()) ?? 3;
         Navigator.of(context).pop(
           _ProposalDraft(
