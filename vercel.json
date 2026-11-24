@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["sin1"],
+  "installCommand": "npm --prefix admin ci --include=dev && npm --prefix backend ci --omit=dev",
+  "buildCommand": "node scripts/vercel-build.js",
+  "outputDirectory": "vercel-public",
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/admin/",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api"
+    },
+    {
+      "source": "/health",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "/admin/index.html"
+    }
+  ]
+}

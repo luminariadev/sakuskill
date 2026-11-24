@@ -3,15 +3,17 @@ const env = require('./env');
 
 const connectionString = process.env.DATABASE_URL;
 const isProduction = env.nodeEnv === 'production';
-const needsSsl = connectionString?.includes('sslmode=require') || connectionString?.includes('neon.tech') || connectionString?.includes('supabase.co') || connectionString?.includes('supabase.com') || isProduction;
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const needsSsl = connectionString?.includes('sslmode=require') || connectionString?.includes('neon.tech') || connectionString?.includes('supabase.co') || connectionString?.includes('supabase.com') || isProduction || isServerless;
 
 const poolConfig = connectionString
   ? {
       connectionString,
       ssl: needsSsl ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
+      max: isServerless ? 5 : 20,
+      idleTimeoutMillis: isServerless ? 10000 : 30000,
       connectionTimeoutMillis: 15000,
+      allowExitOnIdle: isServerless,
     }
   : {
       host: env.db.host,

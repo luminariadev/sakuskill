@@ -50,3 +50,7 @@ graphify-out/
 
 # Runtime backend request logs
 backend/logs/
+
+# Vercel local CLI & build output
+.vercel/
+vercel-public/

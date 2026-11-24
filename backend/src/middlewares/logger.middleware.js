@@ -1,13 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const logsDir = path.resolve(__dirname, '../../logs');
 const requestLogFile = path.join(logsDir, 'backend-requests.log');
-fs.mkdirSync(logsDir, { recursive: true });
+let fileLoggingEnabled = !isServerless;
+
+if (fileLoggingEnabled) {
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+  } catch (_) {
+    fileLoggingEnabled = false;
+  }
+}
 
 /**
- * Mencatat setiap HTTP request ke stdout dan file `backend/logs/backend-requests.log`
- * lengkap dengan IP klien (dari Cloudflare/proxy atau lokal), user ID JWT, dan User-Agent.
+ * Mencatat setiap HTTP request ke stdout dan (pada environment non-serverless)
+ * ke file `backend/logs/backend-requests.log` lengkap dengan IP klien, user ID JWT, dan User-Agent.
  */
 const requestLogger = (req, res, next) => {
   const start = Date.now();
@@ -23,10 +32,12 @@ const requestLogger = (req, res, next) => {
     const userAgent = String(req.headers['user-agent'] || '-').replace(/"/g, "'");
     const line = `[${timestamp}] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${durationMs}ms) | ip=${clientIp} | user=${userId} | ua="${userAgent}"`;
     console.log(line);
-    try {
-      fs.appendFileSync(requestLogFile, `${line}\n`, 'utf8');
-    } catch (_) {
-      // Jangan gagalkan respons HTTP jika disk log bermasalah
+    if (fileLoggingEnabled) {
+      try {
+        fs.appendFileSync(requestLogFile, `${line}\n`, 'utf8');
+      } catch (_) {
+        // Jangan gagalkan respons HTTP jika disk log bermasalah
+      }
     }
   });
   next();

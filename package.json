@@ -1,0 +1,10 @@
+{
+  "name": "sakuskill-monorepo",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "build": "node scripts/vercel-build.js"
+  }
+}
