@@ -154,21 +154,41 @@ class _CampusMapPageState extends State<CampusMapPage> {
                       child: const OriginDot(),
                     ),
                     for (final l in visible)
+                      if (l.id != selected?.id)
+                        Marker(
+                          point: _toLatLng(l.location!),
+                          width: talentMarkerSize.width,
+                          height: talentMarkerSize.height,
+                          child: TalentMarker(
+                            listing: l,
+                            selected: false,
+                            onTap: () => _focus(l),
+                          ),
+                        ),
+                    if (selected != null &&
+                        visible.any((l) => l.id == selected.id) &&
+                        selected.location != null)
                       Marker(
-                        point: _toLatLng(l.location!),
+                        point: _toLatLng(selected.location!),
                         width: talentMarkerSize.width,
                         height: talentMarkerSize.height,
                         child: TalentMarker(
-                          listing: l,
-                          selected: l.id == selected?.id,
-                          onTap: () => _focus(l),
+                          listing: selected,
+                          selected: true,
+                          onTap: () => _focus(selected),
                         ),
                       ),
                   ],
                 ),
-                const SimpleAttributionWidget(
-                  source: Text(AppConfig.mapAttribution),
-                  alignment: Alignment.bottomLeft,
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 2),
+                  child: SimpleAttributionWidget(
+                    source: Text(
+                      AppConfig.mapAttribution,
+                      style: TextStyle(fontSize: 9.5),
+                    ),
+                    alignment: Alignment.bottomLeft,
+                  ),
                 ),
               ],
             ),

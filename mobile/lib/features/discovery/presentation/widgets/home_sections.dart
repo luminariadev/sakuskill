@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 
 /// Header Beranda (Figma "5 · Beranda marketplace / Marketplace header"):
-/// "sakuskill." 23/800 · saldo 12/700 emerald · avatar foto 36.
+/// "sakuskill." 23/800 · pill saldo emerald · avatar foto 36.
 class MarketplaceHeader extends StatelessWidget {
   const MarketplaceHeader({
     super.key,
@@ -28,7 +29,7 @@ class MarketplaceHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 42,
       child: Row(
         children: [
           const Expanded(
@@ -36,8 +37,9 @@ class MarketplaceHeader extends StatelessWidget {
               'sakuskill.',
               style: TextStyle(
                 fontSize: 23,
-                height: 32 / 23,
+                height: 30 / 23,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.7,
                 color: AppColors.textPrimary,
               ),
             ),
@@ -49,21 +51,41 @@ class MarketplaceHeader extends StatelessWidget {
             child: PressableScale(
               key: const Key('home-balance'),
               onTap: onBalanceTap,
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  formatRupiah(balance),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 17 / 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySurface,
+                  borderRadius: AppRadius.pillBr,
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.22),
                   ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SakuIcon(
+                      SakuIcons.wallet,
+                      size: 14,
+                      color: AppColors.primaryPressed,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      formatRupiah(balance),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 16 / 12,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: AppTypography.tabular,
+                        color: AppColors.primaryPressed,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 30),
+          const SizedBox(width: 10),
           Semantics(
             button: true,
             label: 'Profil $userName',
@@ -107,16 +129,16 @@ class SearchPill extends StatelessWidget {
         onTap: onTap,
         child: Container(
           height: 46,
-          padding: const EdgeInsets.only(left: 13, right: 4),
+          padding: const EdgeInsets.only(left: 14, right: 4),
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
             borderRadius: AppRadius.pillBr,
             border: border ? Border.all(color: AppColors.borderLight) : null,
-            boxShadow: border ? null : AppShadows.flat,
+            boxShadow: AppShadows.card,
           ),
           child: Row(
             children: [
-              const SakuIcon(SakuIcons.search, size: 22, color: AppColors.textSecondary),
+              const SakuIcon(SakuIcons.search, size: 20, color: AppColors.textSecondary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -124,8 +146,8 @@ class SearchPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
-                    height: 15 / 11,
+                    fontSize: 12,
+                    height: 16 / 12,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -134,7 +156,7 @@ class SearchPill extends StatelessWidget {
                 IconButton(
                   tooltip: 'Lihat peta Cibiru',
                   onPressed: onMapTap,
-                  icon: const SakuIcon(SakuIcons.pin, size: 22, color: AppColors.primary),
+                  icon: const SakuIcon(SakuIcons.pin, size: 20, color: AppColors.primary),
                 ),
             ],
           ),
@@ -153,25 +175,73 @@ class EscrowSecurityBanner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: AppColors.deepCanvas,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.deepCanvas, AppColors.deepForestAccent],
+        ),
         borderRadius: AppRadius.cardBr,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: AppShadows.elevated,
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 8,
+        spacing: 10,
         children: [
-          SakuIcon(SakuIcons.shield, size: 26, color: AppColors.accent),
-          Text(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const SakuIcon(
+                  SakuIcons.shield,
+                  size: 18,
+                  color: AppColors.accent,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: AppRadius.pillBr,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: const Text(
+                  'ESCROW TERPROTEKSI',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    letterSpacing: 0.7,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Text(
             'Dana Aman Rekening Bersama Escrow',
             style: TextStyle(
               fontSize: 16,
               height: 22 / 16,
               fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
               color: Colors.white,
             ),
           ),
-          Text(
+          const Text(
             'Uang Anda ditahan sistem secara aman dan HANYA dicairkan setelah '
             'hasil pekerjaan disetujui.',
             style: TextStyle(

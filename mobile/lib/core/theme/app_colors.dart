@@ -11,18 +11,20 @@ abstract final class AppColors {
   static const Color primaryPressed = Color(0xFF047857); // Deep Hover
   static const Color primarySurface = Color(0xFFECFDF5); // Surface Tint
 
-  // Netral gelap
-  static const Color deepCanvas = Color(0xFF0F172A);
-  static const Color cardSlate = Color(0xFF1E293B);
-  static const Color borderSlate = Color(0xFF334155);
+  // Netral gelap (forest-obsidian bernuansa emerald)
+  static const Color deepCanvas = Color(0xFF0B1512);
+  static const Color deepForestAccent = Color(0xFF0F2D24);
+  static const Color cardSlate = Color(0xFF13221D);
+  static const Color borderSlate = Color(0xFF283E36);
 
-  // Teks & netral terang
+  // Teks & netral terang (mineral alabaster harmonis dengan Emerald)
   static const Color textPrimary = Color(0xFF0F172A);
   static const Color textSecondary = Color(0xFF64748B);
   static const Color textMuted = Color(0xFF94A3B8);
   static const Color textBody = Color(0xFF475569); // paragraf deskripsi
-  static const Color borderLight = Color(0xFFE2E8F0);
-  static const Color canvasLight = Color(0xFFF8FAFC);
+  static const Color borderLight = Color(0xFFE3E8E5);
+  static const Color canvasLight = Color(0xFFF5F7F6);
+  static const Color surfaceSubtle = Color(0xFFF0F4F2);
   static const Color cardSurface = Color(0xFFFFFFFF);
 
   // Warna fitur
@@ -45,7 +47,7 @@ abstract final class AppColors {
   static const Color warningText = Color(0xFFB45309);
 
   // Gelembung chat (Figma "Chat & service molecules")
-  static const Color bubbleClient = Color(0xFFF1F5F9);
+  static const Color bubbleClient = Color(0xFFEEF2F0);
   static const Color bubbleProvider = Color(0xFFECFDF5);
   static const Color bubbleProviderText = Color(0xFF065F46);
   static const Color bubbleBarterText = Color(0xFF6B21A8); // chat barter

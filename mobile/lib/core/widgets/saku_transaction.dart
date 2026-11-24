@@ -33,27 +33,37 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mine = message.mine;
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(16),
+      topRight: const Radius.circular(16),
+      bottomLeft: Radius.circular(mine ? 16 : 4),
+      bottomRight: Radius.circular(mine ? 4 : 16),
+    );
+
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 310),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: mine
                 ? (barter ? AppColors.barterSurface : AppColors.bubbleProvider)
                 : AppColors.bubbleClient,
-            borderRadius: AppRadius.cardBr,
+            borderRadius: bubbleRadius,
+            border: mine
+                ? null
+                : Border.all(color: AppColors.borderLight),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 6,
+            spacing: 5,
             children: [
               Text(
                 message.text,
                 style: TextStyle(
-                  fontSize: 14,
-                  height: 20 / 14,
+                  fontSize: 13.5,
+                  height: 19 / 13.5,
                   color: mine
                       ? (barter
                           ? AppColors.bubbleBarterText
@@ -61,12 +71,21 @@ class ChatBubble extends StatelessWidget {
                       : AppColors.textPrimary,
                 ),
               ),
-              Text(
-                mine ? '${message.time}  ✓✓' : message.time,
-                style: const TextStyle(
-                  fontSize: 10,
-                  height: 14 / 10,
-                  color: AppColors.textSecondary,
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Text(
+                  mine ? '${message.time}  ✓✓' : message.time,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 14 / 10,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: mine
+                        ? (barter
+                            ? AppColors.bubbleBarterText.withValues(alpha: 0.72)
+                            : AppColors.bubbleProviderText
+                                .withValues(alpha: 0.72))
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -169,11 +188,12 @@ class ChatComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 2, 2, 2),
+      padding: const EdgeInsets.fromLTRB(14, 5, 6, 5),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: AppRadius.cardBr,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.borderLight),
+        boxShadow: AppShadows.card,
       ),
       child: Row(
         children: [
@@ -201,11 +221,26 @@ class ChatComposer extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
-            key: const Key('chat-send'),
-            tooltip: 'Kirim',
-            onPressed: onSend,
-            icon: const SakuIcon(SakuIcons.send, size: 20, color: AppColors.primary),
+          Material(
+            color: AppColors.primary,
+            shape: const CircleBorder(),
+            child: InkWell(
+              key: const Key('chat-send'),
+              customBorder: const CircleBorder(),
+              onTap: onSend,
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Center(
+                  child: SakuIcon(
+                    SakuIcons.send,
+                    size: 17,
+                    color: Colors.white,
+                    semanticLabel: 'Kirim',
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

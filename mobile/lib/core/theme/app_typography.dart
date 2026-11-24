@@ -7,51 +7,66 @@ import 'app_colors.dart';
 /// Heading 2 16/22/600 · Body large 14/20/500 · Body 13/18/400 ·
 /// Caption 11/16/600. Data/ID memakai JetBrains Mono 12.
 ///
-/// Font desain: Inter. Selama file font belum ditambahkan ke `assets/fonts/`
-/// + `pubspec.yaml`, Flutter memakai font default platform (fallback aman).
+/// Font utama: **Plus Jakarta Sans** (PRD T-04), dibundel di `assets/fonts/`
+/// dan dipasang global lewat `AppTheme`. Data/ID memakai JetBrains Mono 12.
 abstract final class AppTypography {
-  static const String fontFamily = 'Inter';
+  static const String fontFamily = 'PlusJakartaSans';
   static const String monoFamily = 'JetBrainsMono';
 
+  /// Fitur OpenType tabular agar nominal harga, saldo & timer stabil saat berdetak.
+  static const List<FontFeature> tabular = [FontFeature.tabularFigures()];
+
   static const TextStyle display = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 32,
     height: 40 / 32,
     fontWeight: FontWeight.w800,
+    letterSpacing: -0.7,
     color: AppColors.textPrimary,
   );
   static const TextStyle title = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 24,
     height: 30 / 24,
     fontWeight: FontWeight.w800,
+    letterSpacing: -0.5,
     color: AppColors.textPrimary,
   );
 
   /// Judul halaman 26–28/800 (layar auth & alur transaksi).
   static const TextStyle pageTitle = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 26,
     height: 36 / 26,
     fontWeight: FontWeight.w800,
+    letterSpacing: -0.5,
     color: AppColors.textPrimary,
   );
   static const TextStyle heading = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 20,
     height: 26 / 20,
     fontWeight: FontWeight.w700,
+    letterSpacing: -0.35,
     color: AppColors.textPrimary,
   );
   static const TextStyle subheading = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 16,
     height: 22 / 16,
     fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
     color: AppColors.textPrimary,
   );
   static const TextStyle bodyLarge = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 14,
     height: 20 / 14,
     fontWeight: FontWeight.w500,
     color: AppColors.textPrimary,
   );
   static const TextStyle body = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 13,
     height: 18 / 13,
     fontWeight: FontWeight.w400,
@@ -60,12 +75,14 @@ abstract final class AppTypography {
 
   /// Label field form (12/600).
   static const TextStyle label = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 12,
     height: 17 / 12,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
   );
   static const TextStyle caption = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 11,
     height: 16 / 11,
     fontWeight: FontWeight.w600,
@@ -74,12 +91,14 @@ abstract final class AppTypography {
 
   /// Overline hijau "LANGKAH PROFIL" (11/700).
   static const TextStyle eyebrow = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 11,
     height: 15 / 11,
     fontWeight: FontWeight.w700,
     color: AppColors.primary,
   );
   static const TextStyle overline = TextStyle(
+    fontFamily: fontFamily,
     fontSize: 10,
     height: 13 / 10,
     fontWeight: FontWeight.w700,
@@ -103,7 +122,11 @@ abstract final class AppTypography {
         bodyLarge: bodyLarge,
         bodyMedium: body,
         bodySmall: caption,
-        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        labelLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         labelMedium: caption,
         labelSmall: overline,
       );

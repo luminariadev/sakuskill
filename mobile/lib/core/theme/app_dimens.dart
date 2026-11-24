@@ -30,6 +30,22 @@ abstract final class AppShadows {
     BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 3),
   ];
 
+  /// Dual-layer ambient shadow halus untuk kartu di atas kanvas mineral.
+  static const List<BoxShadow> card = [
+    BoxShadow(color: Color(0x0A0B1512), offset: Offset(0, 4), blurRadius: 12),
+    BoxShadow(color: Color(0x050B1512), offset: Offset(0, 1), blurRadius: 2),
+  ];
+
+  /// Elevasi lebih dalam untuk kartu hero, banner escrow, dan overlay peta.
+  static const List<BoxShadow> elevated = [
+    BoxShadow(color: Color(0x160B1512), offset: Offset(0, 8), blurRadius: 24),
+  ];
+
+  /// Bayangan atas lembut untuk bottom navigation bar.
+  static const List<BoxShadow> navBar = [
+    BoxShadow(color: Color(0x0D0B1512), offset: Offset(0, -3), blurRadius: 14),
+  ];
+
   /// "Emerald glow" untuk tombol mengambang.
   static const List<BoxShadow> emeraldGlow = [
     BoxShadow(color: Color(0x40059669), offset: Offset(0, 4), blurRadius: 14),

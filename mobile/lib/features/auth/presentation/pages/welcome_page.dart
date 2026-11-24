@@ -22,8 +22,9 @@ class WelcomePage extends StatelessWidget {
           'sakuskill.',
           style: TextStyle(
             fontSize: 32,
-            height: 45 / 32,
+            height: 40 / 32,
             fontWeight: FontWeight.w800,
+            letterSpacing: -1.0,
             color: AppColors.textPrimary,
           ),
         ),
@@ -37,17 +38,32 @@ class WelcomePage extends StatelessWidget {
           ),
         ),
         const OnboardingIllustration(),
-        const InfoBox(
-          text: 'Dana Aman Rekening Bersama Escrow',
-          tone: SakuTone.success,
-        ),
-        const InfoBox(
-          text: 'Tukar Keahlian Tanpa Uang Tunai',
-          tone: SakuTone.barter,
-        ),
-        const InfoBox(
-          text: 'Talenta Terdekat Sekitar Kampus Cibiru',
-          tone: SakuTone.escrow,
+        const SakuCard(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            children: [
+              _ValuePropRow(
+                icon: SakuIcons.shield,
+                bg: AppColors.primarySurface,
+                fg: AppColors.primaryPressed,
+                text: 'Dana Aman Rekening Bersama Escrow',
+              ),
+              Divider(height: 18),
+              _ValuePropRow(
+                icon: SakuIcons.swap,
+                bg: AppColors.barterSurface,
+                fg: AppColors.barterText,
+                text: 'Tukar Keahlian Tanpa Uang Tunai',
+              ),
+              Divider(height: 18),
+              _ValuePropRow(
+                icon: SakuIcons.pin,
+                bg: AppColors.escrowSurface,
+                fg: AppColors.escrowText,
+                text: 'Talenta Terdekat Sekitar Kampus Cibiru',
+              ),
+            ],
+          ),
         ),
         SakuButton(
           key: const Key('welcome-login'),
@@ -66,6 +82,50 @@ class WelcomePage extends StatelessWidget {
             fontSize: 11,
             height: 15 / 11,
             color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ValuePropRow extends StatelessWidget {
+  const _ValuePropRow({
+    required this.icon,
+    required this.bg,
+    required this.fg,
+    required this.text,
+  });
+
+  final SakuIcons icon;
+  final Color bg;
+  final Color fg;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: SakuIcon(icon, size: 17, color: fg),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12.5,
+              height: 17 / 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
       ],

@@ -122,6 +122,7 @@ class SakuCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.color = AppColors.cardSurface,
     this.border = true,
+    this.elevated = true,
     this.radius = AppRadius.card,
   });
 
@@ -130,10 +131,12 @@ class SakuCard extends StatelessWidget {
   final EdgeInsets padding;
   final Color color;
   final bool border;
+  final bool elevated;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
+    final useShadow = elevated && color == AppColors.cardSurface;
     final card = Container(
       width: double.infinity,
       padding: padding,
@@ -141,6 +144,7 @@ class SakuCard extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(radius),
         border: border ? Border.all(color: AppColors.borderLight) : null,
+        boxShadow: useShadow ? AppShadows.card : null,
       ),
       child: child,
     );
@@ -347,14 +351,15 @@ class PageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 16,
+      spacing: 6,
       children: [
         Text(
           title,
           style: TextStyle(
             fontSize: titleSize,
-            height: 34 / 24,
+            height: 32 / 24,
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
             color: AppColors.textPrimary,
           ),
         ),
@@ -363,7 +368,7 @@ class PageHeader extends StatelessWidget {
             subtitle!,
             style: const TextStyle(
               fontSize: 13,
-              height: 18 / 13,
+              height: 19 / 13,
               color: AppColors.textSecondary,
             ),
           ),

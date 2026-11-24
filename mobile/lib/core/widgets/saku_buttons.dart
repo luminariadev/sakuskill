@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_dimens.dart';
 
 /// Varian tombol dari Figma "00B · Component library / SakuSkill / Button":
 /// Primary · Outline · Warning · Destructive · Barter · Disabled.
@@ -61,6 +60,25 @@ class SakuButton extends StatelessWidget {
     final enabled =
         onPressed != null && variant != SakuButtonVariant.disabled;
     final (bg, fg, border) = _colors(enabled);
+    final List<BoxShadow>? buttonShadow = !enabled
+        ? null
+        : switch (variant) {
+            SakuButtonVariant.primary => const [
+                BoxShadow(
+                  color: Color(0x28059669),
+                  offset: Offset(0, 3),
+                  blurRadius: 10,
+                ),
+              ],
+            SakuButtonVariant.barter => const [
+                BoxShadow(
+                  color: Color(0x288B5CF6),
+                  offset: Offset(0, 3),
+                  blurRadius: 10,
+                ),
+              ],
+            _ => null,
+          };
 
     final body = AnimatedContainer(
       duration: SakuMotion.base,
@@ -71,8 +89,9 @@ class SakuButton extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: AppRadius.inputBr,
+        borderRadius: BorderRadius.circular(10),
         border: border == null ? null : Border.all(color: border, width: 1.5),
+        boxShadow: buttonShadow,
       ),
       child: Text(
         label,

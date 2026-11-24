@@ -5,9 +5,12 @@ import '../../../../core/demo/demo_data.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../../../core/widgets/saku_transaction.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../escrow/data/datasources/escrow_remote_data_source.dart';
 import '../../../escrow/data/models/escrow_order_model.dart';
@@ -238,6 +241,51 @@ class _ActivityPageState extends State<ActivityPage> {
                 color: AppColors.textSecondary,
               ),
             ),
+            Row(
+              spacing: 10,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 4,
+                    children: [
+                      Text(
+                        'Salma (${(barter.myProgress * 100).round()}%)',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.barterText,
+                        ),
+                      ),
+                      SakuProgressBar(
+                        value: barter.myProgress,
+                        color: AppColors.barter,
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 4,
+                    children: [
+                      Text(
+                        'Rizkia (${(barter.partnerProgress * 100).round()}%)',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryPressed,
+                        ),
+                      ),
+                      SakuProgressBar(
+                        value: barter.partnerProgress,
+                        color: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             SakuButton(
               label: 'Buka Ruang Barter',
               variant: SakuButtonVariant.barter,
@@ -467,39 +515,133 @@ class WalletSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.deepCanvas,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.deepCanvas, AppColors.deepForestAccent],
+        ),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: AppShadows.elevated,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
+        spacing: 12,
         children: [
-          const Text(
-            'TOTAL SALDO SAKUSKILL',
-            style: TextStyle(
-              fontSize: 10,
-              height: 14 / 10,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textMuted,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'TOTAL SALDO SAKUSKILL',
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 14 / 10,
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textMuted,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  borderRadius: AppRadius.pillBr,
+                ),
+                child: const Text(
+                  'TERVERIFIKASI',
+                  style: TextStyle(
+                    fontSize: 9,
+                    letterSpacing: 0.6,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+            ],
           ),
           CountUpRupiah(
             value: balance,
             style: const TextStyle(
               fontSize: 28,
-              height: 39 / 28,
+              height: 36 / 28,
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              fontFeatures: AppTypography.tabular,
               color: Colors.white,
             ),
           ),
-          Text(
-            'Dana Ditahan di Escrow: ${formatRupiah(escrowHeld)}\n'
-            '$activeTransactions Transaksi Berjalan',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 17 / 12,
-              color: AppColors.bannerBody,
-            ),
+          Row(
+            spacing: 8,
+            children: [
+              Expanded(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      const Text(
+                        'Dana Ditahan Escrow',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      Text(
+                        formatRupiah(escrowHeld),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: AppTypography.tabular,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      const Text(
+                        'Transaksi Berjalan',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      Text(
+                        '$activeTransactions Order Aktif',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: AppTypography.tabular,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
           SakuButton(
             label: 'Tarik Saldo ke Rekening Bank',

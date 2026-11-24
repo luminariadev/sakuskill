@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
@@ -96,9 +97,10 @@ class MarketCard extends StatelessWidget {
             Text(
               _price,
               style: const TextStyle(
-                fontSize: 13,
-                height: 18 / 13,
+                fontSize: 13.5,
+                height: 18 / 13.5,
                 fontWeight: FontWeight.w700,
+                fontFeatures: AppTypography.tabular,
                 color: AppColors.primary,
               ),
             ),
@@ -106,8 +108,8 @@ class MarketCard extends StatelessWidget {
               Text(
                 _meta,
                 style: const TextStyle(
-                  fontSize: 10,
-                  height: 14 / 10,
+                  fontSize: 10.5,
+                  height: 14 / 10.5,
                   color: AppColors.textSecondary,
                 ),
               ),
@@ -127,23 +129,65 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final asset = listing.coverAsset;
+    final tint = listing.isRequest ? AppColors.escrow : AppColors.primary;
+    final gradStart =
+        listing.isRequest ? const Color(0xFFEFF6FF) : const Color(0xFFECFDF5);
+    final gradEnd =
+        listing.isRequest ? const Color(0xFFDBEAFE) : const Color(0xFFD1FAE5);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: SizedBox(
-        height: 82,
+        height: 86,
         width: double.infinity,
         child: asset != null
             ? Image.asset(asset, fit: BoxFit.cover)
-            : ColoredBox(
-                color: listing.isRequest
-                    ? AppColors.escrowSurface
-                    : AppColors.primarySurface,
-                child: Icon(
-                  categoryIcon(_iconKey(listing.category)),
-                  size: 32,
-                  color: listing.isRequest
-                      ? AppColors.escrow
-                      : AppColors.primary,
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [gradStart, gradEnd],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          categoryIcon(_iconKey(listing.category)),
+                          size: 22,
+                          color: tint,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 6,
+                      bottom: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.88),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          listing.category,
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w700,
+                            color: tint,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
       ),
@@ -174,11 +218,13 @@ class _StatusBox extends StatelessWidget {
           onTap: onChat,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.primary),
+              color: AppColors.primarySurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.35),
+              ),
             ),
             child: const Text(
               'Chat Langsung',
@@ -186,8 +232,8 @@ class _StatusBox extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 height: 15 / 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryPressed,
               ),
             ),
           ),
@@ -196,18 +242,35 @@ class _StatusBox extends StatelessWidget {
     }
     if (!listing.offerType.acceptsBarter) return const SizedBox.shrink();
     final barterOnly = !listing.offerType.acceptsPayment;
-    return InfoBox(
-      tone: SakuTone.barter,
-      padding: const EdgeInsets.all(10),
-      child: Text(
-        barterOnly ? 'Smart Barter' : 'Bisa Barter',
-        textAlign: barterOnly ? TextAlign.start : TextAlign.center,
-        style: const TextStyle(
-          fontSize: 11,
-          height: 15 / 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.barterText,
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.barterSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.barterBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.swap_horiz_rounded,
+            size: 13,
+            color: AppColors.barterText,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              barterOnly ? 'Smart Barter' : 'Bisa Barter',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10.5,
+                height: 14 / 10.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.barterText,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

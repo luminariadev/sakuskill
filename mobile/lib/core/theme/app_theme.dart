@@ -32,6 +32,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      fontFamily: AppTypography.fontFamily,
       scaffoldBackgroundColor: AppColors.canvasLight,
       textTheme: AppTypography.textTheme,
       splashFactory: InkRipple.splashFactory,
@@ -70,22 +71,23 @@ abstract final class AppTheme {
           side: BorderSide(color: AppColors.borderLight),
         ),
       ),
-      inputDecorationTheme: const InputDecorationTheme(
+      inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.cardSurface,
-        hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
-        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: AppRadius.inputBr,
-          borderSide: BorderSide(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.borderLight),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.inputBr,
-          borderSide: BorderSide(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.inputBr,
-          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(

@@ -84,12 +84,12 @@ Future<void> openDirectOrderChat(
 String compactDistance(double meters) =>
     formatDistance(meters).replaceAll(' ', '');
 
-/// Ukuran marker talenta (Figma "Salma · 300m": 128 × 34).
-const Size talentMarkerSize = Size(128, 34);
+/// Ukuran marker talenta ringkas agar pin tidak mudah bertumpuk.
+const Size talentMarkerSize = Size(112, 28);
 
 /// Marker pill di peta (Figma "6 · Explore Cibiru"): hijau untuk penyedia
-/// jasa, biru untuk permintaan kebutuhan; teks putih 11/700 "Nama · jarak".
-/// Marker terpilih sedikit membesar dengan bayangan.
+/// jasa, biru untuk permintaan kebutuhan; teks putih 10.5/700 "Nama · jarak".
+/// Selalu memakai border halo putih agar tetap terbaca saat bertumpuk.
 class TalentMarker extends StatelessWidget {
   const TalentMarker({
     super.key,
@@ -120,37 +120,47 @@ class TalentMarker extends StatelessWidget {
           onTap();
         },
         child: AnimatedScale(
-          scale: selected ? 1.06 : 1,
+          scale: selected ? 1.08 : 1,
           duration: SakuMotion.base,
           curve: SakuMotion.curve,
           child: AnimatedContainer(
             duration: SakuMotion.base,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(17),
+              color: selected
+                  ? (listing.isRequest
+                      ? AppColors.escrowText
+                      : AppColors.primaryPressed)
+                  : color,
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected ? Colors.white : color,
-                width: selected ? 2 : 0,
+                color: Colors.white,
+                width: selected ? 2.2 : 1.5,
               ),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: color.withValues(alpha: 0.35),
+                        color: color.withValues(alpha: 0.42),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ]
-                  : AppShadows.flat,
+                  : const [
+                      BoxShadow(
+                        color: Color(0x220B1512),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
             ),
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 11,
-                height: 15 / 11,
+                fontSize: 10.5,
+                height: 14 / 10.5,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
@@ -225,9 +235,15 @@ class TalentPreviewCard extends StatelessWidget {
         '${listing.rating!.toStringAsFixed(1)} ★ (${listing.reviewCount} Ulasan)',
     ].join(' · ');
 
-    return SakuCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        borderRadius: AppRadius.cardBr,
+        boxShadow: AppShadows.elevated,
+      ),
+      child: SakuCard(
+        elevated: false,
+        padding: const EdgeInsets.all(16),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 10,
@@ -317,6 +333,7 @@ class TalentPreviewCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }

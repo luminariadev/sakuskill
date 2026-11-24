@@ -6,6 +6,8 @@ import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
@@ -294,6 +296,10 @@ class _ConversationCard extends StatelessWidget {
       ConversationKind.support => AppRoutes.complaint,
     };
 
+    final isBarter = item.kind == ConversationKind.barter;
+    final tagBg = isBarter ? AppColors.barterSurface : AppColors.escrowSurface;
+    final tagFg = isBarter ? AppColors.barterText : AppColors.escrowText;
+
     return SakuCard(
       padding: const EdgeInsets.all(14),
       onTap: () async {
@@ -312,22 +318,76 @@ class _ConversationCard extends StatelessWidget {
             subtitle: item.subtitle,
             asset: item.asset,
             leading: item.kind == ConversationKind.support
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 2),
-                    child: SakuIcon(
+                ? Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySurface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const SakuIcon(
                       SakuIcons.shield,
-                      size: 32,
+                      size: 22,
                       color: AppColors.primary,
                     ),
                   )
                 : null,
+            trailing: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              spacing: 4,
+              children: [
+                Text(
+                  item.time,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 14 / 10.5,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: AppTypography.tabular,
+                    color: item.unread > 0
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+                if (item.unread > 0)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: AppRadius.pillBr,
+                    ),
+                    child: Text(
+                      '${item.unread} baru',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           if (item.contextLabel != null)
-            StatusStrip(
-              item.contextLabel!,
-              tone: item.kind == ConversationKind.barter
-                  ? SakuTone.barter
-                  : SakuTone.escrow,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: tagBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                item.contextLabel!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 14 / 10,
+                  letterSpacing: 0.3,
+                  fontWeight: FontWeight.w700,
+                  color: tagFg,
+                ),
+              ),
             ),
           Text(
             item.lastMessage,
@@ -337,18 +397,6 @@ class _ConversationCard extends StatelessWidget {
               fontSize: 13,
               height: 18 / 13,
               color: AppColors.textSecondary,
-            ),
-          ),
-          Text(
-            item.unread > 0
-                ? '${item.time}   ● ${item.unread} pesan baru'
-                : item.time,
-            style: TextStyle(
-              fontSize: 10,
-              height: 14 / 10,
-              fontWeight: FontWeight.w600,
-              color:
-                  item.unread > 0 ? AppColors.primary : AppColors.textSecondary,
             ),
           ),
         ],

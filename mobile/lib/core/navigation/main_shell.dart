@@ -9,6 +9,7 @@ import '../../features/discovery/presentation/pages/home_discovery_page.dart';
 import '../di/app_dependencies.dart';
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_dimens.dart';
 import '../widgets/saku_icon.dart';
 import 'quick_action_sheet.dart';
 
@@ -133,6 +134,7 @@ class SakuBottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.cardSurface,
         border: Border(top: BorderSide(color: AppColors.borderLight)),
+        boxShadow: AppShadows.navBar,
       ),
       child: SafeArea(
         top: false,
@@ -179,14 +181,24 @@ class _NavItem extends StatelessWidget {
         highlightColor: Colors.transparent,
         child: Column(
           children: [
-            const SizedBox(height: 9),
+            AnimatedContainer(
+              duration: SakuMotion.base,
+              curve: SakuMotion.curve,
+              width: selected ? 20 : 0,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 7),
             AnimatedScale(
               scale: selected ? 1.08 : 1,
               duration: SakuMotion.base,
               curve: SakuMotion.curve,
               child: SakuIcon(tab.icon, size: 22, color: color),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             AnimatedDefaultTextStyle(
               duration: SakuMotion.base,
               style: TextStyle(
@@ -221,7 +233,7 @@ class _CreateItem extends StatelessWidget {
         onTap: onTap,
         child: Column(
           children: [
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Container(
               width: 42,
               height: 42,
@@ -229,8 +241,9 @@ class _CreateItem extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
+                boxShadow: AppShadows.emeraldGlow,
               ),
-              child: const SakuIcon(SakuIcons.plus, size: 24, color: Colors.white),
+              child: const SakuIcon(SakuIcons.plus, size: 22, color: Colors.white),
             ),
             const SizedBox(height: 1),
             const Text(

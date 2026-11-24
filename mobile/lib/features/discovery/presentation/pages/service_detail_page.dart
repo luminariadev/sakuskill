@@ -4,6 +4,8 @@ import '../../../../core/demo/demo_assets.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
@@ -63,24 +65,28 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           listing.isRequest ? 'Detail Kebutuhan Proyek' : 'Detail Layanan Jasa',
           style: const TextStyle(
             fontSize: 24,
-            height: 34 / 24,
+            height: 32 / 24,
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
             color: AppColors.textPrimary,
           ),
         ),
         Row(
+          spacing: 10,
           children: [
             _MetaAction(
-              label: 'Bagikan   ↗',
+              icon: Icons.share_outlined,
+              label: 'Bagikan',
               onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Tautan layanan disalin.')),
               ),
             ),
-            const SizedBox(width: 96),
             _MetaAction(
               key: const Key('detail-save'),
-              label: _saved ? 'Tersimpan   ✓' : 'Simpan   ♡',
+              icon: _saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              label: _saved ? 'Tersimpan' : 'Simpan',
               color: _saved ? AppColors.primary : AppColors.textSecondary,
+              selected: _saved,
               onTap: () {
                 SakuMotion.tick();
                 setState(() => _saved = !_saved);
@@ -93,8 +99,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           listing.title,
           style: const TextStyle(
             fontSize: 21,
-            height: 29 / 21,
+            height: 28 / 21,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.35,
             color: AppColors.textPrimary,
           ),
         ),
@@ -102,48 +109,66 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           _priceText,
           style: TextStyle(
             fontSize: 23,
-            height: 32 / 23,
+            height: 30 / 23,
             fontWeight: FontWeight.w800,
+            fontFeatures: AppTypography.tabular,
             color: !listing.isRequest && !listing.offerType.acceptsPayment
                 ? AppColors.barterText
                 : AppColors.primary,
           ),
         ),
-        Row(
-          children: [
-            PhotoAvatar(
-              name: listing.providerName,
-              asset: DemoAssets.portraitFor(listing.providerName),
-              size: 40,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 5,
-                children: [
-                  Text(
-                    listing.providerName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 18 / 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  if (meta.isNotEmpty)
-                    Text(
-                      meta,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        height: 15 / 11,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                ],
+        SakuCard(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              PhotoAvatar(
+                name: listing.providerName,
+                asset: DemoAssets.portraitFor(listing.providerName),
+                size: 42,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 4,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            listing.providerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              height: 18 / 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.verified_rounded,
+                          size: 15,
+                          color: AppColors.primary,
+                        ),
+                      ],
+                    ),
+                    if (meta.isNotEmpty)
+                      Text(
+                        meta,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 15 / 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         const Text(
           'Deskripsi & Cakupan Brief',
@@ -185,37 +210,57 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
 class _MetaAction extends StatelessWidget {
   const _MetaAction({
     super.key,
+    required this.icon,
     required this.label,
     required this.onTap,
     this.color = AppColors.textSecondary,
+    this.selected = false,
   });
 
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color color;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     return PressableScale(
       onTap: onTap,
-      child: AnimatedSwitcher(
+      child: AnimatedContainer(
         duration: SakuMotion.base,
-        child: Text(
-          label,
-          key: ValueKey(label),
-          style: TextStyle(
-            fontSize: 11,
-            height: 15 / 11,
-            fontWeight: FontWeight.w500,
-            color: color,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primarySurface : AppColors.cardSurface,
+          borderRadius: AppRadius.pillBr,
+          border: Border.all(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.35)
+                : AppColors.borderLight,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                height: 15 / 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Slider portofolio 150 px + indikator titik (● ○ ○) yang bergeser halus.
+/// Slider portofolio 176 px beradius 14 + indikator titik (● ○ ○) yang bergeser halus.
 class _Gallery extends StatefulWidget {
   const _Gallery({required this.listing});
 
@@ -235,31 +280,97 @@ class _GalleryState extends State<_Gallery> {
         : [if (widget.listing.coverAsset != null) widget.listing.coverAsset!];
 
     if (images.isEmpty) {
-      return Container(
-        height: 150,
-        width: double.infinity,
-        color: AppColors.mediaGreen,
-        alignment: Alignment.center,
-        child: Icon(
-          categoryIcon(''),
-          size: 56,
-          color: Colors.white.withValues(alpha: 0.4),
+      return ClipRRect(
+        borderRadius: AppRadius.cardBr,
+        child: Container(
+          height: 176,
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.mediaGreen, AppColors.deepCanvas],
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -28,
+                top: -28,
+                child: Container(
+                  width: 130,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 18,
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  child: Icon(
+                    categoryIcon(''),
+                    size: 32,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                bottom: 12,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: AppRadius.pillBr,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  child: Text(
+                    widget.listing.category,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Column(
-      spacing: 16,
+      spacing: 12,
       children: [
-        SizedBox(
-          height: 150,
-          child: PageView.builder(
-            itemCount: images.length,
-            onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (_, i) => Semantics(
-              image: true,
-              label: 'Foto portofolio ${i + 1} dari ${images.length}',
-              child: Image.asset(images[i], fit: BoxFit.cover),
+        ClipRRect(
+          borderRadius: AppRadius.cardBr,
+          child: SizedBox(
+            height: 176,
+            child: PageView.builder(
+              itemCount: images.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (_, i) => Semantics(
+                image: true,
+                label: 'Foto portofolio ${i + 1} dari ${images.length}',
+                child: Image.asset(images[i], fit: BoxFit.cover),
+              ),
             ),
           ),
         ),
