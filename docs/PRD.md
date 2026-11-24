@@ -173,10 +173,10 @@ Legenda: ✅ UI selesai + data nyata · 🟡 UI selesai, data demo/statis · ⬜
 | T-01 | Tidak ada `validator` di form mana pun | Melanggar FR-02, FR-18; tugas Anggota 4 "validasi input transaksi" | ✅ **Selesai** (`39f5162`, `cdd423c`): `SakuValidators` + `SakuTextField.validator`, terpasang di Login/Registrasi/Setup profil. Form Anggota 4 belum (contoh di FRONTEND_DISCOVERY §5.1) |
 | T-02 | Modul selain Discovery hanya punya lapisan `presentation` + `DemoData` | Belum bisa diintegrasikan ke API | Tambah `domain/` dan `data/` per modul (pola Discovery) |
 | T-03 | Dependensi `material_ui: any` dipakai di 60 file sebagai pengganti `package:flutter/material.dart` | Versi tidak dikunci; paket pihak ketiga di jalur kritis UI | ✅ **Selesai** (`39e543b`): `material_ui` adalah library Material resmi tim Flutter (deprecated-nya `flutter/material.dart` sejak 3.47), bukan halusinasi. Dikunci `^1.11.0`, environment Dart ^3.13 / Flutter ≥ 3.47, versi tim 3.50 di README. Semua anggota wajib Flutter ≥ 3.47 |
-| T-04 | Font Plus Jakarta Sans belum dibundel | UI berbeda dari Figma | Tambah `assets/fonts/` + `pubspec.yaml` |
+| T-04 | Font Plus Jakarta Sans belum dibundel | UI berbeda dari Figma | ✅ **Selesai**: 5 bobot TTF (400–800) + OFL di `assets/fonts/plus_jakarta_sans/`, dipasang global via `ThemeData.fontFamily`. |
 | T-05 | Lokasi pengguna hardcode `AppConfig.campusCenter` | FR-24 belum terpenuhi | `geolocator` + izin + fallback |
-| T-06 | Belum ada HTTP client bersama (token, envelope, error mapping) | Setiap modul akan menduplikasi logika | `core/network/api_client.dart` |
-| T-07 | Belum ada penyimpanan sesi dan SQLite | FR-16, FR-46, persistensi login | `flutter_secure_storage` (token) + `sqflite` (draf/cache) |
+| T-06 | Belum ada HTTP client bersama (token, envelope, error mapping) | Setiap modul akan menduplikasi logika | ✅ **Selesai**: `ApiClient` + `ApiException` (envelope, `fieldErrors`, timeout, `401` → `unauthorizedEvents` / global auto-logout, HTTPS rilis). |
+| T-07 | Belum ada penyimpanan sesi dan SQLite | FR-16, FR-46, persistensi login | 🟡 **Token selesai**: `core/storage/session_store.dart` (`SecureSessionStore` dengan `flutter_secure_storage ^11.2.0`, `InMemorySessionStore` untuk tes), dimuat sebelum `runApp`, tersinkron ke `AuthSession` & `AuthRepository`, 401 menghapus sesi. **Belum**: `sqflite` untuk draf/cache (FR-16, FR-46) |
 | T-08 | Label status ditulis bebas per layar | Risiko melanggar NFR-22 | ✅ **Selesai** (`7b19898`): `core/domain/status.dart` + `StatusPill`; tes mencocokkan langsung dengan migrasi 001. Layar Anggota 4 belum memakai (masih teks bebas) |
 | T-09 | Tidak ada CI | PR tidak tervalidasi otomatis | GitHub Actions `analyze` + `test` + build APK (Anggota 7) |
 | T-10 | README menyebut 21 tes | Dokumentasi usang | ✅ **Selesai**: README memuat jumlah tes aktual, prasyarat Flutter, dan mode demo |
@@ -367,7 +367,7 @@ FE menampilkan aksi berdasarkan **status + peran pengguna pada transaksi**, dan 
 | FN-10 | Token desain dari `core/theme` (AppColors, AppTypography, AppRadius); tidak ada warna/ukuran hardcode di fitur | FRONTEND_DISCOVERY §6 |
 | FN-11 | Tile OSM wajib atribusi dan User-Agent aplikasi | Kebijakan OSM |
 | FN-12 | SQLite hanya untuk draf dan cache, bukan sumber kebenaran | NFR-40 |
-| FN-13 | Platform prioritas: Android (minSdk 23) untuk MVP; Web untuk admin; iOS opsional (menunggu OD-32) | NFR-30 |
+| FN-13 | Platform prioritas: Android (minSdk 23) untuk MVP; Web untuk admin; iOS opsional (menunggu OD-32). **Catatan:** `flutter_secure_storage` 11 menyarankan minSdk **24**; target 23 perlu diselaraskan | NFR-30 |
 
 ---
 
@@ -412,7 +412,7 @@ mobile/lib/
 | ID | Konflik | Sumber | Usulan FE | Pemutus |
 | :--- | :--- | :--- | :--- | :--- |
 | **K-01** | Figma 25 "Dompet SakuSkill" menampilkan saldo, dana ditahan, dan **penarikan ke rekening/e-wallet**. SKPL menyatakan sistem **tidak** menahan, menyimpan, atau menyalurkan dana, dan tidak ada escrow nyata | Figma vs SKPL §2.1, FR-58 | Untuk MVP, ubah Dompet menjadi **"Ringkasan Transaksi"** (pendapatan tercatat, status dana simulasi) tanpa tombol tarik saldo. Opsi "Saldo Dompet" di metode bayar dihapus | PM + UI/UX |
-| **K-02** | Copy UI "Pembayaran Rekening Bersama", "Uang Anda ditahan sistem secara aman", "Dana HANYA diteruskan ke Salma…" menyiratkan penahanan dana nyata | Figma 14, Home banner (`home_sections.dart`) vs FR-59, NFR-23 | Ganti dengan copy simulasi, misalnya "Status dana: Ditahan (Simulasi). SakuSkill tidak menahan uang Anda; pembayaran diproses oleh payment gateway." | UI/UX + Anggota 8 (etika) |
+| **K-02** | Copy UI "Pembayaran Rekening Bersama", "Uang Anda ditahan sistem secara aman", "Dana HANYA diteruskan ke Salma…" menyiratkan penahanan dana nyata | Figma 14, Home banner (`home_sections.dart`) vs FR-59, NFR-23 | Ganti dengan copy simulasi, misalnya "Status dana: Ditahan (Simulasi). SakuSkill tidak menahan uang Anda; pembayaran diproses oleh sistem." Persiapan FE siap: copy terpusat di `core/copy/escrow_sim_copy.dart`, daftar lokasi teks di `docs/K02_COPY_SIMULASI.md` | UI/UX + Anggota 8 (etika) |
 | **K-03** | AI Price Estimator di luar MVP (SKPL) tetapi ditugaskan ke Anggota 6 (Jobdesk) dan ada tombolnya di Beranda | SKPL §3.6.2 vs Jobdesk | Pertahankan sebagai fitur opsional di balik flag `ENABLE_AI_ESTIMATOR`; tidak menghalangi MVP; harga tetap final lewat negosiasi | PM |
 | **K-04** | Dasbor admin web ada di Figma dan dibutuhkan SKPL, tetapi tidak ada pemilik di Jobdesk | Figma *Desktop Design* | Flutter Web di repo yang sama; Anggota 3 setelah alur pengguna stabil, atau tunjuk pemilik | PM |
 | K-05 | Fitur Figma di luar SKPL: tambahan waktu (15B/15C), status terlambat dan kompensasi (15D/15E), "Buat Permintaan" (posting kebutuhan proyek) | Figma | 15B/C dipetakan ke usulan ubah tenggat (FR-39); 15D/E ditunda sampai OD-05/06/07; "Permintaan" ditandai P2 | PM |

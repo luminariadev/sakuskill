@@ -1,12 +1,9 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 
-import '../../data/auth_session.dart';
-import '../../../../core/config/app_config.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/saku_buttons.dart';
@@ -44,82 +41,26 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _failed = false);
     if (!_formKey.currentState!.validate()) return;
 
-    if (AppConfig.useMockData) {
-      final credentialsOk =
-          _password.text.length >= SakuValidators.passwordMinLength;
-      if (!credentialsOk) {
-        setState(() => _failed = true);
-        return;
-      }
-      SakuMotion.tick();
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
-      return;
-    }
-
+    final auth = AppScope.of(context).authRepository;
+    final navigator = Navigator.of(context);
     setState(() => _loading = true);
 
     try {
-      final uri = Uri.parse('${AppConfig.apiBaseUrl}/auth/login');
-      final response = await http.post(
-        uri,
-        headers: const {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'email': _id.text.trim(),
-          'kata_sandi': _password.text,
-        }),
-      );
-
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = decoded['data'] is Map<String, dynamic>
-            ? decoded['data'] as Map<String, dynamic>
-            : decoded;
-        final tokens = data['tokens'] is Map<String, dynamic>
-            ? data['tokens'] as Map<String, dynamic>
-            : data;
-        final user = data['user'] is Map<String, dynamic>
-            ? data['user'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-
-        final token = (tokens['access_token'] ??
-                tokens['accessToken'] ??
-                tokens['token'] ??
-                '')
-            .toString();
-
-        if (token.isEmpty) {
-          throw Exception('Token autentikasi tidak ditemukan pada respons.');
+      await auth.login(email: _id.text.trim(), password: _password.text);
+      if (!mounted) return;
+      SakuMotion.tick();
+      navigator.pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (e.isConnectivity || e.code == ApiException.invalidResponseError) {
+          _errorMessage = e.message;
+        } else {
+          _errorMessage =
+              'Email atau kata sandi tidak sesuai. Silakan coba lagi.';
         }
-
-        AuthSession.instance.save(
-          token: token,
-          id: (user['user_id'] ?? user['id'])?.toString(),
-          name: (user['nama'] ?? user['nama_lengkap'] ?? user['name'])?.toString(),
-          userEmail: user['email']?.toString(),
-          userRole: user['peran']?.toString(),
-        );
-
-        if (!mounted) return;
-        SakuMotion.tick();
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
-      } else {
-        final errorObj = decoded['error'] is Map<String, dynamic>
-            ? decoded['error'] as Map<String, dynamic>
-            : const <String, dynamic>{};
-        setState(() {
-          _errorMessage = (errorObj['message'] ??
-                  decoded['message'] ??
-                  'Email atau kata sandi tidak sesuai. Silakan coba lagi.')
-              .toString();
-          _failed = true;
-        });
-      }
+        _failed = true;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {

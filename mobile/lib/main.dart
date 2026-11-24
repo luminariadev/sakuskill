@@ -9,12 +9,13 @@ import 'features/auth/data/auth_session.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final sessionStore = secure.SecureSessionStore();
   if (!AppConfig.useMockData) {
-    await AuthSession.instance.restore(secure.SecureSessionStore());
+    await AuthSession.instance.restore(sessionStore);
   }
   runApp(
     SakuSkillApp(
-      dependencies: AppDependencies.production(),
+      dependencies: AppDependencies.production(sessionStore: sessionStore),
       initialRoute: AuthSession.instance.isLoggedIn
           ? AppRoutes.shell
           : AppRoutes.welcome,

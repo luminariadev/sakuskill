@@ -25,12 +25,14 @@ class EscrowRemoteDataSource {
     http.Client? client,
     String? baseUrl,
     this.tokenProvider,
+    this.onUnauthorized,
   })  : _client = client ?? http.Client(),
         _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
 
   final http.Client _client;
   final String _baseUrl;
   final Future<String?> Function()? tokenProvider;
+  final void Function()? onUnauthorized;
 
   Future<HeaderMap> _headers() async {
     final token = await tokenProvider?.call();
@@ -47,6 +49,9 @@ class EscrowRemoteDataSource {
         : jsonDecode(utf8.decode(response.bodyBytes));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 401) {
+        onUnauthorized?.call();
+      }
       String? serverMsg;
       String? errorCode;
       if (body is JsonMap) {

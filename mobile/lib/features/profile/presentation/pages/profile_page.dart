@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_assets.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -27,6 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _loggingOut = false;
 
   Future<void> _confirmLogout() async {
+    if (_loggingOut) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -52,30 +50,25 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (confirmed == true && mounted) {
-      final token = AuthSession.instance.accessToken;
-      if (!AppConfig.useMockData && token != null && token.isNotEmpty) {
-        try {
-          await http.post(
-            Uri.parse('${AppConfig.apiBaseUrl}/auth/logout'),
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          ).timeout(const Duration(seconds: 4));
-        } catch (_) {
-          // Gagal jaringan tidak menghalangi logout di perangkat.
-        }
+      final auth = AppScope.of(context).authRepository;
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      setState(() => _loggingOut = true);
+      try {
+        await auth.logout();
+        AuthSession.instance.clear();
+        if (!mounted) return;
+        SakuMotion.tick();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Anda telah berhasil keluar dari akun.')),
+        );
+        navigator.pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (_) => false,
+        );
+      } finally {
+        if (mounted) setState(() => _loggingOut = false);
       }
-      AuthSession.instance.clear();
-      if (!mounted) return;
-      SakuMotion.tick();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Anda telah berhasil keluar dari akun.')),
-      );
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.login,
-        (_) => false,
-      );
     }
   }
 
