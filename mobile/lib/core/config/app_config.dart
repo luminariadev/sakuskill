@@ -4,7 +4,7 @@ import '../utils/geo.dart';
 
 /// Konfigurasi runtime. Bisa diubah tanpa mengedit kode lewat --dart-define:
 ///
-///   flutter run --dart-define=API_BASE_URL=https://sakuskill-backend.onrender.com/api/v1
+///   flutter run --dart-define=API_BASE_URL=https://sakuskill.vercel.app/api/v1
 ///   flutter run --dart-define=USE_MOCK_DATA=true
 abstract final class AppConfig {
   static const String _apiOverride = String.fromEnvironment('API_BASE_URL');
@@ -22,17 +22,18 @@ abstract final class AppConfig {
   }
 
   /// Base URL sesuai docs/API_CONTRACT.md. Default mengarah ke backend HTTPS
-  /// cloud di Render (bisa di-override saat build atau runtime lewat
-  /// `--dart-define=API_BASE_URL=...`) sehingga HP langsung terhubung dari jaringan mana pun.
+  /// cloud di Vercel + Neon (`https://sakuskill.vercel.app/api/v1`, bisa
+  /// di-override saat build atau runtime lewat `--dart-define=API_BASE_URL=...`)
+  /// sehingga HP langsung terhubung dari jaringan mana pun secara real-time.
   static String get apiBaseUrl {
     if (customServerUrl != null && customServerUrl!.isNotEmpty) {
       return customServerUrl!;
     }
     if (_apiOverride.isNotEmpty) return _apiOverride;
-    return 'https://sakuskill-backend.onrender.com/api/v1';
+    return 'https://sakuskill.vercel.app/api/v1';
   }
 
-  static const Duration networkTimeout = Duration(seconds: 45);
+  static const Duration networkTimeout = Duration(seconds: 30);
 
   /// Titik pusat default: UIN Sunan Gunung Djati Kampus 1, Jl. A.H. Nasution,
   /// Cibiru, Bandung. Dipakai sebagai lokasi pengguna sampai modul lokasi
