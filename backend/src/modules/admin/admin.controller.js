@@ -31,7 +31,7 @@ class AdminController {
   async verifyUser(req, res, next) {
     try {
       const { status, notes } = req.body;
-      const data = await adminService.verifyUser(req.params.id, status, notes);
+      const data = await adminService.verifyUser(req.params.id, status, notes, req.user?.user_id);
       return sendSuccess(res, {
         statusCode: 200,
         message: 'Status verifikasi KTM berhasil diperbarui.',
@@ -45,7 +45,7 @@ class AdminController {
   async sanctionUser(req, res, next) {
     try {
       const { action, notes } = req.body;
-      const data = await adminService.sanctionUser(req.params.id, action, notes);
+      const data = await adminService.sanctionUser(req.params.id, action, notes, req.user?.user_id);
       return sendSuccess(res, {
         statusCode: 200,
         message: 'Sanksi akun pengguna berhasil diterapkan.',
@@ -72,7 +72,7 @@ class AdminController {
   async moderateListing(req, res, next) {
     try {
       const { action, notes } = req.body;
-      const data = await adminService.moderateListing(req.params.id, action, notes);
+      const data = await adminService.moderateListing(req.params.id, action, notes, req.user?.user_id);
       return sendSuccess(res, {
         statusCode: 200,
         message: 'Tindakan moderasi layanan berhasil dieksekusi.',
@@ -99,7 +99,7 @@ class AdminController {
   async resolveDispute(req, res, next) {
     try {
       const { verdict, notes } = req.body;
-      const data = await adminService.resolveDispute(req.params.id, verdict, notes);
+      const data = await adminService.resolveDispute(req.params.id, verdict, notes, req.user?.user_id);
       return sendSuccess(res, {
         statusCode: 200,
         message: 'Putusan arbitrase resmi berhasil dikirim dan escrow dieksekusi.',
@@ -126,7 +126,7 @@ class AdminController {
   async resolveReport(req, res, next) {
     try {
       const { action, notes } = req.body;
-      const data = await adminService.resolveReport(req.params.id, action, notes);
+      const data = await adminService.resolveReport(req.params.id, action, notes, req.user?.user_id);
       return sendSuccess(res, {
         statusCode: 200,
         message: 'Laporan berhasil ditindaklanjuti dan diselesaikan.',

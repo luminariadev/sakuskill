@@ -4,6 +4,7 @@ import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/saku_buttons.dart';
@@ -48,6 +49,7 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await auth.login(email: _id.text.trim(), password: _password.text);
       if (!mounted) return;
+      AccountFinanceStore.instance.resetForLogout();
       SakuMotion.tick();
       navigator.pushNamedAndRemoveUntil(AppRoutes.shell, (_) => false);
     } on ApiException catch (e) {
@@ -170,25 +172,6 @@ class _LoginPageState extends State<LoginPage> {
                     tone: SakuTone.danger,
                   )
                 : const SizedBox(key: ValueKey('ok'), width: double.infinity),
-          ),
-          const Center(
-            child: Text(
-              'atau masuk lebih cepat dengan',
-              style: TextStyle(
-                fontSize: 12,
-                height: 17 / 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          SakuButton(
-            label: 'G   Lanjutkan dengan Akun Google',
-            variant: SakuButtonVariant.outline,
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Masuk dengan Google segera hadir.'),
-              ),
-            ),
           ),
           SakuTextLink(
             'Belum memiliki akun? Daftar Akun Baru di sini',

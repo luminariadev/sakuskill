@@ -211,6 +211,23 @@ class ListingsRepository {
       params.push(penyediaId);
       const pPenyedia = nextPlaceholder();
       whereClauses.push(`sl.penyedia_id = ${pPenyedia}`);
+    } else {
+      // Sembunyikan jasa yang sudah disepakati, sedang dikerjakan, atau selesai;
+      // jika pesanan/barter dibatalkan atau ditolak, card muncul kembali otomatis.
+      whereClauses.push(`
+        NOT EXISTS (
+          SELECT 1 FROM orders o
+          WHERE o.listing_id = sl.listing_id
+            AND o.status_kode IN ('accepted', 'in_progress', 'awaiting_review', 'revision_requested', 'completed')
+        )
+      `);
+      whereClauses.push(`
+        NOT EXISTS (
+          SELECT 1 FROM barter_agreements b
+          WHERE (b.listing_id = sl.listing_id OR b.listing_pengaju_id = sl.listing_id)
+            AND b.status_kode IN ('accepted', 'in_progress', 'completion_requested', 'completed')
+        )
+      `);
     }
 
     let havingClause = '';

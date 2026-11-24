@@ -613,6 +613,17 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
           variant: SakuButtonVariant.outline,
           onPressed: () => Navigator.of(context).pushNamed(AppRoutes.wallet),
         ),
+        if (currentOrder != null &&
+            currentOrder.orderId.isNotEmpty &&
+            !isCancelled)
+          SakuButton(
+            label: 'Ajukan Komplain Transaksi',
+            variant: SakuButtonVariant.outline,
+            onPressed: () => Navigator.of(context).pushNamed(
+              AppRoutes.complaint,
+              arguments: currentOrder,
+            ),
+          ),
         if (!isCancelled)
           SakuTextLink(
             'Lihat simulasi: penyedia terlambat  ›',

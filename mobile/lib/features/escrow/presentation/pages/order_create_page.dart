@@ -1,16 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'incoming_order_page.dart';
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
-import '../../../../core/navigation/app_router.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_form.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../../discovery/domain/entities/service_listing.dart';
 import '../../data/datasources/escrow_remote_data_source.dart';
 
@@ -18,7 +21,7 @@ import '../../data/datasources/escrow_remote_data_source.dart';
 class OrderCreatePage extends StatefulWidget {
   const OrderCreatePage({super.key, this.listing});
 
-  /// Layanan yang dipesan; null = data demo pesanan #SK-091.
+  /// Layanan yang dipesan; null = data demo pesanan #SK-091 (widget test).
   final ServiceListing? listing;
 
   @override
@@ -26,26 +29,32 @@ class OrderCreatePage extends StatefulWidget {
 }
 
 class _OrderCreatePageState extends State<OrderCreatePage> {
-  final _title = TextEditingController(
-    text: 'Desain Spanduk Toko Ukuran 3×1 Meter',
-  );
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _title;
   late final TextEditingController _duration;
-  final _notes = TextEditingController(
-    text:
-        'Warna cerah hijau kuning, tolong cantumkan logo menu '
-        'ayam bakar dan no WhatsApp katering.',
-  );
+  late final TextEditingController _notes;
+  final _refLink = TextEditingController();
 
-  String? _file = 'Foto_Ayam_Bakar.jpg (3 MB)';
   bool _submitted = false;
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    final defaultDays =
-        widget.listing?.deliveryDays ?? DemoData.order.deadlineDays;
+    final listing = widget.listing;
+    final defaultDays = listing?.deliveryDays ?? DemoData.order.deadlineDays;
+    _title = TextEditingController(
+      text: listing != null
+          ? 'Pesanan: ${listing.title}'
+          : 'Desain Spanduk Toko Ukuran 3×1 Meter',
+    );
     _duration = TextEditingController(text: '$defaultDays Hari Pengerjaan');
+    _notes = TextEditingController(
+      text: listing != null
+          ? ''
+          : 'Warna cerah hijau kuning, tolong cantumkan logo menu '
+              'ayam bakar dan no WhatsApp katering.',
+    );
   }
 
   @override
@@ -53,6 +62,7 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     _title.dispose();
     _duration.dispose();
     _notes.dispose();
+    _refLink.dispose();
     super.dispose();
   }
 
@@ -73,7 +83,8 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
 
   Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (_validateTitle() != null || _submitting) return;
+    final formValid = _formKey.currentState?.validate() ?? true;
+    if (!formValid || _validateTitle() != null || _submitting) return;
 
     setState(() => _submitting = true);
     SakuMotion.tick();
@@ -83,13 +94,18 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
     final price = (listing?.price ?? demoOrder.amount).toInt();
     final repo = AppScope.of(context).escrowRepository;
 
+    final noteParts = <String>[
+      if (_notes.text.trim().isNotEmpty) _notes.text.trim(),
+      if (_refLink.text.trim().isNotEmpty) 'Referensi: ${_refLink.text.trim()}',
+    ];
+
     try {
       final result = await repo.createOrder(
         listingId: listing?.id ?? 'listing-demo-091',
         deskripsiKebutuhan: _title.text.trim(),
         hargaDisepakati: price,
         durasiHari: _parseDurationDays(),
-        catatanKlien: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        catatanKlien: noteParts.isEmpty ? null : noteParts.join('\n'),
       );
 
       if (!mounted) return;
@@ -103,17 +119,22 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
           ),
         );
       } else {
+        unawaited(AccountFinanceStore.instance.refreshLive(escrowRepository: repo));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Pesanan berhasil dikirim ke penyedia jasa!'),
+            content: Text(
+              'Permintaan pesanan dikirim! Menunggu konfirmasi penyedia jasa.',
+            ),
           ),
         );
       }
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) =>
-              IncomingOrderPage(order: result.data, isProviderView: true),
+          builder: (_) => IncomingOrderPage(
+            order: result.data,
+            isProviderView: result.isFallback ? true : false,
+          ),
         ),
       );
     } on EscrowException catch (e) {
@@ -141,102 +162,100 @@ class _OrderCreatePageState extends State<OrderCreatePage> {
   Widget build(BuildContext context) {
     const order = DemoData.order;
     final listing = widget.listing;
-    final provider = listing?.providerName.split(' ').first ?? 'Salma';
+    final provider = listing?.providerName.split(' ').first ?? 'Penyedia';
     final price = listing?.price ?? order.amount;
+    final clientLabel = listing == null
+        ? 'Draf ${order.code} · Klien: ${order.client}'
+        : 'Pengajuan Pesanan · Klien: ${AuthSession.instance.userName ?? 'Pengguna'}';
 
-    return SakuScreen(
-      background: AppColors.canvasLight,
-      showBack: true,
-      children: [
-        const PageHeader('Buat Pesanan Jasa'),
-        Text(
-          'Draf ${order.code} · Klien: ${order.client}',
-          style: const TextStyle(
-            fontSize: 11,
-            height: 15 / 11,
+    return Form(
+      key: _formKey,
+      child: SakuScreen(
+        background: AppColors.canvasLight,
+        showBack: true,
+        children: [
+          const PageHeader('Buat Pesanan Jasa'),
+          Text(
+            clientLabel,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 15 / 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          SakuCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 8,
+              children: [
+                Text(
+                  listing?.title ??
+                      'Desain Spanduk Toko Katering Berkah (3×1 m)',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 21 / 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  'Tarif ${formatRupiah(price)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 22 / 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SakuTextField(
+            fieldKey: const Key('order-title'),
+            controller: _title,
+            label: 'Judul Kebutuhan',
+            hint: 'Contoh: Install Ulang Windows 11 + Office di Cibiru',
+            errorText: _validateTitle(),
+            onChanged: (_) => setState(() {}),
+          ),
+          SakuTextField(
+            controller: _duration,
+            label: 'Tenggat Waktu Diinginkan',
+          ),
+          SakuTextField(
+            controller: _notes,
+            label: 'Catatan Brief Detail',
+            hint:
+                'Jelaskan detail spesifikasi kebutuhan, lokasi, atau jadwal yang diinginkan...',
+            minLines: 3,
+            maxLines: 6,
+            maxLength: 500,
+          ),
+          SakuTextField(
+            fieldKey: const Key('order-ref-link'),
+            controller: _refLink,
+            label: 'Tautan Referensi / Berkas (Opsional)',
+            hint: 'https://drive.google.com/...',
+            keyboardType: TextInputType.url,
+            validator: SakuValidators.optional(SakuValidators.httpsUrl()),
+          ),
+          SakuButton(
+            key: const Key('order-submit'),
+            label: _submitting
+                ? 'Mengirim Pesanan...'
+                : 'Kirim Permintaan ke $provider',
+            onPressed: _submitting ? null : _submit,
+          ),
+          const InfoBox(
+            text:
+                'Setelah dikirim, Anda langsung masuk ke halaman menunggu konfirmasi & dapat berdiskusi dengan penyedia jasa.',
+            tone: SakuTone.escrow,
             fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
           ),
-        ),
-        SakuCard(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 8,
-            children: [
-              Text(
-                listing?.title ?? 'Desain Spanduk Toko Katering Berkah (3×1 m)',
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 21 / 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                'Tarif ${formatRupiah(price)}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  height: 22 / 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SakuTextField(
-          fieldKey: const Key('order-title'),
-          controller: _title,
-          label: 'Judul Kebutuhan',
-          errorText: _validateTitle(),
-          onChanged: (_) => setState(() {}),
-        ),
-        SakuTextField(controller: _duration, label: 'Tenggat Waktu Diinginkan'),
-        SakuTextField(
-          controller: _notes,
-          label: 'Catatan Brief Detail',
-          minLines: 3,
-          maxLines: 6,
-          maxLength: 500,
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 6,
-          children: [
-            const Text(
-              'Unggah Berkas Aset',
-              style: TextStyle(
-                fontSize: 12,
-                height: 17 / 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SakuDropzone(
-              title: 'Unggah foto / logo referensi',
-              subtitle: 'JPG / PNG / PDF maks 5MB',
-              fileName: _file == null ? null : '↑ $_file',
-              onTap: () => setState(
-                () =>
-                    _file = _file == null ? 'Foto_Ayam_Bakar.jpg (3 MB)' : null,
-              ),
-            ),
-          ],
-        ),
-        SakuButton(
-          key: const Key('order-submit'),
-          label: _submitting
-              ? 'Mengirim Pesanan...'
-              : 'Kirim Pesanan ke $provider',
-          onPressed: _submitting ? null : _submit,
-        ),
-        const InfoBox(
-          text: 'Pesanan akan masuk ke penyedia jasa untuk ditinjau dan disetujui.',
-          tone: SakuTone.escrow,
-          fontWeight: FontWeight.w500,
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

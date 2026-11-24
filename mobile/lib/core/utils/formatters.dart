@@ -89,3 +89,16 @@ String formatAuditTimestamp(DateTime dt) {
   return '[$d $monthStr ${formatClockSeconds(local)}]';
 }
 
+/// Format tanggal ringkas lokal Indonesia: `24 Nov 2026`.
+String formatDateId(DateTime dt) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+  ];
+  final local = dt.toLocal();
+  final d = local.day.toString().padLeft(2, '0');
+  final monthStr = months[local.month - 1];
+  return '$d $monthStr ${local.year}';
+}
+
+

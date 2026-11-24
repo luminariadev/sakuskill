@@ -23,6 +23,8 @@ class AuthSession {
   String? fullName;
   String? email;
   String? role;
+  String? photoUrl;
+  final ValueNotifier<String?> photoUrlNotifier = ValueNotifier<String?>(null);
 
   String? get userName => fullName;
   String? get userEmail => email;
@@ -31,6 +33,12 @@ class AuthSession {
   bool get isLoggedIn => accessToken != null && accessToken!.isNotEmpty;
   bool get isProvider => role == 'Penyedia Jasa';
 
+  void _setPhoto(String? value) {
+    final clean = (value != null && value.trim().isNotEmpty) ? value.trim() : null;
+    photoUrl = clean;
+    photoUrlNotifier.value = clean;
+  }
+
   void _applySecure(secure.AuthSession? saved) {
     if (saved == null) {
       accessToken = null;
@@ -38,6 +46,7 @@ class AuthSession {
       fullName = null;
       email = null;
       role = null;
+      _setPhoto(null);
       return;
     }
     accessToken = saved.token;
@@ -45,6 +54,27 @@ class AuthSession {
     fullName = saved.user.name.isNotEmpty ? saved.user.name : null;
     email = saved.user.email.isNotEmpty ? saved.user.email : null;
     role ??= 'Penyedia Jasa';
+    _setPhoto(saved.user.photoUrl);
+  }
+
+  void updatePhotoUrl(String? url) {
+    _setPhoto(url);
+    final store = _store;
+    final token = accessToken;
+    if (store == null || token == null || token.isEmpty) return;
+    final current = store.session.value;
+    final updatedSession = secure.AuthSession(
+      token: current?.token ?? token,
+      user: secure.SessionUser(
+        id: userId ?? current?.user.id ?? '',
+        name: fullName ?? current?.user.name ?? '',
+        email: email ?? current?.user.email ?? '',
+        verification: current?.user.verification ??
+            const secure.SessionUser(id: '', name: '', email: '').verification,
+        photoUrl: photoUrl,
+      ),
+    );
+    unawaited(store.save(updatedSession).catchError((_) {}));
   }
 
   /// Mengikat [store] agar setiap perubahan dari repository auth/API
@@ -83,24 +113,29 @@ class AuthSession {
     String? name,
     String? userEmail,
     String? userRole,
+    String? userPhotoUrl,
   }) {
     accessToken = token;
     userId = id;
     fullName = name;
     email = userEmail;
     role = userRole;
+    _setPhoto(userPhotoUrl);
     if (_store != null) {
       unawaited(
-        _store!.save(
-          secure.AuthSession(
-            token: token,
-            user: secure.SessionUser(
-              id: id ?? '',
-              name: name ?? '',
-              email: userEmail ?? '',
-            ),
-          ),
-        ),
+        _store!
+            .save(
+              secure.AuthSession(
+                token: token,
+                user: secure.SessionUser(
+                  id: id ?? '',
+                  name: name ?? '',
+                  email: userEmail ?? '',
+                  photoUrl: photoUrl,
+                ),
+              ),
+            )
+            .catchError((_) {}),
       );
     }
   }
@@ -111,8 +146,9 @@ class AuthSession {
     fullName = null;
     email = null;
     role = null;
+    _setPhoto(null);
     if (_store != null) {
-      unawaited(_store!.clear());
+      unawaited(_store!.clear().catchError((_) {}));
     }
   }
 }

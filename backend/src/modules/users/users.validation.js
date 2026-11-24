@@ -15,6 +15,16 @@ const updateProfileSchema = z.object({
         .max(1000, 'Deskripsi profil maksimal 1000 karakter.')
         .nullable()
         .optional(),
+      foto_profil: z
+        .string()
+        .trim()
+        .max(500000, 'Ukuran foto profil terlalu besar (maks. ~350KB).')
+        .refine(
+          (v) => v === '' || v.startsWith('data:image/') || v.startsWith('https://'),
+          { message: 'Format foto profil harus berupa gambar valid atau URL https.' }
+        )
+        .nullable()
+        .optional(),
       skill_ids: z
         .array(z.coerce.number().int().positive())
         .max(20, 'Maksimal memilih 20 keterampilan.')
@@ -24,9 +34,10 @@ const updateProfileSchema = z.object({
       (data) =>
         data.nama !== undefined ||
         data.deskripsi_profil !== undefined ||
+        data.foto_profil !== undefined ||
         data.skill_ids !== undefined,
       {
-        message: 'Minimal satu field (nama, deskripsi_profil, atau skill_ids) harus dikirim untuk diperbarui.',
+        message: 'Minimal satu field (nama, deskripsi_profil, foto_profil, atau skill_ids) harus dikirim untuk diperbarui.',
       }
     ),
 });

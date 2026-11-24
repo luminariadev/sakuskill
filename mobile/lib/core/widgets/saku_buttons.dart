@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_dimens.dart';
 
 /// Varian tombol dari Figma "00B · Component library / SakuSkill / Button":
 /// Primary · Outline · Warning · Destructive · Barter · Disabled.
@@ -60,23 +61,42 @@ class SakuButton extends StatelessWidget {
     final enabled =
         onPressed != null && variant != SakuButtonVariant.disabled;
     final (bg, fg, border) = _colors(enabled);
+
+    final Gradient? clayGradient = !enabled
+        ? null
+        : switch (variant) {
+            SakuButtonVariant.primary => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF10B981), Color(0xFF059669)],
+              ),
+            SakuButtonVariant.barter => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF9D78FA), Color(0xFF7C3AED)],
+              ),
+            _ => null,
+          };
+
+    final Color? effectiveBorderColor = !enabled
+        ? null
+        : switch (variant) {
+            SakuButtonVariant.primary || SakuButtonVariant.barter =>
+              Colors.white.withValues(alpha: 0.26),
+            _ => border,
+          };
+
+    final double borderWidth = switch (variant) {
+      SakuButtonVariant.primary || SakuButtonVariant.barter => 1.0,
+      _ => 1.5,
+    };
+
     final List<BoxShadow>? buttonShadow = !enabled
         ? null
         : switch (variant) {
-            SakuButtonVariant.primary => const [
-                BoxShadow(
-                  color: Color(0x28059669),
-                  offset: Offset(0, 3),
-                  blurRadius: 10,
-                ),
-              ],
-            SakuButtonVariant.barter => const [
-                BoxShadow(
-                  color: Color(0x288B5CF6),
-                  offset: Offset(0, 3),
-                  blurRadius: 10,
-                ),
-              ],
+            SakuButtonVariant.primary => AppShadows.clayButtonPrimary,
+            SakuButtonVariant.barter => AppShadows.clayButtonBarter,
+            SakuButtonVariant.outline => AppShadows.flat,
             _ => null,
           };
 
@@ -85,12 +105,15 @@ class SakuButton extends StatelessWidget {
       curve: SakuMotion.curve,
       height: height,
       width: expand ? double.infinity : null,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: border == null ? null : Border.all(color: border, width: 1.5),
+        color: clayGradient == null ? bg : null,
+        gradient: clayGradient,
+        borderRadius: BorderRadius.circular(14),
+        border: effectiveBorderColor == null
+            ? null
+            : Border.all(color: effectiveBorderColor, width: borderWidth),
         boxShadow: buttonShadow,
       ),
       child: Text(

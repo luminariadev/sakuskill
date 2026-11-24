@@ -53,8 +53,9 @@ class FilterChipPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeColor =
         tone == FilterChipTone.barter ? AppColors.barter : AppColors.primary;
-    final bg = selected ? activeColor : AppColors.cardSurface;
-    final border = selected ? activeColor : AppColors.borderLight;
+    final activeTop = tone == FilterChipTone.barter
+        ? const Color(0xFF9D78FA)
+        : AppColors.primaryLight;
     final fg = selected ? Colors.white : AppColors.textSecondary;
 
     return Semantics(
@@ -71,18 +72,45 @@ class FilterChipPill extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: SakuMotion.curve,
-          height: 32,
+          height: 34,
           constraints: BoxConstraints(minWidth: minWidth),
-          padding: const EdgeInsets.symmetric(horizontal: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: bg,
+            gradient: selected
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [activeTop, activeColor],
+                  )
+                : const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [AppColors.clayTop, AppColors.clayBottom],
+                  ),
             borderRadius: AppRadius.pillBr,
-            border: Border.all(color: border),
+            border: Border.all(
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.28)
+                  : AppColors.clayBorder,
+              width: 1.2,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.24),
+                      offset: const Offset(0, 4),
+                      blurRadius: 10,
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : AppShadows.flat,
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11,
               height: 15 / 11,
@@ -153,7 +181,7 @@ class HomeFilterChips extends StatelessWidget {
     ];
 
     return SizedBox(
-      height: 34,
+      height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: padding,
@@ -181,7 +209,7 @@ class CategoryChipsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 28,
+      height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: AppSpacing.screen,
@@ -208,7 +236,7 @@ class CategoryChipsRow extends StatelessWidget {
   }
 }
 
-/// Pilihan radius Figma "6 · Explore Cibiru": chip 32 px lebar 65.
+/// Pilihan radius Figma "6 · Explore Cibiru": simetris & penuh selebar baris.
 class RadiusPills extends StatelessWidget {
   const RadiusPills({
     super.key,
@@ -221,21 +249,19 @@ class RadiusPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        spacing: 8,
-        children: [
-          for (final r in AppConfig.radiusOptions)
-            FilterChipPill(
+    return Row(
+      spacing: 8,
+      children: [
+        for (final r in AppConfig.radiusOptions)
+          Expanded(
+            child: FilterChipPill(
               key: Key('radius-$r'),
               label: radiusLabel(r),
-              minWidth: 65,
               selected: r == value,
               onTap: () => onChanged(r),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

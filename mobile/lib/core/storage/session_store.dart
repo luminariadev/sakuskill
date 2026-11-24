@@ -136,7 +136,25 @@ class SecureSessionStore extends SessionStore {
 
   @override
   Future<void> save(AuthSession session) async {
-    await _storage.write(key: storageKey, value: jsonEncode(session.toJson()));
+    try {
+      await _storage.write(
+        key: storageKey,
+        value: jsonEncode(session.toJson()),
+      );
+    } on Object {
+      // Bila ukuran foto_url base64 melebihi batas Android Keystore, tetap simpan
+      // token & identitas dasar agar sesi login tidak hilang.
+      final slim = AuthSession(
+        token: session.token,
+        user: SessionUser(
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+          verification: session.user.verification,
+        ),
+      );
+      await _storage.write(key: storageKey, value: jsonEncode(slim.toJson()));
+    }
     _session.value = session;
   }
 

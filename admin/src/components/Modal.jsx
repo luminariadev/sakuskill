@@ -20,28 +20,25 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-xl' 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-[#0B1512]/45 backdrop-blur-md transition-opacity"
         onClick={onClose}
       ></div>
 
-      {/* Modal Dialog */}
       <div
-        className={`relative w-full ${maxWidth} bg-[#111827] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]`}
+        className={`relative w-full ${maxWidth} clay-card overflow-hidden z-10 flex flex-col max-h-[90vh]`}
       >
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0 bg-[#0F172A]">
-          <h3 className="text-base font-bold text-white tracking-wide">{title}</h3>
+        <div className="px-6 py-4 border-b border-[#E6EFEA] bg-white/90 backdrop-blur-md flex items-center justify-between shrink-0">
+          <h3 className="text-base font-extrabold text-[#0F172A] tracking-tight">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            aria-label="Tutup modal"
+            className="w-8 h-8 rounded-xl bg-[#F0F4F2] hover:bg-[#E2EBE6] text-[#64748B] hover:text-[#0F172A] flex items-center justify-center transition"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 overflow-y-auto">{children}</div>
       </div>
     </div>

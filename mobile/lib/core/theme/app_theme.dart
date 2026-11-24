@@ -67,8 +67,8 @@ abstract final class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.cardBr,
-          side: BorderSide(color: AppColors.borderLight),
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+          side: BorderSide(color: AppColors.clayBorder, width: 1.2),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -78,15 +78,15 @@ abstract final class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.clayBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.clayBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
@@ -96,16 +96,18 @@ abstract final class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size(0, 44),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBr),
+          shape: const RoundedRectangleBorder(
+              borderRadius: AppRadius.clayButtonBr),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
           minimumSize: const Size(0, 44),
-          side: const BorderSide(color: AppColors.borderLight),
+          side: const BorderSide(color: AppColors.clayBorder),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.inputBr),
+          shape: const RoundedRectangleBorder(
+              borderRadius: AppRadius.clayButtonBr),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -119,7 +121,7 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
       snackBarTheme: const SnackBarThemeData(

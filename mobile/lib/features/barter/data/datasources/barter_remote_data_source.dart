@@ -149,6 +149,22 @@ class BarterRemoteDataSource {
     return BarterAgreementModel.fromJson(json['data'] as JsonMap);
   }
 
+  Future<BarterAgreementModel> cancelBarter(String barterId, {String? reason}) async {
+    final uri = Uri.parse('$_baseUrl/barter/$barterId/cancel');
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({
+            'alasan': reason ?? 'Dibatalkan oleh pengguna sebelum disepakati',
+          }),
+        )
+        .timeout(AppConfig.networkTimeout);
+
+    final json = _parseResponse(response, uri);
+    return BarterAgreementModel.fromJson(json['data'] as JsonMap);
+  }
+
   Future<BarterAgreementModel> startBarter(String barterId) async {
     final uri = Uri.parse('$_baseUrl/barter/$barterId/start');
     final response = await _client
@@ -191,5 +207,33 @@ class BarterRemoteDataSource {
         .timeout(AppConfig.networkTimeout);
 
     _parseResponse(response, uri);
+  }
+
+  Future<List<JsonMap>> listMessages(String barterId) async {
+    final uri = Uri.parse('$_baseUrl/barter/$barterId/messages');
+    final response = await _client
+        .get(uri, headers: await _headers())
+        .timeout(AppConfig.networkTimeout);
+
+    final json = _parseResponse(response, uri);
+    final list = json['data'] as List<dynamic>? ?? [];
+    return list.whereType<JsonMap>().toList(growable: false);
+  }
+
+  Future<JsonMap> sendMessage({
+    required String barterId,
+    required String isiPesan,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/barter/$barterId/messages');
+    final response = await _client
+        .post(
+          uri,
+          headers: await _headers(),
+          body: jsonEncode({'isi_pesan': isiPesan}),
+        )
+        .timeout(AppConfig.networkTimeout);
+
+    final json = _parseResponse(response, uri);
+    return (json['data'] as JsonMap?) ?? <String, dynamic>{};
   }
 }

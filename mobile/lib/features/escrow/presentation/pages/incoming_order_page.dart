@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'escrow_payment_page.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
@@ -241,6 +242,27 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
   Widget build(BuildContext context) {
     const demo = DemoData.order;
     final currentOrder = _resolveOrder(context);
+    if (currentOrder == null && !AppConfig.useMockData) {
+      return SakuScreen(
+        background: AppColors.canvasLight,
+        showBack: true,
+        children: [
+          const PageHeader('Pesanan Masuk'),
+          const InfoBox(
+            text:
+                'Belum ada pesanan masuk saat ini. Pastikan layanan Anda berstatus Aktif agar mudah ditemukan calon klien.',
+            tone: SakuTone.neutral,
+            fontWeight: FontWeight.w500,
+          ),
+          SakuButton(
+            label: 'Kelola Jasa Saya',
+            onPressed: () => Navigator.of(context)
+                .pushReplacementNamed(AppRoutes.myServices),
+          ),
+        ],
+      );
+    }
+
     final session = AuthSession.instance;
 
     // Tentukan apakah pengguna aktif adalah Penyedia Jasa pada pesanan ini
@@ -299,7 +321,11 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
       showBack: true,
       children: [
         PageHeader(
-          isProviderRole ? 'Pesanan Baru Masuk' : 'Detail Pengajuan Pesanan',
+          isProviderRole
+              ? 'Pesanan Baru Masuk'
+              : (isSubmitted
+                  ? 'Menunggu Konfirmasi Penyedia'
+                  : 'Detail Pengajuan Pesanan'),
         ),
         Text(
           orderCode,
@@ -324,7 +350,6 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
                 subtitle: isProviderRole
                     ? 'Pelanggan · Cibiru, Bandung'
                     : 'Penyedia Jasa · Cibiru, Bandung',
-                asset: currentOrder == null ? demo.clientAsset : null,
               ),
               Text(
                 serviceTitle,
@@ -379,14 +404,15 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
             ],
           ),
         ),
-        if (currentOrder != null && currentOrder.orderId.isNotEmpty)
+        if (isProviderRole &&
+            currentOrder != null &&
+            currentOrder.orderId.isNotEmpty)
           SakuButton(
             key: const Key('order-open-chat'),
             label: 'Buka Chat dengan $counterpartyShortName',
             variant: SakuButtonVariant.outline,
-            onPressed: () =>
-                Navigator.of(context)
-                    .pushNamed(AppRoutes.orderChat, arguments: currentOrder),
+            onPressed: () => Navigator.of(context)
+                .pushNamed(AppRoutes.orderChat, arguments: currentOrder),
           ),
         if (isProviderRole) ...[
           if (isSubmitted) ...[
@@ -456,11 +482,19 @@ class _IncomingOrderPageState extends State<IncomingOrderPage> {
               tone: SakuTone.escrow,
               fontWeight: FontWeight.w500,
             ),
+            if (currentOrder != null && currentOrder.orderId.isNotEmpty)
+              SakuButton(
+                key: const Key('order-open-chat'),
+                label: 'Chat Penyedia ($counterpartyShortName)',
+                onPressed: () => Navigator.of(context)
+                    .pushNamed(AppRoutes.orderChat, arguments: currentOrder),
+              ),
             SakuButton(
               key: const Key('customer-refresh-order'),
               label: _processing
                   ? 'Memeriksa Status...'
                   : 'Segarkan Status Pesanan',
+              variant: SakuButtonVariant.outline,
               onPressed: _processing ? null : () => _refreshOrder(currentOrder),
             ),
           ],

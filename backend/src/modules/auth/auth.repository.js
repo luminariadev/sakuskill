@@ -3,7 +3,7 @@ const db = require('../../config/database');
 class AuthRepository {
   async findByEmail(email) {
     const sql = `
-      SELECT user_id, nama, email, kata_sandi_hash, peran, status_verifikasi, deskripsi_profil, dibuat_pada
+      SELECT user_id, nama, email, kata_sandi_hash, peran, status_verifikasi, deskripsi_profil, foto_profil, dibuat_pada
       FROM users
       WHERE LOWER(email) = LOWER($1)
       LIMIT 1;
@@ -16,7 +16,7 @@ class AuthRepository {
     const sql = `
       INSERT INTO users (nama, email, kata_sandi_hash, peran, deskripsi_profil)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING user_id, nama, email, peran, status_verifikasi, deskripsi_profil, dibuat_pada;
+      RETURNING user_id, nama, email, peran, status_verifikasi, deskripsi_profil, foto_profil, dibuat_pada;
     `;
     const { rows } = await db.query(sql, [
       nama,

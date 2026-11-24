@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
+// Disajikan dalam 1 service bersama backend Express pada path /admin/
 export default defineConfig({
+  base: '/admin/',
   plugins: [react()],
   server: {
     port: 5173,

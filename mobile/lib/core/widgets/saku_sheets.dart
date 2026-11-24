@@ -1,11 +1,13 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
 import 'saku_buttons.dart';
 
-/// Bottom sheet SakuSkill (Figma "Bottom sheet · …"): radius atas 24,
-/// padding 20, drag handle 36×4 #CBD5E1, jarak antar-elemen 10.
+/// Bottom sheet SakuSkill (Glassmorphism + Claymorphism): radius atas 28,
+/// padding 20, drag handle 36×4, jarak antar-elemen 10.
 /// Muncul dari bawah 280 ms easeOutCubic di atas scrim slate.
 Future<T?> showSakuSheet<T>(
   BuildContext context, {
@@ -17,10 +19,10 @@ Future<T?> showSakuSheet<T>(
     useSafeArea: true,
     // Handle digambar sendiri sesuai Figma (36×4 #CBD5E1).
     showDragHandle: false,
-    backgroundColor: AppColors.cardSurface,
+    backgroundColor: Colors.transparent,
     barrierColor: AppColors.scrim,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
     sheetAnimationStyle: const AnimationStyle(
       duration: Duration(milliseconds: 280),
@@ -29,27 +31,44 @@ Future<T?> showSakuSheet<T>(
     ),
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 10,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.dashedBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xEBFFFFFF),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.92),
+                width: 1.2,
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 10,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.dashedBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    builder(ctx),
+                  ],
                 ),
               ),
-              builder(ctx),
-            ],
+            ),
           ),
         ),
       ),

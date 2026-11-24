@@ -5,6 +5,9 @@ const { pool } = require('./config/database');
 const server = app.listen(env.port, '0.0.0.0', () => {
   console.log('[SERVER] SakuSkill API berjalan pada http://localhost:' + env.port + env.apiPrefix);
   console.log('[SERVER] Health-check endpoint: http://localhost:' + env.port + env.apiPrefix + '/health');
+  pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS foto_profil TEXT;').catch((err) => {
+    console.error('[DB_MIGRATION] Gagal memastikan kolom foto_profil:', err.message);
+  });
 });
 
 const shutdown = async (signal) => {

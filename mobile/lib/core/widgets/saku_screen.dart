@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_dimens.dart';
 import 'saku_icon.dart';
 
 /// Kerangka layar dari Figma ("Scrollable screen"): padding 20 sisi,
@@ -52,7 +55,15 @@ class SakuScreen extends StatelessWidget {
             spacing: gap,
             children: [
               for (var i = 0; i < items.length; i++)
-                animateIn ? FadeSlideIn(index: i, child: items[i]) : items[i],
+                animateIn
+                    ? FadeSlideIn(
+                        key: items[i].key == null
+                            ? null
+                            : ValueKey(('fade_slide', items[i].key)),
+                        index: i,
+                        child: items[i],
+                      )
+                    : items[i],
             ],
           ),
         ),
@@ -85,8 +96,9 @@ class BackArrowButton extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderLight),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.clayBorder, width: 1.2),
+            boxShadow: AppShadows.card,
           ),
           child: SakuIcon(SakuIcons.back, size: 22, color: color),
         ),
@@ -133,7 +145,7 @@ class SakuTopBar extends StatelessWidget {
   }
 }
 
-/// Bar aksi bawah putih dengan garis atas (dipakai layar dengan CTA tetap).
+/// Bar aksi bawah kaca buram (Glassmorphism) dengan garis atas lembut.
 class StickyActionBar extends StatelessWidget {
   const StickyActionBar({super.key, required this.child});
 
@@ -142,15 +154,28 @@ class StickyActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.cardSurface,
-        border: Border(top: BorderSide(color: AppColors.borderLight)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: child,
+      decoration: const BoxDecoration(boxShadow: AppShadows.navBar),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.84),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  width: 1.2,
+                ),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: child,
+              ),
+            ),
+          ),
         ),
       ),
     );

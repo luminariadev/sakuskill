@@ -11,6 +11,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/widgets/saku_icon.dart';
+import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../domain/entities/discovery_filter.dart';
 import '../../domain/entities/service_listing.dart';
@@ -57,7 +58,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           LatLng(origin.latitude - dLat, origin.longitude - dLng),
           LatLng(origin.latitude + dLat, origin.longitude + dLng),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 150, 24, 230),
+        padding: const EdgeInsets.fromLTRB(24, 150, 24, 235),
       ),
     );
   }
@@ -204,13 +205,14 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    DecoratedBox(
-                      decoration: const BoxDecoration(
-                        borderRadius: AppRadius.pillBr,
-                        boxShadow: AppShadows.flat,
-                      ),
+                    SakuGlassContainer(
+                      radius: 999,
+                      blur: 16,
+                      tint: AppColors.glassFill,
+                      borderColor: AppColors.glassBorder,
+                      boxShadow: AppShadows.card,
                       child: SizedBox(
                         height: 46,
                         child: TextField(
@@ -218,73 +220,67 @@ class _CampusMapPageState extends State<CampusMapPage> {
                           controller: _search,
                           onChanged: (_) => setState(() {}),
                           style: const TextStyle(fontSize: 12),
-                          // expands: dekorasi (border pill) mengisi tinggi 46.
+                          // expands: dekorasi mengisi tinggi 46.
                           expands: true,
                           maxLines: null,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: const InputDecoration(
                             hintText: 'Cari talenta atau lowongan sekitar Anda...',
                             hintStyle: TextStyle(
-                              fontSize: 11,
+                              fontSize: 11.5,
                               color: AppColors.textSecondary,
                             ),
-                            filled: true,
-                            fillColor: AppColors.cardSurface,
+                            filled: false,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                             prefixIcon: Padding(
-                              padding: EdgeInsets.only(left: 13, right: 11),
+                              padding: EdgeInsets.only(left: 14, right: 10),
                               child: SakuIcon(
                                 SakuIcons.search,
-                                size: 22,
+                                size: 20,
                                 color: AppColors.textSecondary,
                               ),
                             ),
                             prefixIconConstraints:
                                 BoxConstraints(minWidth: 44, minHeight: 20),
-                            border: OutlineInputBorder(
-                              borderRadius: AppRadius.pillBr,
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: AppRadius.pillBr,
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: AppRadius.pillBr,
-                              borderSide: BorderSide(color: AppColors.primary),
-                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     RadiusPills(
                       value: filter.radiusMeters,
                       onChanged: controller.setRadius,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Row(
                       spacing: 8,
                       children: [
-                        FilterChipPill(
-                          key: const Key('map-kind-offer'),
-                          label: 'Talenta Penyedia Jasa',
-                          selected: filter.kind == ListingKind.offer,
-                          onTap: () => controller.setKind(
-                            filter.kind == ListingKind.offer
-                                ? null
-                                : ListingKind.offer,
+                        Expanded(
+                          child: FilterChipPill(
+                            key: const Key('map-kind-offer'),
+                            label: 'Talenta Penyedia Jasa',
+                            selected: filter.kind == ListingKind.offer,
+                            onTap: () => controller.setKind(
+                              filter.kind == ListingKind.offer
+                                  ? null
+                                  : ListingKind.offer,
+                            ),
                           ),
                         ),
-                        FilterChipPill(
-                          key: const Key('map-kind-request'),
-                          label: 'Permintaan Kebutuhan',
-                          selected: filter.kind == ListingKind.request,
-                          onTap: () => controller.setKind(
-                            filter.kind == ListingKind.request
-                                ? null
-                                : ListingKind.request,
+                        Expanded(
+                          child: FilterChipPill(
+                            key: const Key('map-kind-request'),
+                            label: 'Permintaan Kebutuhan',
+                            selected: filter.kind == ListingKind.request,
+                            onTap: () => controller.setKind(
+                              filter.kind == ListingKind.request
+                                  ? null
+                                  : ListingKind.request,
+                            ),
                           ),
                         ),
                       ],
@@ -314,7 +310,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           Positioned(
             left: 20,
             right: 20,
-            bottom: 16,
+            bottom: MediaQuery.paddingOf(context).bottom + 14,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,

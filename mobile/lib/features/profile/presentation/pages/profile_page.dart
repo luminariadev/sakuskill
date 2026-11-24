@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/demo/demo_assets.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../auth/data/auth_session.dart';
@@ -22,6 +24,21 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   bool _loggingOut = false;
+  bool _syncedFinance = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_syncedFinance) {
+      _syncedFinance = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        AccountFinanceStore.instance.refreshLive(
+          escrowRepository: AppScope.of(context).escrowRepository,
+        );
+      });
+    }
+  }
 
   Future<void> _confirmLogout() async {
     if (_loggingOut) return;
@@ -57,6 +74,7 @@ class _ProfilePageState extends State<ProfilePage> {
       try {
         await auth.logout();
         AuthSession.instance.clear();
+        AccountFinanceStore.instance.resetForLogout();
         if (!mounted) return;
         SakuMotion.tick();
         messenger.showSnackBar(
@@ -75,8 +93,8 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final session = AuthSession.instance;
-    final userName = session.userName ?? 'Salma Nur Oktavia';
-    final userEmail = session.userEmail ?? 'salma@gmail.com';
+    final userName = session.userName ?? 'Mahasiswa SakuSkill';
+    final userEmail = session.userEmail ?? '';
     final userRole = session.userRole ?? 'Mahasiswa Dual-Mode';
 
     return Scaffold(
@@ -101,29 +119,48 @@ class _ProfilePageState extends State<ProfilePage> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
-          // Header Kartu Profil
-          Container(
+          // Header Kartu Profil (Claymorphism + Foto Profil / Avatar Inisial)
+          SakuCard(
+            radius: 20,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderLight),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
             child: Column(
               children: [
                 Row(
                   children: [
-                    PhotoAvatar(
-                      name: userName,
-                      asset: DemoAssets.salma,
-                      size: 64,
+                    GestureDetector(
+                      onTap: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.profileSetup),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          ValueListenableBuilder<String?>(
+                            valueListenable: AuthSession.instance.photoUrlNotifier,
+                            builder: (_, photoUrl, __) => InitialsAvatar(
+                              name: userName,
+                              size: 64,
+                              photoUrl: photoUrl,
+                            ),
+                          ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -138,14 +175,16 @@ class _ProfilePageState extends State<ProfilePage> {
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            userEmail,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
+                          if (userEmail.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              userEmail,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
-                          ),
+                          ],
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -154,7 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               userRole,
@@ -173,15 +212,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 14),
                 const Divider(height: 1),
                 const SizedBox(height: 12),
-                Row(
+                const Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.verified_user_rounded,
                       size: 16,
                       color: AppColors.primary,
                     ),
-                    const SizedBox(width: 6),
-                    const Expanded(
+                    SizedBox(width: 6),
+                    Expanded(
                       child: Text(
                         'KTM Terverifikasi · UIN Sunan Gunung Djati Bandung',
                         style: TextStyle(
@@ -199,79 +238,75 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 16),
 
-          // Ringkasan Dompet & Aktivitas
-          Row(
-            children: [
-              Expanded(
-                child: PressableScale(
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.wallet),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderLight),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Saldo Escrow',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+          // Ringkasan Dompet & Aktivitas (tersinkronisasi penuh)
+          ListenableBuilder(
+            listenable: AccountFinanceStore.instance,
+            builder: (context, _) {
+              final finance = AccountFinanceStore.instance;
+              return Row(
+                children: [
+                  Expanded(
+                    child: SakuCard(
+                      radius: 16,
+                      padding: const EdgeInsets.all(14),
+                      onTap: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.wallet),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Saldo Escrow',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Rp 450.000',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                          const SizedBox(height: 4),
+                          Text(
+                            formatRupiah(finance.availableBalance),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: PressableScale(
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.myServices),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderLight),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Jasa Ditawarkan',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '3 Layanan',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SakuCard(
+                      radius: 16,
+                      padding: const EdgeInsets.all(14),
+                      onTap: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.myServices),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Jasa Ditawarkan',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${finance.myServiceCount} Layanan',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 20),
@@ -283,12 +318,9 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 8),
 
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderLight),
-            ),
+          SakuCard(
+            radius: 20,
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _buildMenuItem(
@@ -321,9 +353,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 const Divider(height: 1, indent: 56),
                 _buildMenuItem(
                   icon: Icons.support_agent_rounded,
-                  title: 'Pusat Bantuan & Pengaduan',
-                  subtitle: 'Laporkan kendala transaksi atau joki ilegal',
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.complaint),
+                  title: 'Pusat Bantuan & Panduan',
+                  subtitle: 'Cara transaksi aman & riwayat komplain Anda',
+                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.helpCenter),
                 ),
               ],
             ),
@@ -362,13 +394,12 @@ class _ProfilePageState extends State<ProfilePage> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: AppColors.primary, size: 20),
+      leading: ClayIconBadge(
+        size: 38,
+        radius: 12,
+        tint: AppColors.primary,
+        icon: icon,
+        iconSize: 20,
       ),
       title: Text(
         title,

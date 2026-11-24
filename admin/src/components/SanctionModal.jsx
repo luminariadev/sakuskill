@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Modal } from './Modal';
-import { ShieldAlert, AlertTriangle, UserX, Clock, Ban } from 'lucide-react';
+import { AlertTriangle, Clock, Ban, CheckCircle2 } from 'lucide-react';
 
 export function SanctionModal({ isOpen, onClose, user, onSanction }) {
-  const [sanctionType, setSanctionType] = useState('Bekukan Akun Sementara (7 Hari)');
-  const [reason, setReason] = useState('Upaya transaksi bypass rekening bersama (WhatsApp)');
+  const [sanctionType, setSanctionType] = useState('Peringatan Resmi');
+  const [reason, setReason] = useState('Upaya transaksi bypass rekening bersama (Escrow)');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -14,142 +14,145 @@ export function SanctionModal({ isOpen, onClose, user, onSanction }) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSanction(user.user_id, sanctionType, `${reason}. ${notes}`);
+      const detail = notes.trim() ? `${reason}. ${notes.trim()}` : reason;
+      await onSanction(user.user_id, sanctionType, detail);
+      setNotes('');
       onClose();
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const options = [
+    {
+      id: 'Peringatan Resmi',
+      title: 'Peringatan Resmi (Tingkat 1)',
+      desc: 'Mencatat peringatan pelanggaran resmi pada profil & audit log.',
+      icon: AlertTriangle,
+      tone: 'text-[#B45309]',
+    },
+    {
+      id: 'Bekukan Akun Sementara (7 Hari)',
+      title: 'Bekukan Akun Sementara (7 Hari)',
+      desc: 'Menandai akun dibekukan sementara atas pelanggaran etika/transaksi.',
+      icon: Clock,
+      tone: 'text-[#DC2626]',
+    },
+    {
+      id: 'Blokir Permanen',
+      title: 'Blokir Permanen Akun',
+      desc: 'Menonaktifkan status akun pengguna secara permanen.',
+      icon: Ban,
+      tone: 'text-[#DC2626]',
+    },
+    {
+      id: 'Pulihkan Akun (Aktif)',
+      title: 'Pulihkan Status Akun (Aktif Kembali)',
+      desc: 'Mencabut sanksi sebelumnya dan mengembalikan status akun menjadi Aktif.',
+      icon: CheckCircle2,
+      tone: 'text-[#059669]',
+    },
+  ];
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Tindakan Moderasi & Sanksi Akun" maxWidth="max-w-lg">
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Info Pelanggar */}
-        <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-slate-400">Target Mahasiswa</span>
-            <p className="text-sm font-bold text-white">{user.nama}</p>
-            <p className="text-xs text-slate-400 font-mono">NIM: {user.nim || '2104921'}</p>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Tindakan Moderasi & Status Sanksi Akun"
+      maxWidth="max-w-lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="clay-tile p-3.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[11px] text-[#64748B] font-semibold">Target Pengguna</span>
+            <p className="text-sm font-extrabold text-[#0F172A] truncate">{user.nama}</p>
+            <p className="text-xs text-[#64748B] font-mono truncate">{user.email}</p>
           </div>
-          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-rose-950/60 text-rose-400 border border-rose-800/40">
-            Terindikasi Pelanggaran
+          <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] shrink-0">
+            {user.status_akun || 'Aktif'}
           </span>
         </div>
 
-        {/* Pilihan Jenis Sanksi */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Tingkat Sanksi yang Dikenakan
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#64748B] mb-2">
+            Pilihan Tindakan Sanksi
           </label>
           <div className="space-y-2">
-            {[
-              {
-                id: 'Peringatan Resmi',
-                title: 'Peringatan Resmi (Tingkat 1)',
-                desc: 'Mengirimkan surat teguran dan peringatan sistem via notifikasi & email.',
-                icon: AlertTriangle,
-                color: 'text-amber-400',
-              },
-              {
-                id: 'Bekukan Akun Sementara (7 Hari)',
-                title: 'Bekukan Akun Sementara (7 Hari)',
-                desc: 'Akun tidak dapat menerbitkan gig atau menerima order selama 7 hari.',
-                icon: Clock,
-                color: 'text-orange-400',
-              },
-              {
-                id: 'Blokir Permanen',
-                title: 'Blokir Permanen & Blacklist NIM',
-                desc: 'Akses akun dimatikan total dan NIM dimasukkan ke daftar hitam kampus.',
-                icon: Ban,
-                color: 'text-rose-400',
-              },
-            ].map((opt) => {
+            {options.map((opt) => {
               const Icon = opt.icon;
               const isSelected = sanctionType === opt.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={opt.id}
                   onClick={() => setSanctionType(opt.id)}
-                  className={`p-3.5 rounded-xl border cursor-pointer transition flex items-start gap-3 ${
+                  className={`w-full text-left p-3 rounded-2xl border transition flex items-start gap-3 ${
                     isSelected
-                      ? 'bg-rose-950/20 border-rose-600/70 shadow-sm'
-                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                      ? 'bg-[#ECFDF5]/60 border-[#059669] shadow-clay-sm'
+                      : 'bg-white border-[#E6EFEA] hover:border-[#CBD5E1]'
                   }`}
                 >
-                  <div
-                    className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center ${
-                      isSelected ? 'border-rose-500 bg-rose-500' : 'border-slate-600'
-                    }`}
-                  >
-                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
-                  </div>
+                  <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${opt.tone}`} />
                   <div className="flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <Icon className={`w-3.5 h-3.5 ${opt.color}`} />
-                      <p className="text-xs font-bold text-white">{opt.title}</p>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5">{opt.desc}</p>
+                    <p className="text-xs font-bold text-[#0F172A]">{opt.title}</p>
+                    <p className="text-[11px] text-[#64748B] mt-0.5">{opt.desc}</p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
 
-        {/* Alasan Pelanggaran */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-            Kategori Pelanggaran
+          <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+            Kategori Alasan
           </label>
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-emerald-500"
+            className="w-full px-3.5 py-2.5 rounded-2xl bg-white border border-[#DCE5E0] text-xs text-[#0F172A] focus:outline-none focus:border-[#059669]"
           >
-            <option value="Upaya transaksi bypass rekening bersama (WhatsApp)">
+            <option value="Upaya transaksi bypass rekening bersama (Escrow)">
               Bypass Rekening Bersama Escrow (Ajakan Transfer Manual)
             </option>
             <option value="Pelanggaran Etika & Kejujuran Akademik (Anti-Joki)">
               Pelanggaran Integritas Akademik (Jasa Joki Tugas/Skripsi)
             </option>
-            <option value="Penipuan atau hasil kerja fiktif">Penipuan atau Hasil Kerja Fiktif</option>
-            <option value="Spam dan pelecehan komunikasi antar-mahasiswa">
-              Spam dan Pelecehan Komunikasi Chat
+            <option value="Keterlambatan ekstrem atau hasil kerja tidak sesuai">
+              Keterlambatan / Hasil Kerja Tidak Sesuai Kesepakatan
+            </option>
+            <option value="Pemulihan akun setelah klarifikasi">
+              Pemulihan Akun Setelah Klarifikasi
             </option>
           </select>
         </div>
 
-        {/* Catatan Admin */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-            Keterangan & Catatan Berita Acara
+          <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+            Catatan Berita Acara
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Tuliskan nomor tiket laporan pengaduan atau bukti pelanggaran..."
-            className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 transition resize-none h-16"
-          ></textarea>
+            placeholder="Tuliskan nomor tiket laporan atau alasan terperinci..."
+            className="w-full px-3.5 py-2 rounded-2xl bg-white border border-[#DCE5E0] text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#059669] transition resize-none h-16"
+          />
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E6EFEA]">
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="px-4 py-2 rounded-2xl text-xs font-bold text-[#475569] bg-[#F0F4F2] hover:bg-[#E2EBE6] transition"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition shadow-lg shadow-rose-950/40 disabled:opacity-50"
+            className="clay-btn-primary px-5 py-2.5 text-xs"
           >
-            <ShieldAlert className="w-4 h-4" />
-            Terapkan Sanksi Akun
+            {isSubmitting ? 'Menyimpan...' : 'Terapkan Status Akun'}
           </button>
         </div>
       </form>

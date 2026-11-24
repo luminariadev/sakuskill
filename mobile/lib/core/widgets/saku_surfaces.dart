@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
@@ -36,8 +38,116 @@ extension SakuToneColors on SakuTone {
       };
 }
 
-/// Kotak informasi berwarna (Figma "Information"): padding 12, radius 14,
-/// teks 12/17. Bisa berisi teks atau widget bebas.
+/// Permukaan kaca buram (Glassmorphism) dengan rim putih terang & bayangan
+/// di luar area klip agar tepi tetap lembut dan kontras teks selalu tinggi.
+class SakuGlassContainer extends StatelessWidget {
+  const SakuGlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.radius = 20,
+    this.blur = 18,
+    this.tint = AppColors.glassFill,
+    this.borderColor = AppColors.glassBorder,
+    this.borderWidth = 1.2,
+    this.boxShadow = AppShadows.card,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final double radius;
+  final double blur;
+  final Color tint;
+  final Color borderColor;
+  final double borderWidth;
+  final List<BoxShadow>? boxShadow;
+
+  @override
+  Widget build(BuildContext context) {
+    final br = BorderRadius.circular(radius);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: br,
+        boxShadow: boxShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: br,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: tint,
+              borderRadius: br,
+              border: Border.all(color: borderColor, width: borderWidth),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Medallion ikon bergaya 3D Claymorphism lembut dengan highlight putih.
+class ClayIconBadge extends StatelessWidget {
+  const ClayIconBadge({
+    super.key,
+    this.icon,
+    this.child,
+    this.size = 40,
+    this.iconSize = 20,
+    this.radius = 14,
+    required this.tint,
+    this.surfaceTop,
+    this.surfaceBottom,
+  }) : assert(icon != null || child != null);
+
+  final IconData? icon;
+  final Widget? child;
+  final double size;
+  final double iconSize;
+  final double radius;
+  final Color tint;
+  final Color? surfaceTop;
+  final Color? surfaceBottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = surfaceTop ?? Color.lerp(tint, Colors.white, 0.88)!;
+    final bottom = surfaceBottom ?? Color.lerp(tint, Colors.white, 0.72)!;
+
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [top, bottom],
+        ),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.88),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tint.withValues(alpha: 0.22),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: child ?? Icon(icon, size: iconSize, color: tint),
+    );
+  }
+}
+
+/// Kotak informasi berwarna (Figma "Information"): padding 12, radius 16,
+/// rim halus senada, teks 12/17. Bisa berisi teks atau widget bebas.
 class InfoBox extends StatelessWidget {
   const InfoBox({
     super.key,
@@ -63,7 +173,11 @@ class InfoBox extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: tone.surface,
-        borderRadius: AppRadius.cardBr,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: tone.text.withValues(alpha: 0.14),
+          width: 1.2,
+        ),
       ),
       child: child ??
           Text(
@@ -98,6 +212,10 @@ class StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: tone.surface,
         borderRadius: AppRadius.pillBr,
+        border: Border.all(
+          color: tone.badgeText.withValues(alpha: 0.18),
+          width: 1.2,
+        ),
       ),
       child: Text(
         label,
@@ -112,8 +230,8 @@ class StatusBadge extends StatelessWidget {
   }
 }
 
-/// Kartu putih radius 14 (kartu layanan / ringkasan). Bila [onTap] diisi,
-/// kartu mengecil halus saat ditekan.
+/// Kartu putih claymorphism radius 18 (kartu layanan / ringkasan).
+/// Bila [onTap] diisi, kartu mengecil halus saat ditekan.
 class SakuCard extends StatelessWidget {
   const SakuCard({
     super.key,
@@ -123,7 +241,7 @@ class SakuCard extends StatelessWidget {
     this.color = AppColors.cardSurface,
     this.border = true,
     this.elevated = true,
-    this.radius = AppRadius.card,
+    this.radius = 18,
   });
 
   final Widget child;
@@ -136,14 +254,24 @@ class SakuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useShadow = elevated && color == AppColors.cardSurface;
+    final isClayWhite = color == AppColors.cardSurface;
+    final useShadow = elevated && isClayWhite;
     final card = Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: color,
+        color: isClayWhite ? null : color,
+        gradient: isClayWhite
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.clayTop, AppColors.clayBottom],
+              )
+            : null,
         borderRadius: BorderRadius.circular(radius),
-        border: border ? Border.all(color: AppColors.borderLight) : null,
+        border: border
+            ? Border.all(color: AppColors.clayBorder, width: 1.2)
+            : null,
         boxShadow: useShadow ? AppShadows.card : null,
       ),
       child: child,
@@ -248,11 +376,16 @@ class StatusStrip extends StatelessWidget {
     final box = AnimatedContainer(
       duration: SakuMotion.base,
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: background ?? tone.surface,
-        borderRadius: AppRadius.cardBr,
-        border: bordered ? Border.all(color: AppColors.borderLight) : null,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: bordered
+              ? AppColors.clayBorder
+              : tone.text.withValues(alpha: 0.12),
+          width: 1.2,
+        ),
       ),
       child: Row(
         children: [

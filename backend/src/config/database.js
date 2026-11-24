@@ -3,7 +3,7 @@ const env = require('./env');
 
 const connectionString = process.env.DATABASE_URL;
 const isProduction = env.nodeEnv === 'production';
-const needsSsl = connectionString?.includes('sslmode=require') || connectionString?.includes('neon.tech') || connectionString?.includes('supabase.co') || isProduction;
+const needsSsl = connectionString?.includes('sslmode=require') || connectionString?.includes('neon.tech') || connectionString?.includes('supabase.co') || connectionString?.includes('supabase.com') || isProduction;
 
 const poolConfig = connectionString
   ? {
@@ -11,7 +11,7 @@ const poolConfig = connectionString
       ssl: needsSsl ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: 15000,
     }
   : {
       host: env.db.host,

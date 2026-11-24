@@ -88,6 +88,19 @@ const createBarterReviewSchema = z.object({
   }),
 });
 
+const createBarterMessageSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Format ID barter harus berupa UUID yang valid.'),
+  }),
+  body: z.object({
+    isi_pesan: z
+      .string({ required_error: 'Isi pesan wajib diisi.' })
+      .trim()
+      .min(1, 'Pesan tidak boleh kosong.')
+      .max(2000),
+  }),
+});
+
 module.exports = {
   createBarterSchema,
   barterIdParamSchema,
@@ -96,4 +109,5 @@ module.exports = {
   barterReasonSchema,
   updateBarterStatusSchema,
   createBarterReviewSchema,
+  createBarterMessageSchema,
 };

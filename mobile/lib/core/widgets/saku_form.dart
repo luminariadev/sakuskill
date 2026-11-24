@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../motion/saku_motion.dart';
 import '../theme/app_colors.dart';
@@ -141,6 +142,7 @@ class SakuTextField extends StatefulWidget {
     this.readOnly = false,
     this.onTap,
     this.fieldKey,
+    this.inputFormatters,
     this.validator,
     this.autovalidateMode = AutovalidateMode.disabled,
   });
@@ -163,6 +165,7 @@ class SakuTextField extends StatefulWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final Key? fieldKey;
+  final List<TextInputFormatter>? inputFormatters;
 
   /// Validator (mis. dari [SakuValidators]). Bila diisi, field menjadi
   /// [FormField] sehingga ikut `Form.of(context).validate()`; pesan error
@@ -176,23 +179,52 @@ class SakuTextField extends StatefulWidget {
 }
 
 class _SakuTextFieldState extends State<SakuTextField> {
-  late final TextEditingController _controller =
-      widget.controller ?? TextEditingController(text: widget.initialValue);
+  late TextEditingController _controller;
+  late bool _ownsController;
   final FocusNode _focus = FocusNode();
   late bool _hidden = widget.obscure;
+
+  void _onFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onControllerChanged() {
+    if (mounted && widget.maxLength != null) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() => setState(() {}));
-    _controller.addListener(() {
-      if (widget.maxLength != null) setState(() {});
-    });
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ?? TextEditingController(text: widget.initialValue);
+    _focus.addListener(_onFocusChanged);
+    _controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant SakuTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      _controller.removeListener(_onControllerChanged);
+      if (_ownsController) {
+        _controller.dispose();
+      }
+      _ownsController = widget.controller == null;
+      _controller =
+          widget.controller ?? TextEditingController(text: widget.initialValue);
+      _controller.addListener(_onControllerChanged);
+    }
+    if (widget.obscure != oldWidget.obscure) {
+      _hidden = widget.obscure;
+    }
   }
 
   @override
   void dispose() {
-    if (widget.controller == null) _controller.dispose();
+    _controller.removeListener(_onControllerChanged);
+    if (_ownsController) _controller.dispose();
+    _focus.removeListener(_onFocusChanged);
     _focus.dispose();
     super.dispose();
   }
@@ -225,21 +257,40 @@ class _SakuTextFieldState extends State<SakuTextField> {
         ? AppColors.danger
         : _focus.hasFocus
             ? AppColors.primary
-            : AppColors.borderLight;
-    final borderWidth = hasError || _focus.hasFocus ? 1.5 : 1.0;
+            : AppColors.clayBorder;
+    final borderWidth = hasError || _focus.hasFocus ? 1.5 : 1.2;
     final iconColor = hasError
         ? AppColors.danger
         : _focus.hasFocus
             ? AppColors.primary
             : AppColors.textSecondary;
 
+    final List<BoxShadow>? halo = hasError
+        ? [
+            BoxShadow(
+              color: AppColors.danger.withValues(alpha: 0.14),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ]
+        : _focus.hasFocus
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.14),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null;
+
     final field = AnimatedContainer(
       duration: SakuMotion.base,
       curve: SakuMotion.curve,
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: AppRadius.inputBr,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor, width: borderWidth),
+        boxShadow: halo,
       ),
       padding: EdgeInsets.fromLTRB(
         widget.icon != null ? 10 : 12,
@@ -274,6 +325,7 @@ class _SakuTextFieldState extends State<SakuTextField> {
                   focusNode: _focus,
                   obscureText: _hidden,
                   keyboardType: widget.keyboardType,
+                  inputFormatters: widget.inputFormatters,
                   textInputAction: widget.textInputAction,
                   minLines: widget.obscure ? 1 : widget.minLines,
                   maxLines: widget.obscure ? 1 : widget.maxLines,

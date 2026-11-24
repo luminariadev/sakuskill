@@ -6,6 +6,7 @@ import '../../features/auth/presentation/pages/profile_setup_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/barter/data/models/barter_model.dart';
 import '../../features/barter/presentation/pages/barter_chat_page.dart';
 import '../../features/barter/presentation/pages/barter_done_page.dart';
 import '../../features/barter/presentation/pages/barter_history_page.dart';
@@ -14,6 +15,7 @@ import '../../features/barter/presentation/pages/barter_offer_page.dart';
 import '../../features/barter/presentation/pages/barter_propose_page.dart';
 import '../../features/barter/presentation/pages/barter_workroom_page.dart';
 import '../../features/complaint/presentation/pages/complaint_page.dart';
+import '../../features/complaint/presentation/pages/help_center_page.dart';
 import '../../features/discovery/domain/entities/discovery_filter.dart';
 import '../../features/discovery/domain/entities/service_listing.dart';
 import '../../features/discovery/presentation/pages/search_page.dart';
@@ -77,6 +79,7 @@ abstract final class AppRoutes {
   // ---- Dompet & bantuan (25–26) ------------------------------------------
   static const String wallet = '/wallet'; // 25
   static const String complaint = '/complaint'; // 26
+  static const String helpCenter = '/help-center';
 
   /// Anggota 6 (AI Price Estimator).
   static const String priceEstimator = '/ai/price-estimator';
@@ -102,15 +105,11 @@ abstract final class AppRouter {
     AppRoutes.submitWork: (_) => const SubmitWorkPage(),
     AppRoutes.reviewWork: (_) => const ReviewWorkPage(),
     AppRoutes.orderDone: (_) => const OrderDonePage(),
-    AppRoutes.proposeBarter: (_) => const BarterProposePage(),
     AppRoutes.barterOffer: (_) => const BarterOfferPage(),
     AppRoutes.barterIncoming: (_) => const BarterIncomingPage(),
-    AppRoutes.barterChat: (_) => const BarterChatPage(),
-    AppRoutes.barterWorkroom: (_) => const BarterWorkroomPage(),
-    AppRoutes.barterDone: (_) => const BarterDonePage(),
     AppRoutes.barterHistory: (_) => const BarterHistoryPage(),
     AppRoutes.wallet: (_) => const WalletPage(),
-    AppRoutes.complaint: (_) => const ComplaintPage(),
+    AppRoutes.helpCenter: (_) => const HelpCenterPage(),
   };
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -144,6 +143,50 @@ abstract final class AppRouter {
           settings: settings,
           builder: (_) => OrderCreatePage(
             listing: listing is ServiceListing ? listing : null,
+          ),
+        );
+
+      case AppRoutes.proposeBarter:
+        final listing = settings.arguments;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => BarterProposePage(
+            targetListing: listing is ServiceListing ? listing : null,
+          ),
+        );
+
+      case AppRoutes.barterWorkroom:
+        final barter = settings.arguments;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => BarterWorkroomPage(
+            barter: barter is BarterAgreementModel ? barter : null,
+          ),
+        );
+
+      case AppRoutes.barterChat:
+        final barter = settings.arguments;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => BarterChatPage(
+            barter: barter is BarterAgreementModel ? barter : null,
+          ),
+        );
+
+      case AppRoutes.barterDone:
+        final barter = settings.arguments;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => BarterDonePage(
+            barter: barter is BarterAgreementModel ? barter : null,
+          ),
+        );
+
+      case AppRoutes.complaint:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ComplaintPage(
+            target: settings.arguments,
           ),
         );
 

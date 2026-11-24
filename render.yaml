@@ -2,15 +2,17 @@ services:
   - type: web
     name: sakuskill-backend
     runtime: node
-    rootDir: backend
+    rootDir: .
     plan: free
     region: singapore
-    buildCommand: npm install
-    startCommand: npm run start:prod
+    buildCommand: npm --prefix admin ci --include=dev && npm --prefix admin run build && npm --prefix backend ci --omit=dev
+    startCommand: npm --prefix backend run start:prod
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22.14.0
       - key: PORT
         value: 10000
       - key: API_PREFIX

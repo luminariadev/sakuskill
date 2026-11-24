@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
@@ -11,6 +13,7 @@ import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../../core/widgets/saku_transaction.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../data/datasources/escrow_remote_data_source.dart';
 import '../../data/models/escrow_order_model.dart';
 
@@ -35,9 +38,9 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
   }
 
   /// Menjalankan alur resmi API v1.3:
-  /// 1. POST /api/v1/payments -> status: pending[cite: 4]
-  /// 2. POST /api/v1/payments/:orderId/simulate-success (atau simulate-failed)[cite: 4]
-  /// 3. Ambil detail order terbaru dari server agar status_kode & paymentStatusKode sinkron[cite: 4].
+  /// 1. POST /api/v1/payments -> status: pending
+  /// 2. POST /api/v1/payments/:orderId/simulate-success (atau simulate-failed)
+  /// 3. Ambil detail order terbaru dari server agar status_kode & paymentStatusKode sinkron.
   Future<void> _processPaymentSimulation(
     EscrowOrderModel? currentOrder, {
     required bool isSuccess,
@@ -51,19 +54,19 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
     final repo = AppScope.of(context).escrowRepository;
 
     try {
-      // Langkah 1: Inisiasi (atau reset) record pembayaran di backend -> status "pending"[cite: 4]
+      // Langkah 1: Inisiasi (atau reset) record pembayaran di backend -> status "pending"
       await repo.startPayment(orderId);
 
-      // Langkah 2: Jalankan simulasi sukses atau gagal[cite: 4]
+      // Langkah 2: Jalankan simulasi sukses atau gagal
       final simResult = await repo.simulatePayment(
         orderId,
         berhasil: isSuccess,
         alasanGagal: isSuccess
             ? null
-            : 'Simulasi saldo tidak mencukupi untuk demonstrasi alur gagal[cite: 4].',
+            : 'Simulasi saldo tidak mencukupi untuk demonstrasi alur gagal.',
       );
 
-      // Langkah 3: Tarik ulang detail order terbaru dari server[cite: 4]
+      // Langkah 3: Tarik ulang detail order terbaru dari server
       final detailResult = await repo.fetchOrderDetail(orderId);
       final updatedOrder = detailResult.isFallback
           ? (currentOrder ?? detailResult.data).copyWith(
@@ -99,7 +102,7 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
           SnackBar(
             content: const Text(
               'Simulasi Pembayaran GAGAL. Order tertahan di status Disepakati '
-              'dan penyedia belum bisa memulai pekerjaan[cite: 4].',
+              'dan penyedia belum bisa memulai pekerjaan.',
             ),
             backgroundColor: Colors.orange.shade800,
           ),
@@ -110,12 +113,12 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
       String errorMessage = e.message;
       if (e.code == 'INVALID_ORDER_STATE_FOR_PAYMENT') {
         errorMessage =
-            'Pesanan harus disetujui penyedia terlebih dahulu sebelum dibayar[cite: 4].';
+            'Pesanan harus disetujui penyedia terlebih dahulu sebelum dibayar.';
       } else if (e.code == 'FORBIDDEN_ONLY_CUSTOMER') {
         errorMessage =
-            'Hanya pelanggan yang membuat pesanan yang dapat melakukan pembayaran[cite: 4].';
+            'Hanya pelanggan yang membuat pesanan yang dapat melakukan pembayaran.';
       } else if (e.code == 'PAYMENT_ALREADY_SUCCESS') {
-        errorMessage = 'Pesanan ini sudah berhasil dibayar sebelumnya[cite: 4].';
+        errorMessage = 'Pesanan ini sudah berhasil dibayar sebelumnya.';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -149,6 +152,61 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
     final amount = formatRupiah(rawAmount);
     final providerName =
         currentOrder?.namaLawanTransaksi?.split(' ').first ?? 'Salma';
+
+    final myId = AuthSession.instance.userId;
+    final lawanRole = (currentOrder?.peranLawanTransaksi ?? '').toLowerCase();
+    final bool isProviderRole = currentOrder != null &&
+        ((currentOrder.penyediaId?.isNotEmpty == true && myId != null)
+            ? currentOrder.penyediaId!.toLowerCase() == myId.toLowerCase()
+            : lawanRole.contains('pelanggan'));
+
+    if (isProviderRole && !AppConfig.useMockData) {
+      return SakuScreen(
+        background: AppColors.canvasLight,
+        showBack: true,
+        children: [
+          const PageHeader('Pembayaran\nRekening Bersama'),
+          Text(
+            orderCode,
+            style: AppTypography.mono.copyWith(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          SakuCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 12,
+              children: [
+                Text(
+                  serviceTitle,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 21 / 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                AmountRow('Nilai Proyek yang Akan Anda Terima', amount, total: true),
+              ],
+            ),
+          ),
+          const InfoBox(
+            text:
+                'Anda berperan sebagai Penyedia Jasa pada pesanan ini. Pelanggan '
+                'yang melakukan pembayaran & penguncian dana ke Rekening Bersama Escrow. '
+                'Dana akan otomatis diteruskan ke saldo Anda setelah pekerjaan disetujui pelanggan.',
+            tone: SakuTone.escrow,
+            fontWeight: FontWeight.w500,
+          ),
+          SakuButton(
+            key: const Key('payment-provider-back'),
+            label: 'Kembali ke Detail Pesanan',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      );
+    }
 
     return SakuScreen(
       background: AppColors.canvasLight,
@@ -199,11 +257,15 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
             color: AppColors.textPrimary,
           ),
         ),
-        SelectableOption(
-          title: 'Saldo Dompet SakuSkill',
-          subtitle: 'Tersedia ${formatRupiah(DemoData.balance)}',
-          selected: _method == 0,
-          onTap: () => setState(() => _method = 0),
+        ListenableBuilder(
+          listenable: AccountFinanceStore.instance,
+          builder: (context, _) => SelectableOption(
+            title: 'Saldo Dompet SakuSkill',
+            subtitle:
+                'Tersedia ${formatRupiah(AccountFinanceStore.instance.availableBalance)}',
+            selected: _method == 0,
+            onTap: () => setState(() => _method = 0),
+          ),
         ),
         SelectableOption(
           title: 'Transfer Bank Otomatis',
@@ -218,7 +280,7 @@ class _EscrowPaymentPageState extends State<EscrowPaymentPage> {
         ),
         InfoBox(
           text:
-              'DISCLAIMER MVP: Bukan uang sungguhan & bukan rekening escrow perbankan nyata[cite: 4]. '
+              'DISCLAIMER MVP: Bukan uang sungguhan & bukan rekening escrow perbankan nyata. '
               'Dana simulasi hanya diteruskan ke $providerName setelah Anda menyetujui hasil kerja.',
           tone: SakuTone.escrow,
           fontWeight: FontWeight.w500,

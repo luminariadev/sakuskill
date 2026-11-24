@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../utils/geo.dart';
@@ -22,9 +21,9 @@ abstract final class AppConfig {
     return false;
   }
 
-  /// Base URL sesuai docs/API_CONTRACT.md. Default menggunakan Cloudflare Tunnel
-  /// publik HTTPS sehingga HP dapat langsung mengakses backend dari jaringan mana pun
-  /// (Wi-Fi kampus, hotspot, maupun kuota seluler HP) tanpa perlu satu jaringan.
+  /// Base URL sesuai docs/API_CONTRACT.md. Default mengarah ke backend HTTPS
+  /// cloud di Render (bisa di-override saat build atau runtime lewat
+  /// `--dart-define=API_BASE_URL=...`) sehingga HP langsung terhubung dari jaringan mana pun.
   static String get apiBaseUrl {
     if (customServerUrl != null && customServerUrl!.isNotEmpty) {
       return customServerUrl!;
@@ -33,7 +32,7 @@ abstract final class AppConfig {
     return 'https://sakuskill-backend.onrender.com/api/v1';
   }
 
-  static const Duration networkTimeout = Duration(seconds: 6);
+  static const Duration networkTimeout = Duration(seconds: 45);
 
   /// Titik pusat default: UIN Sunan Gunung Djati Kampus 1, Jl. A.H. Nasution,
   /// Cibiru, Bandung. Dipakai sebagai lokasi pengguna sampai modul lokasi

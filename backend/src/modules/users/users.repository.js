@@ -10,6 +10,7 @@ class UsersRepository {
         u.peran,
         u.status_verifikasi,
         u.deskripsi_profil,
+        u.foto_profil,
         u.dibuat_pada,
         COALESCE(ROUND(AVG(r.rating)::numeric, 2), 0.00) AS rata_rata_rating,
         COUNT(r.review_id)::int AS jumlah_ulasan
@@ -47,12 +48,12 @@ class UsersRepository {
     };
   }
 
-  async updateProfile(userId, { nama, deskripsiProfil, skillIds }) {
+  async updateProfile(userId, { nama, deskripsiProfil, fotoProfil, skillIds }) {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
-      if (nama !== undefined || deskripsiProfil !== undefined) {
+      if (nama !== undefined || deskripsiProfil !== undefined || fotoProfil !== undefined) {
         const fields = [];
         const values = [];
         let idx = 1;
@@ -64,6 +65,10 @@ class UsersRepository {
         if (deskripsiProfil !== undefined) {
           fields.push(`deskripsi_profil = $${idx++}`);
           values.push(deskripsiProfil);
+        }
+        if (fotoProfil !== undefined) {
+          fields.push(`foto_profil = $${idx++}`);
+          values.push(fotoProfil === '' || fotoProfil === null ? null : fotoProfil);
         }
         values.push(userId);
 

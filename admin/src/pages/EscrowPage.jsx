@@ -1,95 +1,75 @@
 import React, { useState } from 'react';
 import { StatusBadge } from '../components/StatusBadge';
-import {
-  Wallet,
-  ShieldCheck,
-  Download,
-  Filter,
-  ArrowUpRight,
-  ArrowDownLeft,
-  FileSpreadsheet,
-  CheckCircle2,
-  Clock,
-  RefreshCw,
-  Search,
-} from 'lucide-react';
+import { Wallet, ShieldCheck, Download, Search, CheckCircle2 } from 'lucide-react';
 
 export function EscrowPage({ escrowData }) {
   const [activeFilter, setActiveFilter] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  const saldoLive = escrowData?.saldo_penampungan_live || 'Rp 4.250.000';
-  const transactions = escrowData?.transaksi || [
-    {
-      id: 'SK-2024-091',
-      jenis: 'Escrow Berbayar',
-      pihak: 'Dimas Arya (Klien) -> Salma Nur Oktavia (Penyedia)',
-      nominal: 'Rp 50.000',
-      status_escrow: 'Ditahan Simulasi (Escrow)',
-      status_pesanan: 'Pengerjaan Berjalan',
-      tanggal: '17 Nov 2026',
-    },
-    {
-      id: 'SK-2024-058',
-      jenis: 'Escrow Berbayar',
-      pihak: 'Ahmad Fauzi (Klien) -> Rizkia (Penyedia)',
-      nominal: 'Rp 45.000',
-      status_escrow: 'Dilepas Simulasi',
-      status_pesanan: 'Selesai',
-      tanggal: '16 Nov 2026',
-    },
-    {
-      id: 'BTR-2024-012',
-      jenis: 'Smart Barter Non-Tunai',
-      pihak: 'Salsa (Pihak 1) <-> Rizkia (Pihak 2)',
-      nominal: 'Non-Tunai',
-      status_escrow: 'Smart Barter Aktif',
-      status_pesanan: 'Pengerjaan Bersama',
-      tanggal: '17 Nov 2026',
-    },
-    {
-      id: 'DS-2024-004',
-      jenis: 'Sengketa Escrow',
-      pihak: 'Dimas Arya vs Salma Nur Oktavia',
-      nominal: 'Rp 50.000',
-      status_escrow: 'Dibekukan (Sengketa)',
-      status_pesanan: 'Menunggu Eksekusi 50:50',
-      tanggal: '17 Nov 2026',
-    },
-  ];
+  const saldoLive = escrowData?.saldo_penampungan_live || 'Rp 0';
+  const saldoDilepas = escrowData?.saldo_dilepas_total || 'Rp 0';
+  const orderCount = escrowData?.jumlah_order ?? 0;
+  const barterCount = escrowData?.jumlah_barter ?? 0;
+  const transactions = escrowData?.transaksi || [];
 
   const filters = [
     'Semua',
-    'Dana Ditahan',
-    'Pengerjaan Berjalan',
-    'Dalam Sengketa',
-    'Dana Dilepas/Selesai',
+    'Escrow Berbayar',
+    'Smart Barter Rp 0',
+    'Ditahan',
+    'Selesai',
   ];
 
   const filtered = transactions.filter((t) => {
-    if (activeFilter === 'Dana Ditahan' && !t.status_escrow?.includes('Ditahan')) return false;
-    if (activeFilter === 'Pengerjaan Berjalan' && !t.status_pesanan?.includes('Berjalan') && !t.status_pesanan?.includes('Bersama')) return false;
-    if (activeFilter === 'Dalam Sengketa' && !t.status_escrow?.includes('Sengketa') && !t.status_escrow?.includes('Beku')) return false;
-    if (activeFilter === 'Dana Dilepas/Selesai' && !t.status_escrow?.includes('Dilepas') && !t.status_pesanan?.includes('Selesai')) return false;
+    if (activeFilter === 'Escrow Berbayar' && t.jenis !== 'Escrow Berbayar') return false;
+    if (activeFilter === 'Smart Barter Rp 0' && t.jenis !== 'Smart Barter Rp 0') return false;
+    if (
+      activeFilter === 'Ditahan' &&
+      !t.status_escrow?.toLowerCase().includes('ditahan') &&
+      !t.status_escrow?.toLowerCase().includes('beku')
+    ) {
+      return false;
+    }
+    if (
+      activeFilter === 'Selesai' &&
+      !t.status_pesanan?.toLowerCase().includes('selesai') &&
+      !t.status_escrow?.toLowerCase().includes('dilepas') &&
+      !t.status_escrow?.toLowerCase().includes('tuntas')
+    ) {
+      return false;
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchId = t.id?.toLowerCase().includes(q);
-      const matchParty = t.pihak?.toLowerCase().includes(q);
-      const matchType = t.jenis?.toLowerCase().includes(q);
-      if (!matchId && !matchParty && !matchType) return false;
+      const hay = [t.id, t.judul, t.pihak, t.jenis, t.referensi]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
     }
     return true;
   });
 
   const handleDownloadCsv = () => {
-    const headers = ['ID Transaksi', 'Jenis', 'Pihak Terlibat', 'Nominal', 'Status Escrow', 'Status Pesanan', 'Tanggal'];
+    const headers = [
+      'ID Transaksi',
+      'Jenis',
+      'Layanan',
+      'Pihak Terlibat',
+      'Nominal',
+      'Referensi',
+      'Status Escrow',
+      'Status Transaksi',
+      'Tanggal',
+    ];
     const rows = transactions.map((t) => [
       t.id,
       t.jenis,
-      `"${t.pihak}"`,
+      `"${String(t.judul || '').replace(/"/g, '""')}"`,
+      `"${String(t.pihak || '').replace(/"/g, '""')}"`,
       t.nominal,
+      t.referensi,
       t.status_escrow,
       t.status_pesanan,
       t.tanggal,
@@ -102,7 +82,10 @@ export function EscrowPage({ escrowData }) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Audit_Escrow_SakuSkill_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute(
+      'download',
+      `Audit_Escrow_Barter_SakuSkill_${new Date().toISOString().slice(0, 10)}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -113,68 +96,83 @@ export function EscrowPage({ escrowData }) {
 
   return (
     <div className="space-y-6">
-      {/* Title */}
       <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-          <Wallet className="w-6 h-6 text-emerald-400" />
-          <span>Monitoring Transaksi & Rekening Penampungan (Escrow)</span>
+        <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
+          <Wallet className="w-6 h-6 text-[#059669]" />
+          <span>Monitoring Transaksi Escrow & Smart Barter</span>
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Pengawasan buku besar dana penampungan simulasi, audit pergerakan dana, dan pelacakan transaksi barter mahasiswa.
+        <p className="text-xs text-[#64748B] mt-1">
+          Buku besar real-time seluruh pesanan berbayar simulasi dan kontrak barter Rp 0 yang dibuat dari aplikasi mobile.
         </p>
       </div>
 
-      {/* Saldo Penampungan Card (Figma Screen 7 Header) */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-[#111827] to-slate-900 border border-emerald-500/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              TERKUNCI - SIMULASI ESCROW
-            </span>
-            <span className="text-xs text-slate-400">PBI PJP Compliance Tier Sandbox</span>
-          </div>
-          <div>
-            <span className="text-xs font-medium text-slate-400">Total Saldo Penampungan Aktif</span>
-            <p className="text-3xl font-mono font-bold text-white tracking-tight mt-0.5">
-              {saldoLive}
-            </p>
-          </div>
-          <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-            Platform kampus SakuSkill menggunakan protokol penampungan internal tersimulasi untuk menjamin keamanan
-            hasil pekerjaan mahasiswa sebelum pencairan dilakukan.
-          </p>
-        </div>
+      {/* Signature Emerald Hero Card (Matching Mobile WalletPage) */}
+      <div className="hero-emerald-card p-6 md:p-7 text-white relative overflow-hidden">
+        <div className="absolute -right-12 -top-12 w-56 h-56 rounded-full bg-emerald-400/15 blur-2xl pointer-events-none"></div>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-4 flex-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 border border-emerald-300/30 text-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                <span>{escrowData?.badge_status || 'SIMULASI ESCROW & BARTER'}</span>
+              </span>
+            </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch gap-3 shrink-0">
+            <div>
+              <span className="text-xs font-semibold text-emerald-200/80 uppercase tracking-wider">
+                Total Dana Ditahan Escrow Saat Ini
+              </span>
+              <p className="text-3xl md:text-4xl font-extrabold tracking-tight tabular-nums mt-1">
+                {saldoLive}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+              <div className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3">
+                <span className="text-[10.5px] text-emerald-200/80 block">Total Escrow Dilepas</span>
+                <span className="text-sm font-extrabold tabular-nums">{saldoDilepas}</span>
+              </div>
+              <div className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3">
+                <span className="text-[10.5px] text-emerald-200/80 block">Pesanan Berbayar</span>
+                <span className="text-sm font-extrabold tabular-nums">{orderCount} Order</span>
+              </div>
+              <div className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3">
+                <span className="text-[10.5px] text-emerald-200/80 block">Smart Barter Rp 0</span>
+                <span className="text-sm font-extrabold tabular-nums">{barterCount} Kontrak</span>
+              </div>
+            </div>
+          </div>
+
           <button
+            type="button"
             onClick={handleDownloadCsv}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-lg shadow-emerald-950/40"
+            disabled={transactions.length === 0}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-[#064E3B] hover:bg-emerald-50 font-extrabold text-xs shadow-lg transition shrink-0 disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>Unduh Laporan Audit (CSV)</span>
+            <span>Unduh Audit Ledger (CSV)</span>
           </button>
         </div>
       </div>
 
       {downloadSuccess && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-bold text-emerald-300 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>Berkas audit CSV berhasil diunduh ke komputer Anda!</span>
+        <div className="clay-card p-3.5 border-[#A7F3D0] bg-[#ECFDF5] flex items-center gap-2 text-xs text-[#065F46] font-bold">
+          <CheckCircle2 className="w-4 h-4 text-[#059669]" />
+          <span>File CSV laporan audit transaksi berhasil diunduh.</span>
         </div>
       )}
 
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 overflow-x-auto">
+      {/* Filter & Search */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-1.5 p-1.5 rounded-2xl clay-tile overflow-x-auto">
           {filters.map((f) => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 ${
                 activeFilter === f
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'clay-btn-primary'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F0F4F2]'
               }`}
             >
               {f}
@@ -182,51 +180,79 @@ export function EscrowPage({ escrowData }) {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <div className="relative w-full lg:w-72">
+          <Search className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari ID transaksi, nama pihak..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Cari kode, layanan, atau pihak..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-[#DCE5E0] text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#059669] shadow-clay-sm transition"
           />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+      {/* Ledger Table */}
+      <div className="clay-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B1120] text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[10px]">
+            <thead className="bg-[#F7FAF8] text-[#64748B] font-bold border-b border-[#E6EFEA] uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="py-3.5 px-6">ID Referensi</th>
-                <th className="py-3.5 px-4">Jenis Transaksi</th>
-                <th className="py-3.5 px-4">Pihak Terlibat</th>
-                <th className="py-3.5 px-4">Nominal Nilai</th>
-                <th className="py-3.5 px-4">Status Penampungan</th>
-                <th className="py-3.5 px-4">Status Siklus Pesanan</th>
-                <th className="py-3.5 px-6 text-right">Tanggal</th>
+                <th className="py-3 px-3.5">Kode</th>
+                <th className="py-3 px-3">Jenis & Layanan</th>
+                <th className="py-3 px-3">Pihak Terlibat</th>
+                <th className="py-3 px-3">Nominal</th>
+                <th className="py-3 px-3">Status Escrow</th>
+                <th className="py-3 px-3">Status Transaksi</th>
+                <th className="py-3 px-3.5 text-right">Pembaruan</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-sans">
-              {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-850/50 transition">
-                  <td className="py-4 px-6 font-mono font-bold text-emerald-400">{t.id}</td>
-                  <td className="py-4 px-4 font-semibold text-slate-200">{t.jenis}</td>
-                  <td className="py-4 px-4 text-slate-300 font-medium max-w-xs truncate">{t.pihak}</td>
-                  <td className="py-4 px-4 font-mono font-bold text-white">{t.nominal}</td>
-                  <td className="py-4 px-4">
-                    <StatusBadge status={t.status_escrow} />
-                  </td>
-                  <td className="py-4 px-4">
-                    <StatusBadge status={t.status_pesanan} />
-                  </td>
-                  <td className="py-4 px-6 text-right text-slate-400 font-mono text-[11px]">
-                    {t.tanggal}
+            <tbody className="divide-y divide-[#EEF3F0]">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-[#64748B] text-xs">
+                    Belum ada transaksi pesanan atau Smart Barter yang cocok dengan filter ini.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((row) => (
+                  <tr key={`${row.id}-${row.raw_id}`} className="hover:bg-[#F7FAF8] transition">
+                    <td className="py-3.5 px-3.5 font-mono font-extrabold text-[#059669] whitespace-nowrap">
+                      {row.id}
+                    </td>
+                    <td className="py-3.5 px-3 max-w-[190px]">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mb-1 ${
+                          row.jenis.includes('Barter')
+                            ? 'bg-[#F3E8FF] text-[#7E22CE]'
+                            : 'bg-[#EFF6FF] text-[#2563EB]'
+                        }`}
+                      >
+                        {row.jenis}
+                      </span>
+                      <p className="font-bold text-[#0F172A] truncate">{row.judul}</p>
+                    </td>
+                    <td className="py-3.5 px-3 font-semibold text-[#0F172A] max-w-[165px]">
+                      {row.pihak}
+                    </td>
+                    <td className="py-3.5 px-3 font-mono font-bold text-[#0F172A] tabular-nums whitespace-nowrap">
+                      {row.nominal}
+                    </td>
+                    <td className="py-3.5 px-3 whitespace-nowrap">
+                      <StatusBadge
+                        status={row.status_escrow}
+                        tone={row.jenis.includes('Barter') ? 'purple' : undefined}
+                      />
+                    </td>
+                    <td className="py-3.5 px-3 whitespace-nowrap">
+                      <StatusBadge status={row.status_pesanan} />
+                    </td>
+                    <td className="py-3.5 px-3.5 text-right text-[#64748B] whitespace-nowrap">
+                      {row.tanggal}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

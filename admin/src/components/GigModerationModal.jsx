@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from './Modal';
-import { AlertOctagon, ShieldAlert, EyeOff, Trash2, BellRing, Check } from 'lucide-react';
+import { AlertOctagon, EyeOff, Trash2, BellRing, Check, RotateCcw } from 'lucide-react';
 
 export function GigModerationModal({ isOpen, onClose, gig, onModerate }) {
   const [action, setAction] = useState('Takedown Segera');
   const [notes, setNotes] = useState(
-    'Pelanggaran Kode Etik Mahasiswa UPI Cibiru & Kebijakan Integritas Akademik Platform SakuSkill.'
+    'Tindakan kurasi & penegakan kebijakan platform SakuSkill UIN Sunan Gunung Djati Bandung.'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (gig) {
+      setAction(gig.status === 'Aktif' ? 'Takedown Segera' : 'Aktifkan Kembali');
+    }
+  }, [gig]);
 
   if (!gig) return null;
 
@@ -22,117 +28,119 @@ export function GigModerationModal({ isOpen, onClose, gig, onModerate }) {
     }
   };
 
+  const options = [
+    {
+      id: 'Takedown Segera',
+      title: 'Takedown Sementara (Disembunyikan Moderasi)',
+      desc: 'Listing disembunyikan dari beranda dan pencarian aplikasi mobile.',
+      icon: EyeOff,
+    },
+    {
+      id: 'Peringatan Penyedia',
+      title: 'Sembunyikan & Beri Catatan Pelanggaran Etik',
+      desc: 'Menyembunyikan layanan karena terindikasi pelanggaran anti-joki.',
+      icon: BellRing,
+    },
+    {
+      id: 'Aktifkan Kembali',
+      title: 'Aktifkan Kembali ke Katalog Publik',
+      desc: 'Menampilkan layanan kembali agar dapat ditemukan pengguna mobile.',
+      icon: RotateCcw,
+    },
+    {
+      id: 'Hapus Permanen',
+      title: 'Nonaktifkan Permanen',
+      desc: 'Mengubah status layanan menjadi Nonaktif di basis data.',
+      icon: Trash2,
+    },
+  ];
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Penegakan Kebijakan Integritas Akademik (Anti-Joki)"
+      title="Moderasi Layanan & Kebijakan Anti-Joki"
       maxWidth="max-w-lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Banner Anti-Joki */}
-        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-600/50 flex items-start gap-3">
-          <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="p-3.5 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] flex items-start gap-3">
+          <AlertOctagon className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" />
           <div className="text-xs">
-            <p className="font-bold text-rose-300">Indikasi Pelanggaran Akademik Serius</p>
-            <p className="text-slate-300 mt-1 leading-relaxed">
-              Platform SakuSkill melarang keras jasa pembuatan tugas, skripsi, atau makalah
-              pengganti peran mahasiswa (joki) sesuai Peraturan Rektor tentang Etika Akademik.
+            <p className="font-bold text-[#92400E]">Kebijakan Integritas Akademik Kampus</p>
+            <p className="text-[#78350F] mt-0.5 leading-relaxed">
+              SakuSkill melarang jasa joki tugas, skripsi, atau ujian akademik. Layanan yang dimoderasi otomatis hilang dari pencarian aplikasi mobile.
             </p>
           </div>
         </div>
 
-        {/* Info Listing */}
-        <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1 text-xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span>ID Listing: #{gig.listing_id}</span>
-            <span className="text-emerald-400 font-semibold">{gig.kategori}</span>
+        <div className="clay-tile p-3.5 space-y-1 text-xs">
+          <div className="flex items-center justify-between text-[#64748B]">
+            <span className="font-mono">#{String(gig.listing_id).slice(0, 8).toUpperCase()}</span>
+            <span className="text-[#059669] font-bold">{gig.kategori}</span>
           </div>
-          <p className="font-bold text-white text-sm">{gig.judul}</p>
-          <p className="text-slate-400">Penyedia: <span className="text-slate-200">{gig.penyedia_nama}</span></p>
+          <p className="font-extrabold text-[#0F172A] text-sm">{gig.judul}</p>
+          <p className="text-[#475569]">
+            Penyedia: <span className="font-semibold text-[#0F172A]">{gig.penyedia_nama}</span> · Status:{' '}
+            <span className="font-semibold">{gig.status}</span>
+          </p>
         </div>
 
-        {/* Pilihan Tindakan */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Tindakan Moderasi Segera
+        <div className="space-y-2">
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+            Pilih Tindakan Moderasi
           </label>
-          <div className="space-y-2">
-            {[
-              {
-                id: 'Takedown Segera',
-                title: 'Takedown Segera (Disembunyikan dari Publik)',
-                desc: 'Listing disembunyikan seketika dari hasil pencarian dan katalog discovery.',
-                icon: EyeOff,
-              },
-              {
-                id: 'Peringatan Penyedia',
-                title: 'Kirim Peringatan Keras ke Penyedia',
-                desc: 'Listing disembunyikan dan penyedia menerima catatan pelanggaran kode etik.',
-                icon: BellRing,
-              },
-              {
-                id: 'Hapus Permanen',
-                title: 'Hapus Permanen dari Basis Data',
-                desc: 'Data gig dinonaktifkan secara permanen.',
-                icon: Trash2,
-              },
-            ].map((opt) => {
-              const Icon = opt.icon;
-              const isSelected = action === opt.id;
-              return (
-                <div
-                  key={opt.id}
-                  onClick={() => setAction(opt.id)}
-                  className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
-                    isSelected
-                      ? 'bg-rose-950/30 border-rose-500 text-white'
-                      : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-rose-400' : 'text-slate-500'}`} />
-                    <div>
-                      <p className="text-xs font-bold text-white">{opt.title}</p>
-                      <p className="text-[11px] text-slate-400">{opt.desc}</p>
-                    </div>
+          {options.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = action === opt.id;
+            return (
+              <button
+                type="button"
+                key={opt.id}
+                onClick={() => setAction(opt.id)}
+                className={`w-full text-left p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                  isSelected
+                    ? 'bg-[#ECFDF5]/60 border-[#059669] shadow-clay-sm'
+                    : 'bg-white border-[#E6EFEA] hover:border-[#CBD5E1]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-[#059669]' : 'text-[#64748B]'}`} />
+                  <div>
+                    <p className="text-xs font-bold text-[#0F172A]">{opt.title}</p>
+                    <p className="text-[11px] text-[#64748B]">{opt.desc}</p>
                   </div>
-                  {isSelected && <Check className="w-4 h-4 text-rose-400 shrink-0" />}
                 </div>
-              );
-            })}
-          </div>
+                {isSelected && <Check className="w-4 h-4 text-[#059669] shrink-0" />}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Alasan & Catatan */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+          <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
             Berita Acara Moderasi
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 transition resize-none h-20"
-          ></textarea>
+            className="w-full px-3.5 py-2.5 rounded-2xl bg-white border border-[#DCE5E0] text-xs text-[#0F172A] focus:outline-none focus:border-[#059669] transition resize-none h-20"
+          />
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E6EFEA]">
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="px-4 py-2 rounded-2xl text-xs font-bold text-[#475569] bg-[#F0F4F2] hover:bg-[#E2EBE6] transition"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition shadow-lg shadow-rose-950/40 disabled:opacity-50"
+            className="clay-btn-primary px-5 py-2.5 text-xs"
           >
-            <ShieldAlert className="w-4 h-4" />
-            Eksekusi Moderasi Listing
+            {isSubmitting ? 'Memproses...' : 'Simpan Moderasi'}
           </button>
         </div>
       </form>

@@ -304,6 +304,17 @@ class _ReviewWorkPageState extends State<ReviewWorkPage> {
                 ? null
                 : () => _requestRevision(remainingRevision, providerFirstName),
           ),
+        if (currentOrder != null && currentOrder.orderId.isNotEmpty)
+          SakuButton(
+            label: 'Ajukan Komplain Transaksi',
+            variant: SakuButtonVariant.destructive,
+            onPressed: _processing
+                ? null
+                : () => Navigator.of(context).pushNamed(
+                      AppRoutes.complaint,
+                      arguments: currentOrder,
+                    ),
+          ),
         const InfoBox(
           text: 'Pastikan Anda telah memeriksa tautan berkas di atas sebelum melepas dana simulasi.',
           tone: SakuTone.neutral,

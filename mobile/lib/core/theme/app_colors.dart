@@ -23,9 +23,18 @@ abstract final class AppColors {
   static const Color textMuted = Color(0xFF94A3B8);
   static const Color textBody = Color(0xFF475569); // paragraf deskripsi
   static const Color borderLight = Color(0xFFE3E8E5);
-  static const Color canvasLight = Color(0xFFF5F7F6);
+  static const Color canvasLight = Color(0xFFF2F6F4);
   static const Color surfaceSubtle = Color(0xFFF0F4F2);
   static const Color cardSurface = Color(0xFFFFFFFF);
+
+  // Permukaan Claymorphism & Glassmorphism
+  static const Color glassFill = Color(0xCCFFFFFF);
+  static const Color glassBorder = Color(0xEBFFFFFF);
+  static const Color clayTop = Color(0xFFFFFFFF);
+  static const Color clayBottom = Color(0xFFF7FAF8);
+  static const Color clayBorder = Color(0xFFE6EFEA);
+  static const Color primaryLight = Color(0xFF10B981);
+  static const Color barterLight = Color(0xFFA78BFA);
 
   // Warna fitur
   static const Color integrity = Color(0xFFF59E0B); // Anti-joki

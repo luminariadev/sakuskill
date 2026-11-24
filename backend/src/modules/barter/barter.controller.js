@@ -171,6 +171,36 @@ class BarterController {
       return next(error);
     }
   }
+
+  async listMessages(req, res, next) {
+    try {
+      const messages = await barterService.listMessages(req.validated.params.id, req.user);
+      return sendSuccess(res, {
+        statusCode: 200,
+        message: 'Pesan diskusi barter berhasil dimuat.',
+        data: messages,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async sendMessage(req, res, next) {
+    try {
+      const message = await barterService.sendMessage(
+        req.validated.params.id,
+        req.user,
+        req.validated.body
+      );
+      return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Pesan barter terkirim.',
+        data: message,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 module.exports = new BarterController();

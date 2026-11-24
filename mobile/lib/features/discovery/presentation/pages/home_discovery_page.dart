@@ -1,9 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
-import '../../../../core/demo/demo_assets.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../core/config/app_config.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/main_shell.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../../auth/data/auth_session.dart';
@@ -16,17 +21,74 @@ import '../widgets/market_card.dart';
 import '../widgets/service_card.dart';
 
 /// Figma "5 · Beranda marketplace".
-class HomeDiscoveryPage extends StatelessWidget {
+class HomeDiscoveryPage extends StatefulWidget {
   const HomeDiscoveryPage({super.key});
 
-  // TODO(anggota-5): ganti dengan data pengguna & saldo dari sesi login.
-  static const String _demoUserName = 'Salma Nur Oktavia';
-  static const num _demoBalance = 250000;
+  @override
+  State<HomeDiscoveryPage> createState() => _HomeDiscoveryPageState();
+}
+
+class _HomeDiscoveryPageState extends State<HomeDiscoveryPage> {
+  static const String _fallbackUserName = 'Pengguna SakuSkill';
+  bool _syncedFinance = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_syncedFinance) {
+      _syncedFinance = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        AccountFinanceStore.instance.refreshLive(
+          escrowRepository: AppScope.of(context).escrowRepository,
+        );
+        _hydrateProfilePhoto();
+      });
+    }
+  }
+
+  Future<void> _hydrateProfilePhoto() async {
+    if (AppConfig.useMockData) return;
+    final token = AuthSession.instance.accessToken;
+    if (token == null || token.isEmpty) return;
+    if (AuthSession.instance.photoUrl != null &&
+        AuthSession.instance.photoUrl!.isNotEmpty) {
+      return;
+    }
+    try {
+      final res = await http.get(
+        Uri.parse('${AppConfig.apiBaseUrl}/users/me'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(AppConfig.networkTimeout);
+      if (!mounted || res.statusCode < 200 || res.statusCode >= 300) return;
+      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      final data = json is Map<String, dynamic> ? json['data'] : null;
+      if (data is Map<String, dynamic>) {
+        final photo =
+            (data['foto_profil'] ?? data['foto_url'] ?? '').toString().trim();
+        if (photo.isNotEmpty) {
+          AuthSession.instance.updatePhotoUrl(photo);
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleRefresh(DiscoveryController controller) async {
+    await Future.wait([
+      controller.refresh(),
+      AccountFinanceStore.instance.refreshLive(
+        escrowRepository: AppScope.of(context).escrowRepository,
+      ),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = DiscoveryScope.of(context);
-    final activeUserName = AuthSession.instance.userName ?? _demoUserName;
+    final activeUserName = AuthSession.instance.userName ?? _fallbackUserName;
 
     return Scaffold(
       backgroundColor: AppColors.canvasLight,
@@ -34,7 +96,7 @@ class HomeDiscoveryPage extends StatelessWidget {
         bottom: false,
         child: RefreshIndicator(
           color: AppColors.primary,
-          onRefresh: controller.refresh,
+          onRefresh: () => _handleRefresh(controller),
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -42,14 +104,16 @@ class HomeDiscoveryPage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 sliver: SliverList.list(
                   children: [
-                    MarketplaceHeader(
-                      userName: activeUserName,
-                      balance: _demoBalance,
-                      avatarAsset: DemoAssets.salma,
-                      onBalanceTap: () =>
-                          Navigator.of(context).pushNamed(AppRoutes.wallet),
-                      onAvatarTap: () => Navigator.of(context)
-                          .pushNamed(AppRoutes.profile),
+                    ListenableBuilder(
+                      listenable: AccountFinanceStore.instance,
+                      builder: (context, _) => MarketplaceHeader(
+                        userName: activeUserName,
+                        balance: AccountFinanceStore.instance.availableBalance,
+                        onBalanceTap: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.wallet),
+                        onAvatarTap: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.profile),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     SearchPill(
@@ -79,7 +143,7 @@ class HomeDiscoveryPage extends StatelessWidget {
                 ),
               ),
               _FeedSliver(controller: controller),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              const SliverToBoxAdapter(child: SizedBox(height: 116)),
             ],
           ),
         ),

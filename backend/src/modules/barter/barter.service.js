@@ -379,6 +379,28 @@ class BarterService {
       komentar: payload.komentar,
     });
   }
+
+  async listMessages(barterId, user) {
+    const barter = await barterRepository.findById(barterId);
+    if (!barter) {
+      throw new AppError('Data kesepakatan barter tidak ditemukan.', 404, 'BARTER_NOT_FOUND');
+    }
+    this.assertParticipant(barter, user);
+    return barterRepository.listMessages(barterId);
+  }
+
+  async sendMessage(barterId, user, payload) {
+    const barter = await barterRepository.findById(barterId);
+    if (!barter) {
+      throw new AppError('Data kesepakatan barter tidak ditemukan.', 404, 'BARTER_NOT_FOUND');
+    }
+    this.assertParticipant(barter, user);
+    return barterRepository.createMessage({
+      barterId,
+      senderId: user.user_id,
+      isiPesan: payload.isi_pesan,
+    });
+  }
 }
 
 module.exports = new BarterService();

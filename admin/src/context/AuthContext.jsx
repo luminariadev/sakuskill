@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { adminApi, getAdminUser, getAuthToken } from '../api/adminApi';
+import { adminApi, getAdminUser, getAuthToken, onUnauthorized } from '../api/adminApi';
 
 const AuthContext = createContext(null);
 
@@ -11,11 +11,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const savedToken = getAuthToken();
     const savedUser = getAdminUser();
-    if (savedToken && savedUser) {
+    if (savedToken && savedUser && savedUser.peran === 'Administrator') {
       setToken(savedToken);
       setUser(savedUser);
+    } else {
+      adminApi.logout();
     }
     setLoading(false);
+
+    return onUnauthorized(() => {
+      setUser(null);
+      setToken(null);
+    });
   }, []);
 
   const login = async (email, password) => {

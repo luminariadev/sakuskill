@@ -249,6 +249,45 @@ class BarterRepository {
       [aktorId, aksi, objekId, statusSebelum, statusSesudah]
     );
   }
+
+  async ensureMessagesTable() {
+    if (this._messagesTableReady) return;
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS barter_messages (
+        message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        barter_id UUID NOT NULL REFERENCES barter_agreements(barter_id) ON DELETE CASCADE,
+        sender_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        isi_pesan TEXT NOT NULL,
+        dibuat_pada TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    this._messagesTableReady = true;
+  }
+
+  async listMessages(barterId) {
+    await this.ensureMessagesTable();
+    const { rows } = await db.query(
+      `SELECT m.message_id, m.barter_id, m.sender_id, m.isi_pesan, m.dibuat_pada,
+              u.nama AS nama_pengirim
+       FROM barter_messages m
+       JOIN users u ON u.user_id = m.sender_id
+       WHERE m.barter_id = $1
+       ORDER BY m.dibuat_pada ASC`,
+      [barterId]
+    );
+    return rows;
+  }
+
+  async createMessage({ barterId, senderId, isiPesan }) {
+    await this.ensureMessagesTable();
+    const { rows } = await db.query(
+      `INSERT INTO barter_messages (barter_id, sender_id, isi_pesan)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [barterId, senderId, isiPesan]
+    );
+    return rows[0];
+  }
 }
 
 module.exports = new BarterRepository();

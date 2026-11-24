@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../motion/saku_motion.dart';
@@ -6,7 +8,7 @@ import '../widgets/saku_icon.dart';
 import '../widgets/saku_surfaces.dart';
 import 'app_router.dart';
 
-/// Figma "7 · Menu aksi cepat" — bottom sheet "Buat Aktivitas Baru".
+/// Figma "7 · Menu aksi cepat" — bottom sheet kaca buram "Buat Aktivitas Baru".
 Future<void> showQuickActionSheet(BuildContext context) {
   final navigator = Navigator.of(context);
   return showModalBottomSheet<void>(
@@ -15,10 +17,10 @@ Future<void> showQuickActionSheet(BuildContext context) {
     useSafeArea: true,
     // Handle digambar sendiri sesuai Figma (36×4 #CBD5E1).
     showDragHandle: false,
-    backgroundColor: AppColors.cardSurface,
+    backgroundColor: Colors.transparent,
     barrierColor: AppColors.scrim,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
     sheetAnimationStyle: const AnimationStyle(
       duration: Duration(milliseconds: 280),
@@ -31,90 +33,108 @@ Future<void> showQuickActionSheet(BuildContext context) {
         navigator.pushNamed(route);
       }
 
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 10,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.dashedBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xEBFFFFFF),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.92),
+                width: 1.2,
               ),
-              const Text(
-                'Buat Aktivitas Baru',
-                style: TextStyle(
-                  fontSize: 18,
-                  height: 25 / 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const Text(
-                'Pilih jenis transaksi yang ingin Anda buat hari ini:',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 17 / 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              FadeSlideIn(
-                index: 0,
-                child: _ActionTile(
-                  key: const Key('quick-offer'),
-                  icon: SakuIcons.briefcase,
-                  tone: SakuTone.success,
-                  title: 'Tawarkan Jasa Baru',
-                  subtitle: 'Publikasikan keahlian ke katalog dengan tarif manual.',
-                  onTap: () => go(AppRoutes.myServices),
-                ),
-              ),
-              FadeSlideIn(
-                index: 1,
-                child: _ActionTile(
-                  key: const Key('quick-request'),
-                  icon: SakuIcons.search,
-                  tone: SakuTone.escrow,
-                  title: 'Cari Jasa / Buat Permintaan',
-                  subtitle:
-                      'Posting kebutuhan proyek agar ditemukan talenta sekitar.',
-                  onTap: () => go(AppRoutes.search),
-                ),
-              ),
-              FadeSlideIn(
-                index: 2,
-                child: _ActionTile(
-                  key: const Key('quick-barter'),
-                  icon: SakuIcons.swap,
-                  tone: SakuTone.barter,
-                  title: 'Ajukan Tawaran Barter',
-                  subtitle: 'Tukar keahlian simetris tanpa uang tunai.',
-                  onTap: () => go(AppRoutes.proposeBarter),
-                ),
-              ),
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(sheet).pop(),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 10,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.dashedBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: const Text('Tutup'),
+                    const Text(
+                      'Buat Aktivitas Baru',
+                      style: TextStyle(
+                        fontSize: 18,
+                        height: 25 / 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const Text(
+                      'Pilih jenis transaksi yang ingin Anda buat hari ini:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 17 / 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    FadeSlideIn(
+                      index: 0,
+                      child: _ActionTile(
+                        key: const Key('quick-offer'),
+                        icon: SakuIcons.briefcase,
+                        tone: SakuTone.success,
+                        title: 'Tawarkan Jasa Baru',
+                        subtitle:
+                            'Publikasikan keahlian ke katalog dengan tarif manual.',
+                        onTap: () => go(AppRoutes.myServices),
+                      ),
+                    ),
+                    FadeSlideIn(
+                      index: 1,
+                      child: _ActionTile(
+                        key: const Key('quick-request'),
+                        icon: SakuIcons.search,
+                        tone: SakuTone.escrow,
+                        title: 'Cari Jasa / Buat Permintaan',
+                        subtitle:
+                            'Posting kebutuhan proyek agar ditemukan talenta sekitar.',
+                        onTap: () => go(AppRoutes.search),
+                      ),
+                    ),
+                    FadeSlideIn(
+                      index: 2,
+                      child: _ActionTile(
+                        key: const Key('quick-barter'),
+                        icon: SakuIcons.swap,
+                        tone: SakuTone.barter,
+                        title: 'Ajukan Tawaran Barter',
+                        subtitle: 'Tukar keahlian simetris tanpa uang tunai.',
+                        onTap: () => go(AppRoutes.proposeBarter),
+                      ),
+                    ),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(sheet).pop(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.textSecondary,
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        child: const Text('Tutup'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -151,15 +171,14 @@ class _ActionTile extends StatelessWidget {
       excludeSemantics: true,
       child: SakuCard(
         onTap: onTap,
-        radius: 12,
-        padding: const EdgeInsets.fromLTRB(11, 12, 12, 12),
+        radius: 16,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: tone.surface, shape: BoxShape.circle),
+            ClayIconBadge(
+              size: 40,
+              radius: 14,
+              tint: iconColor,
               child: SakuIcon(icon, size: 20, color: iconColor),
             ),
             const SizedBox(width: 12),

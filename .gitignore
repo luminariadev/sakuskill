@@ -47,3 +47,6 @@ graphify-out/
 # Android build outputs & binaries
 *.apk
 *.aab
+
+# Runtime backend request logs
+backend/logs/

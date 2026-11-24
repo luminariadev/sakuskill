@@ -30,6 +30,7 @@ class OrderChatPage extends StatefulWidget {
 class _OrderChatPageState extends State<OrderChatPage> {
   EscrowOrderModel? _overrideOrder;
   bool _submittingProposal = false;
+  bool _acceptingOrder = false;
 
   List<ChatMessage> _messages = const [];
   bool _loadingMessages = false;
@@ -63,10 +64,14 @@ class _OrderChatPageState extends State<OrderChatPage> {
 
     final order = _resolveOrder(context);
     if (order != null && order.orderId.isNotEmpty) {
+      _refreshOrderDetail(order.orderId);
       _loadMessages(order.orderId);
       _pollTimer = Timer.periodic(
         const Duration(seconds: 3),
-        (_) => _loadMessages(order.orderId, silent: true),
+        (_) {
+          _loadMessages(order.orderId, silent: true);
+          _refreshOrderDetail(order.orderId);
+        },
       );
     } else {
       final now = DateTime.now();
@@ -132,6 +137,63 @@ class _OrderChatPageState extends State<OrderChatPage> {
           currentUserId.isNotEmpty &&
           senderId.toLowerCase() == currentUserId.toLowerCase(),
     );
+  }
+
+  bool _isProviderRole(EscrowOrderModel? order) {
+    if (order == null) return false;
+    final myId = _resolveCurrentUserId(order);
+    if (order.penyediaId != null &&
+        order.penyediaId!.isNotEmpty &&
+        myId != null &&
+        myId.isNotEmpty) {
+      return order.penyediaId!.toLowerCase() == myId.toLowerCase();
+    }
+    return (order.peranLawanTransaksi ?? '').toLowerCase().contains('pelanggan');
+  }
+
+  Future<void> _refreshOrderDetail(String orderId) async {
+    try {
+      final res =
+          await AppScope.of(context).escrowRepository.fetchOrderDetail(orderId);
+      if (!mounted || res.isFallback) return;
+      setState(() => _overrideOrder = res.data);
+    } catch (_) {}
+  }
+
+  Future<void> _acceptOrderFromChat(EscrowOrderModel currentOrder) async {
+    if (_acceptingOrder || currentOrder.orderId.isEmpty) return;
+    setState(() => _acceptingOrder = true);
+    SakuMotion.tick();
+    try {
+      final res = await AppScope.of(context)
+          .escrowRepository
+          .acceptOrder(currentOrder.orderId);
+      if (!mounted) return;
+      setState(() => _overrideOrder = res.data);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Pesanan disetujui! Klien kini dapat melakukan pembayaran ke Escrow.',
+          ),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } on EscrowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red.shade700),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyetujui pesanan: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _acceptingOrder = false);
+    }
   }
 
   Future<void> _loadMessages(String orderId, {bool silent = false}) async {
@@ -308,6 +370,146 @@ class _OrderChatPageState extends State<OrderChatPage> {
     );
   }
 
+  Widget _buildAgreementActions(EscrowOrderModel? currentOrder) {
+    if (currentOrder == null || currentOrder.orderId.isEmpty) {
+      return SakuButton(
+        key: const Key('chat-agree'),
+        label: 'Setujui & Lanjut Pembayaran Escrow',
+        onPressed: () => _proceedToPayment(currentOrder),
+      );
+    }
+
+    final isProvider = _isProviderRole(currentOrder);
+    final status = currentOrder.statusKode.toLowerCase();
+
+    if (status == 'requested' ||
+        status == 'submitted' ||
+        status == 'diajukan' ||
+        status == 'negotiating') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          if (isProvider)
+            SakuButton(
+              key: const Key('chat-provider-accept'),
+              label: _acceptingOrder
+                  ? 'Menyetujui Pesanan...'
+                  : 'Terima & Sepakati Pesanan',
+              onPressed: _acceptingOrder
+                  ? null
+                  : () => _acceptOrderFromChat(currentOrder),
+            )
+          else
+            const InfoBox(
+              text:
+                  'Menunggu penyedia jasa menyetujui pesanan sebelum pembayaran escrow dibuka.',
+              tone: SakuTone.neutral,
+              fontWeight: FontWeight.w500,
+            ),
+          OutlinedButton(
+            onPressed: _submittingProposal
+                ? null
+                : () => _openProposalSheet(currentOrder),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+            ),
+            child: Text(
+              _submittingProposal
+                  ? 'Mengirim Proposal...'
+                  : 'Ajukan Penyesuaian Harga / Tenggat',
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (status == 'accepted' || status == 'disepakati') {
+      if (isProvider) {
+        return const InfoBox(
+          text:
+              'Pesanan sudah disepakati! Menunggu pelanggan membayar & mengunci dana ke Rekening Bersama Escrow.',
+          tone: SakuTone.escrow,
+          fontWeight: FontWeight.w500,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          SakuButton(
+            key: const Key('chat-agree'),
+            label: 'Bayar & Kunci Dana di Escrow',
+            onPressed: () => _proceedToPayment(currentOrder),
+          ),
+          OutlinedButton(
+            onPressed: _submittingProposal
+                ? null
+                : () => _openProposalSheet(currentOrder),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+            ),
+            child: Text(
+              _submittingProposal
+                  ? 'Mengirim Proposal...'
+                  : 'Ajukan Penyesuaian Harga / Tenggat',
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (status == 'completed' || status == 'selesai') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          const InfoBox(
+            text:
+                'Pesanan telah selesai & dana simulasi telah diteruskan ke penyedia jasa.',
+            tone: SakuTone.success,
+            fontWeight: FontWeight.w500,
+          ),
+          SakuButton(
+            label: isProvider ? 'Lihat Ringkasan Pesanan' : 'Lihat Ringkasan & Ulasan',
+            onPressed: () => Navigator.of(context).pushNamed(
+              AppRoutes.orderDone,
+              arguments: currentOrder,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (status == 'rejected' ||
+        status == 'cancelled' ||
+        status == 'dibatalkan' ||
+        status == 'ditolak') {
+      return InfoBox(
+        text: 'Pesanan berstatus "${currentOrder.statusPesanan}".',
+        tone: SakuTone.danger,
+        fontWeight: FontWeight.w500,
+      );
+    }
+
+    final targetRoute = isProvider
+        ? AppRoutes.workroom
+        : (status == 'awaiting_review'
+            ? AppRoutes.reviewWork
+            : AppRoutes.tracking);
+    final label = isProvider
+        ? 'Buka Ruang Kerja Penyedia'
+        : (status == 'awaiting_review'
+            ? 'Periksa Hasil Pekerjaan'
+            : 'Pantau Progres Pesanan');
+
+    return SakuButton(
+      label: label,
+      onPressed: () => Navigator.of(context)
+          .pushNamed(targetRoute, arguments: currentOrder),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const demo = DemoData.order;
@@ -387,25 +589,7 @@ class _OrderChatPageState extends State<OrderChatPage> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              SakuButton(
-                key: const Key('chat-agree'),
-                label: 'Setujui & Lanjut Pembayaran Escrow',
-                onPressed: () => _proceedToPayment(currentOrder),
-              ),
-              if (currentOrder != null)
-                OutlinedButton(
-                  onPressed: _submittingProposal
-                      ? null
-                      : () => _openProposalSheet(currentOrder),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(40),
-                  ),
-                  child: Text(
-                    _submittingProposal
-                        ? 'Mengirim Proposal...'
-                        : 'Ajukan Penyesuaian Harga / Tenggat',
-                  ),
-                ),
+              _buildAgreementActions(currentOrder),
             ],
           ),
         ),

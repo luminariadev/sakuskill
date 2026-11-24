@@ -10,6 +10,8 @@ class UsersService {
       peran: profile.peran,
       status_verifikasi: profile.status_verifikasi,
       deskripsi_profil: profile.deskripsi_profil,
+      foto_profil: profile.foto_profil || null,
+      foto_url: profile.foto_profil || null,
       rata_rata_rating: profile.rata_rata_rating,
       jumlah_ulasan: profile.jumlah_ulasan,
       keterampilan: profile.keterampilan,
@@ -45,6 +47,7 @@ class UsersService {
       await usersRepository.updateProfile(userId, {
         nama: payload.nama,
         deskripsiProfil: payload.deskripsi_profil,
+        fotoProfil: payload.foto_profil,
         skillIds: payload.skill_ids,
       });
       return await this.getMyProfile(userId);

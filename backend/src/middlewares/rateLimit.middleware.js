@@ -9,7 +9,7 @@ const globalRateLimiter = rateLimit({
   max: 150, // maksimal 150 request per IP dalam 1 menit
   standardHeaders: true, // Kirim RateLimit-* headers sesuai RFC
   legacyHeaders: false,
-  skip: (req) => req.path.includes('/health'), // Abaikan health check
+  skip: (req) => req.path.includes('/health') || req.path.startsWith('/admin/assets'), // Abaikan health check & aset statis Web Admin
   handler: (req, res) => {
     res.status(429).json({
       success: false,

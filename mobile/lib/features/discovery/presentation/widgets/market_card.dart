@@ -2,20 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../domain/entities/service_listing.dart';
 import 'discovery_filters.dart';
 
-/// Kartu feed 2 kolom Beranda (Figma "Two-column marketplace feed"):
-/// padding 10, jarak 8, radius 14, foto 82 px radius 10.
-///
-/// Isi menyesuaikan jenis postingan:
-/// - Penawaran berbayar → "Rp 50.000", "300m Cibiru · 4.9 ★", badge Bisa Barter
-/// - Penawaran barter → "Tukar Jasa Desain Web", "600m dari Anda", Smart Barter
-/// - Kebutuhan Proyek → "Budget Rp 50.000", "Butuh 3 Hari", Chat Langsung
+/// Kartu feed 2 kolom Beranda bergaya Claymorphism murni (tanpa ketergantungan
+/// foto): medallion kategori clay + badge jenis + info penyedia & tarif/barter.
 class MarketCard extends StatelessWidget {
   const MarketCard({
     super.key,
@@ -61,27 +58,38 @@ class MarketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final barterOnly =
+        !listing.isRequest && !listing.offerType.acceptsPayment;
     return Semantics(
       button: true,
       label: '${listing.title}, $_byline, $_price',
       child: SakuCard(
         onTap: onTap,
-        padding: const EdgeInsets.all(10),
+        radius: 18,
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 8,
           children: [
-            _Cover(listing: listing),
-            Text(
-              _byline,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                height: 14 / 10,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
+            _ClayCategoryHeader(listing: listing),
+            Row(
+              children: [
+                InitialsAvatar(name: listing.providerName, size: 22),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _byline,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      height: 14 / 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
             Text(
               listing.title,
@@ -96,12 +104,12 @@ class MarketCard extends StatelessWidget {
             ),
             Text(
               _price,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 height: 18 / 13.5,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 fontFeatures: AppTypography.tabular,
-                color: AppColors.primary,
+                color: barterOnly ? AppColors.barterText : AppColors.primary,
               ),
             ),
             if (_meta.isNotEmpty)
@@ -121,77 +129,23 @@ class MarketCard extends StatelessWidget {
   }
 }
 
-class _Cover extends StatelessWidget {
-  const _Cover({required this.listing});
+class _ClayCategoryHeader extends StatelessWidget {
+  const _ClayCategoryHeader({required this.listing});
 
   final ServiceListing listing;
 
-  @override
-  Widget build(BuildContext context) {
-    final asset = listing.coverAsset;
-    final tint = listing.isRequest ? AppColors.escrow : AppColors.primary;
-    final gradStart =
-        listing.isRequest ? const Color(0xFFEFF6FF) : const Color(0xFFECFDF5);
-    final gradEnd =
-        listing.isRequest ? const Color(0xFFDBEAFE) : const Color(0xFFD1FAE5);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        height: 86,
-        width: double.infinity,
-        child: asset != null
-            ? Image.asset(asset, fit: BoxFit.cover)
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [gradStart, gradEnd],
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          categoryIcon(_iconKey(listing.category)),
-                          size: 22,
-                          color: tint,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 6,
-                      bottom: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          listing.category,
-                          style: TextStyle(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w700,
-                            color: tint,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-      ),
-    );
+  Color _accentFor(ServiceListing item) {
+    if (!item.isRequest && !item.offerType.acceptsPayment) {
+      return AppColors.barter;
+    }
+    if (item.isRequest) return AppColors.escrow;
+    return switch (item.category) {
+      'Desain' => AppColors.primary,
+      'Jasa Teknis' => AppColors.escrow,
+      'Fotografi' => AppColors.warningText,
+      'Bimbingan Belajar' => const Color(0xFF0D9488),
+      _ => AppColors.primary,
+    };
   }
 
   static String _iconKey(String category) => switch (category) {
@@ -201,6 +155,52 @@ class _Cover extends StatelessWidget {
         'Bimbingan Belajar' => 'tutor',
         _ => '',
       };
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = _accentFor(listing);
+    final label = listing.isRequest ? 'Kebutuhan' : listing.category;
+
+    return Row(
+      children: [
+        ClayIconBadge(
+          size: 38,
+          radius: 13,
+          tint: tint,
+          icon: categoryIcon(_iconKey(listing.category)),
+          iconSize: 19,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.1),
+                borderRadius: AppRadius.pillBr,
+                border: Border.all(
+                  color: tint.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  height: 12 / 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: tint,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _StatusBox extends StatelessWidget {

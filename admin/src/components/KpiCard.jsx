@@ -1,44 +1,59 @@
 import React from 'react';
 import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
+const ICON_TONES = {
+  emerald: 'from-[#ECFDF5] to-[#D1FAE5] text-[#059669] border-[#A7F3D0]',
+  blue: 'from-[#EFF6FF] to-[#DBEAFE] text-[#2563EB] border-[#BFDBFE]',
+  rose: 'from-[#FEF2F2] to-[#FEE2E2] text-[#DC2626] border-[#FECACA]',
+  purple: 'from-[#F3E8FF] to-[#E9D5FF] text-[#7E22CE] border-[#D8B4FE]',
+};
+
 export function KpiCard({ title, value, subtext, trend, icon: Icon, color = 'emerald' }) {
+  const iconTone = ICON_TONES[color] || ICON_TONES.emerald;
+
   const getTrendBadge = () => {
     if (trend === 'up') {
       return (
-        <span className="flex items-center text-xs font-semibold text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-800/40">
-          <ArrowUpRight className="w-3 h-3 mr-0.5" />
-          {subtext}
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#047857] bg-[#ECFDF5] px-2.5 py-1 rounded-full border border-[#A7F3D0]">
+          <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+          <span>{subtext}</span>
         </span>
       );
     }
     if (trend === 'danger') {
       return (
-        <span className="flex items-center text-xs font-semibold text-rose-400 bg-rose-950/50 px-2 py-0.5 rounded-full border border-rose-800/40">
-          <ArrowDownRight className="w-3 h-3 mr-0.5" />
-          {subtext}
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#DC2626] bg-[#FEF2F2] px-2.5 py-1 rounded-full border border-[#FECACA]">
+          <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />
+          <span>{subtext}</span>
         </span>
       );
     }
     return (
-      <span className="flex items-center text-xs font-medium text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700">
-        <Minus className="w-3 h-3 mr-0.5" />
-        {subtext}
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#475569] bg-[#F0F4F2] px-2.5 py-1 rounded-full border border-[#DCE5E0]">
+        <Minus className="w-3.5 h-3.5 shrink-0" />
+        <span>{subtext}</span>
       </span>
     );
   };
 
   return (
-    <div className="bg-[#111827] border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition shadow-lg relative overflow-hidden group">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium uppercase tracking-wider text-slate-400">{title}</span>
+    <div className="clay-card p-5 transition duration-200 hover:-translate-y-0.5 group">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] leading-snug">
+          {title}
+        </span>
         {Icon && (
-          <div className="w-9 h-9 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition">
+          <div
+            className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${iconTone} border flex items-center justify-center shrink-0 shadow-clay-sm transition group-hover:scale-105`}
+          >
             <Icon className="w-4 h-4" />
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-white tracking-tight mb-2">{value}</div>
-      <div className="flex items-center">{getTrendBadge()}</div>
+      <div className="text-2xl font-extrabold text-[#0F172A] tracking-tight tabular-nums mb-2.5">
+        {value}
+      </div>
+      <div>{getTrendBadge()}</div>
     </div>
   );
 }

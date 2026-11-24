@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/demo/demo_data.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
@@ -44,7 +45,7 @@ class _OrderDonePageState extends State<OrderDonePage> {
     return args is EscrowOrderModel ? args : null;
   }
 
-  /// POST /api/v1/orders/:id/reviews (hanya pelanggan setelah status completed)[cite: 4]
+  /// POST /api/v1/orders/:id/reviews (hanya pelanggan setelah status completed)
   Future<void> _submitReview(EscrowOrderModel? currentOrder) async {
     if (_submitting) return;
     SakuMotion.tick();
@@ -81,9 +82,9 @@ class _OrderDonePageState extends State<OrderDonePage> {
       if (!mounted) return;
       String msg = e.message;
       if (e.code == 'REVIEW_ALREADY_EXISTS') {
-        msg = 'Anda sudah pernah memberikan ulasan untuk pesanan ini[cite: 4].';
+        msg = 'Anda sudah pernah memberikan ulasan untuk pesanan ini.';
       } else if (e.code == 'ORDER_NOT_COMPLETED') {
-        msg = 'Pesanan harus berstatus Selesai sebelum mengirim ulasan[cite: 4].';
+        msg = 'Pesanan harus berstatus Selesai sebelum mengirim ulasan.';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -197,6 +198,15 @@ class _OrderDonePageState extends State<OrderDonePage> {
             onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
           ),
         ],
+        if (currentOrder != null && currentOrder.orderId.isNotEmpty)
+          SakuButton(
+            label: 'Ajukan Komplain Transaksi',
+            variant: SakuButtonVariant.outline,
+            onPressed: () => Navigator.of(context).pushNamed(
+              AppRoutes.complaint,
+              arguments: currentOrder,
+            ),
+          ),
       ],
     );
   }

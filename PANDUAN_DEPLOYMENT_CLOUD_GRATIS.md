@@ -1,124 +1,119 @@
 # PANDUAN DEPLOYMENT CLOUD GRATIS (ZERO-COST STACK)
-## Menjalankan Backend SakuSkill di Cloud & Rilis APK Mobile Multi-Device
-**Target Proyek:** SakuSkill Monorepo (`backend/` + `mobile/`)  
-**Database:** Neon.tech / Supabase (Serverless PostgreSQL - 100% Free)  
-**Backend:** Render.com (Web Service Node.js - 100% Free Tier)  
-**Distribusi Mobile:** GitHub Releases (Direct APK Download via Internet)  
+## Menjalankan Backend + Web Admin SakuSkill (1 Service) & Rilis APK Mobile Multi-Device
+**Target Proyek:** SakuSkill Monorepo (`backend/` + `admin/` + `mobile/`)  
+**Database:** Neon.tech *(Direkomendasikan)* / Supabase (Serverless PostgreSQL + PostGIS - 100% Free)  
+**Hosting 1 Service:** Render.com (Web Service Node.js untuk Backend `/api/v1/*` + React/Vite Web Admin `/admin/` - 100% Free Tier)  
+**Distribusi Mobile:** GitHub Releases / Direct APK Install
 
 ---
 
-## 1. Arsitektur Deployment Cloud
+## 1. Arsitektur Deployment Cloud (1 Service Terpadu)
 
 ```mermaid
 flowchart LR
-    A["HP Pengguna 1\n(Android APK)"] -->|"HTTPS / Internet"| C["Backend Render.com\n(Express.js Web Service)"]
-    B["HP Pengguna 2\n(Android APK)"] -->|"HTTPS / Internet"| C
+    A["HP Pengguna 1\n(Android APK)"] -->|"HTTPS /api/v1/*"| C["Render Web Service\n(Express.js + Static /admin/)"]
+    B["HP Pengguna 2\n(Android APK)"] -->|"HTTPS /api/v1/*"| C
+    E["Browser Administrator"] -->|"HTTPS /admin/"| C
     C -->|"PostgreSQL SSL Connection"| D["Neon.tech / Supabase\n(Cloud Database)"]
-    E["Admin Web Panel\n(Next.js)"] -->|"HTTPS / Internet"| C
 ```
 
 ---
 
 ## 2. Tahap 1: Setup Database PostgreSQL Gratis (Neon.tech / Supabase)
 
-Pilih salah satu (direkomendasikan **Neon.tech** karena paling cepat dan ramah serverless):
+Pilih salah satu (paling direkomendasikan **Neon.tech** karena tidak ada auto-pause 7 hari dan kompatibel langsung dengan IPv4 Render + PostGIS di schema `public`):
 
 ### Opsi A: Menggunakan Neon.tech (Paling Direkomendasikan)
 1. Buka [https://neon.tech](https://neon.tech) dan login dengan akun GitHub Anda (`luminariadev`).
 2. Klik **"Create Project"**:
    - Project Name: `sakuskill-db`
-   - Region: `Asia (Singapore)` *(pilih Singapore agar latensi ke Indonesia < 30ms)*
+   - Region: `Asia Pacific (Singapore / ap-southeast-1)` *(satu region dengan Render Singapore)*
    - PostgreSQL Version: `16`
-3. Salin **Connection String** yang muncul:
-   Formatnya:
+3. Salin **Connection String** (Pooled / Direct dengan `?sslmode=require`):
    ```env
-   postgresql://luminariadev:xxxxxx@ep-cool-fog-12345.ap-southeast-1.aws.neon.tech/sakuskill-db?sslmode=require
+   postgresql://neondb_owner:xxxxxx@ep-xxxx-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
    ```
 
 ### Opsi B: Menggunakan Supabase
+> [!NOTE]
+> Free tier Supabase akan mem-pause database otomatis setelah 7 hari tidak ada aktivitas (harus di-unpause manual dari dashboard). Selain itu, **Direct Connection** Supabase Free Tier hanya mendukung IPv6, sehingga di Render Free Tier (IPv4) Anda **wajib memakai URI Session Pooler port `:5432`** agar koneksi dan DDL migrasi berjalan lancar.
+
 1. Buka [https://supabase.com](https://supabase.com) dan buat project baru:
    - Name: `sakuskill`
    - Database Password: *(buat password yang kuat)*
-   - Region: `Singapore`
-2. Buka menu **Project Settings &rarr; Database &rarr; Connection string &rarr; URI**:
-   Salin string koneksi:
+   - Region: `Southeast Asia (Singapore)`
+2. Buka menu **Connect &rarr; Connection String &rarr; Method: Session pooler** (port `5432`, host `*.pooler.supabase.com`):
    ```env
-   postgresql://postgres.xxxxxx:[YOUR-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres
+   postgresql://postgres.xxxxxx:[YOUR-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
    ```
 
 ---
 
-## 3. Tahap 2: Deploy Backend ke Render.com (100% Gratis)
+## 3. Tahap 2: Deploy 1 Service (Backend + Web Admin) ke Render.com
 
-Kami sudah menyiapkan berkas `render.yaml` (Render Blueprint) dan script `npm run start:prod` di backend, sehingga migrasi database akan dijalankan otomatis saat deployment!
+File Blueprint [render.yaml](render.yaml) di root repositori sudah dikonfigurasi untuk membangun **Web Admin (`admin/dist`)** dan menjalankan **Backend (`backend/`)** dalam **1 Web Service** dengan `rootDir: .`:
 
-1. Buka [https://render.com](https://render.com) dan login menggunakan akun GitHub Anda (`luminariadev`).
-2. Klik tombol **"New +"** di pojok kanan atas &rarr; pilih **"Blueprint"** (atau **"Web Service"**).
-3. Sambungkan repositori GitHub Anda: `luminariadev/sakuskill`.
-4. Jika menggunakan **Web Service Manual**:
-   - **Name**: `sakuskill-backend`
-   - **Root Directory**: `backend`
-   - **Environment**: `Node`
-   - **Region**: `Singapore`
-   - **Branch**: `release/v1.0.0-mvp` (atau branch utama Anda)
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm run start:prod`
-   - **Instance Type**: `Free`
-5. Pada bagian **Environment Variables**, tambahkan:
-   - `DATABASE_URL` = *(isi dengan connection string dari Neon/Supabase di Tahap 1)*
-   - `NODE_ENV` = `production`
-   - `JWT_SECRET` = `sakuskill_secure_jwt_production_key_32chars`
-   - `PORT` = `10000`
-   - `API_PREFIX` = `/api/v1`
-6. Klik **"Create Web Service"**.
-   - Render akan mengunduh dependensi, menjalankan migrasi database (`001` hingga `006_create_order_time_extensions.sql`), dan menyalakan server.
-   - Anda akan mendapatkan URL HTTPS gratis, contoh: `https://sakuskill-backend.onrender.com`.
+* **Build Command:**
+  ```bash
+  npm --prefix admin ci --include=dev && npm --prefix admin run build && npm --prefix backend ci --omit=dev
+  ```
+  *(Flag `--include=dev` wajib pada `admin` karena Render menyetel `NODE_ENV=production` saat build, sehingga `vite`, `tailwindcss`, dan `@vitejs/plugin-react` tetap terpasang untuk kompilasi aset.)*
+* **Start Command:**
+  ```bash
+  npm --prefix backend run start:prod
+  ```
+* **Node Runtime:** `NODE_VERSION=22.14.0`
 
----
-
-## 4. Tahap 3: Uji Coba Health & Endpoint Backend Cloud
-
-Buka browser atau terminal untuk memverifikasi bahwa backend Anda sudah online:
-```bash
-curl -L https://sakuskill-backend.onrender.com/health
-```
-Respons yang diharapkan:
-```json
-{"status":"ok","service":"sakuskill-backend","timestamp":"2026-11-24T..."}
-```
+### Langkah Deploy via Render Blueprint (Tercepat):
+1. Buka [https://dashboard.render.com](https://dashboard.render.com) dan login dengan akun GitHub (`luminariadev`).
+2. Klik **"New +"** &rarr; pilih **"Blueprint"**.
+3. Hubungkan repositori `luminariadev/sakuskill` dan pilih branch `release/v1.0.0-mvp`.
+4. Render akan otomatis membaca `render.yaml` (`sakuskill-backend`, Region `Singapore`, Plan `Free`).
+5. Saat diminta mengisi environment variable **`DATABASE_URL`**, tempelkan Connection String dari Neon (atau Supabase Session Pooler `:5432`).
+6. Klik **"Apply"** / **"Deploy"**.
+   - Render akan membangun `admin/dist`, memasang dependensi produksi `backend`, menjalankan migrasi **`001` hingga `007`** secara idempoten melalui tabel `schema_migrations`, lalu menyalakan server.
+   - Pada database baru, migrasi `007` otomatis membuat akun Web Admin bawaan:
+     - **Email:** `admin@sakuskill.ac.id`
+     - **Kata Sandi:** `admin1234` *(segera ubah setelah login pertama)*
 
 ---
 
-## 5. Tahap 4: Build APK Android yang Terhubung ke Cloud
+## 4. Tahap 3: Verifikasi Backend & Web Admin Cloud
 
-Setelah backend aktif di Render (misal: `https://sakuskill-backend.onrender.com`):
+Setelah deploy Render berstatus **Live**, buka URL publik service Anda (misalnya `https://sakuskill-backend.onrender.com`):
+
+1. Cek Health API:
+   ```bash
+   curl -L https://sakuskill-backend.onrender.com/health
+   ```
+   Respons yang diharapkan:
+   ```json
+   {"status":"ok","service":"sakuskill-backend","timestamp":"..."}
+   ```
+2. Cek Web Admin Portal:
+   Buka browser ke `https://sakuskill-backend.onrender.com/admin/` dan login dengan `admin@sakuskill.ac.id`.
+
+---
+
+## 5. Tahap 4: Build APK Android yang Terhubung Permanen ke Cloud
+
+Default `AppConfig.apiBaseUrl` sudah mengarah ke `https://sakuskill-backend.onrender.com/api/v1` dengan timeout `45` detik untuk mengakomodasi cold-start Render Free Tier. Jika URL Render Anda berbeda, suntikkan saat build:
 
 1. Masuk ke direktori `mobile`:
    ```bash
    cd "D:\Kuliah\Sosio Informatika\sakuskill-mobile\mobile"
    ```
-2. Build Release APK dengan menyuntikkan URL backend Render Anda:
+2. Build Release APK:
    ```bash
-   flutter build apk --release --dart-define=API_BASE_URL=https://sakuskill-backend.onrender.com/api/v1
+   flutter build apk --release --dart-define=API_BASE_URL=https://<nama-service-anda>.onrender.com/api/v1
    ```
-3. Berkas APK hasil kompilasi akan berada di:
+3. Berkas APK hasil kompilasi berada di:
    `mobile/build/app/outputs/flutter-apk/app-release.apk`
-   Ukuran APK sekitar 18-25 MB (teroptimasi, tanpa bloatware).
 
 ---
 
-## 6. Tahap 5: Rilis APK ke GitHub Releases & Uji di HP Teman
+## 6. Tahap 5: Rilis APK & Uji Real-Time Multi-Device
 
-1. Buka repositori Anda di GitHub: `https://github.com/luminariadev/sakuskill/releases`.
-2. Klik **"Draft a new release"**:
-   - Tag version: `v1.1.0-cloud`
-   - Target branch: `release/v1.0.0-mvp`
-   - Release title: `SakuSkill v1.1.0 (Live Cloud Demo)`
-   - Attach binaries: Unggah berkas `app-release.apk`.
-3. Klik **"Publish release"**.
-4. **Uji Coba di HP Fisik:**
-   - Bagikan tautan release GitHub ke HP Anda dan HP teman-teman Anda.
-   - Unduh dan pasang (install) `app-release.apk`.
-   - Buka aplikasi menggunakan koneksi data internet (Wi-Fi kampus, Telkomsel/Indosat/XL, dsb).
-   - Pengguna 1 login/registrasi dan membuat penawaran jasa.
-   - Pengguna 2 di HP lain langsung bisa melihat jasa tersebut di Discovery dan melakukan pemesanan / barter / chat secara *real-time*!
+1. Buka `https://github.com/luminariadev/sakuskill/releases` &rarr; **"Draft a new release"**, unggah `app-release.apk`, lalu terbitkan.
+2. Pasang APK tersebut di 2 HP atau lebih dengan koneksi internet masing-masing.
+3. Aktivitas registrasi, upload foto profil, penawaran jasa, pesanan escrow, maupun barter dari HP langsung tersimpan ke PostgreSQL cloud dan muncul di Web Admin (`/admin/`) dalam <= 15 detik (atau instan dengan tombol **Segarkan**).

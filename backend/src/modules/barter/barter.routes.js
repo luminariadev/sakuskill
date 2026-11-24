@@ -9,6 +9,7 @@ const {
   barterReasonSchema,
   updateBarterStatusSchema,
   createBarterReviewSchema,
+  createBarterMessageSchema,
 } = require('./barter.validation');
 const barterController = require('./barter.controller');
 
@@ -60,6 +61,14 @@ router.patch('/:id/status', validateRequest(updateBarterStatusSchema), (req, res
 
 router.post('/:id/reviews', validateRequest(createBarterReviewSchema), (req, res, next) =>
   barterController.createReview(req, res, next)
+);
+
+router.get('/:id/messages', validateRequest(barterIdParamSchema), (req, res, next) =>
+  barterController.listMessages(req, res, next)
+);
+
+router.post('/:id/messages', validateRequest(createBarterMessageSchema), (req, res, next) =>
+  barterController.sendMessage(req, res, next)
 );
 
 module.exports = router;

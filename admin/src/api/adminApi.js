@@ -1,4 +1,11 @@
-const API_BASE = '/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
+const unauthorizedListeners = new Set();
+
+export function onUnauthorized(listener) {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
 
 export function getAuthToken() {
   return localStorage.getItem('sakuskill_admin_token') || '';
@@ -43,8 +50,13 @@ async function request(endpoint, options = {}) {
     headers,
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
   if (!response.ok || data.success === false) {
+    if (response.status === 401 && endpoint !== '/auth/login') {
+      setAuthToken(null);
+      setAdminUser(null);
+      unauthorizedListeners.forEach((cb) => cb());
+    }
     const errorMsg = data?.error?.message || data?.message || 'Permintaan gagal diproses';
     throw new Error(errorMsg);
   }
@@ -53,15 +65,20 @@ async function request(endpoint, options = {}) {
 }
 
 export const adminApi = {
-  // Auth
   async login(email, kata_sandi) {
     const res = await request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, kata_sandi }),
+      body: JSON.stringify({ email: email.trim(), kata_sandi }),
     });
+    const user = res.data?.user;
+    if (!user || user.peran !== 'Administrator') {
+      setAuthToken(null);
+      setAdminUser(null);
+      throw new Error('Akses ditolak: akun ini tidak memiliki peran Administrator.');
+    }
     if (res.data?.token) {
       setAuthToken(res.data.token);
-      setAdminUser(res.data.user);
+      setAdminUser(user);
     }
     return res.data;
   },
@@ -71,13 +88,11 @@ export const adminApi = {
     setAdminUser(null);
   },
 
-  // Dashboard
   async getDashboard() {
     const res = await request('/admin/dashboard');
     return res.data;
   },
 
-  // Users
   async getUsers() {
     const res = await request('/admin/users');
     return res.data;
@@ -99,7 +114,6 @@ export const adminApi = {
     return res.data;
   },
 
-  // Services
   async getListings() {
     const res = await request('/admin/listings');
     return res.data;
@@ -113,7 +127,6 @@ export const adminApi = {
     return res.data;
   },
 
-  // Disputes
   async getDisputes() {
     const res = await request('/admin/disputes');
     return res.data;
@@ -127,7 +140,6 @@ export const adminApi = {
     return res.data;
   },
 
-  // Reports
   async getReports() {
     const res = await request('/admin/reports');
     return res.data;
@@ -141,7 +153,6 @@ export const adminApi = {
     return res.data;
   },
 
-  // Escrow
   async getEscrow() {
     const res = await request('/admin/escrow');
     return res.data;

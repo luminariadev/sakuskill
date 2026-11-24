@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/demo/demo_assets.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
@@ -8,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 import '../../../escrow/data/datasources/escrow_remote_data_source.dart';
@@ -34,18 +34,28 @@ Future<void> openDirectOrderChat(
 
   EscrowOrderModel? targetOrder;
   try {
-    final ordersRes = await repo.fetchMyOrders(peran: 'pelanggan');
+    final both = await Future.wait([
+      repo.fetchMyOrders(peran: 'pelanggan'),
+      repo.fetchMyOrders(peran: 'penyedia'),
+    ]);
+    final allOrders = [...both[0].data, ...both[1].data];
     const terminalStatuses = {'completed', 'rejected', 'cancelled'};
 
-    for (final o in ordersRes.data) {
-      if (terminalStatuses.contains(o.statusKode)) continue;
+    for (final o in allOrders) {
+      if (terminalStatuses.contains(o.statusKode.toLowerCase())) continue;
       final sameListing = o.listingId != null && o.listingId == listing.id;
-      final sameProvider = (o.namaLawanTransaksi ?? '').toLowerCase() ==
-          listing.providerName.toLowerCase();
+      final sameProvider = (o.namaLawanTransaksi ?? '').trim().toLowerCase() ==
+          listing.providerName.trim().toLowerCase();
       if (sameListing || sameProvider) {
         targetOrder = o;
         break;
       }
+    }
+
+    if (targetOrder == null && !listing.offerType.acceptsPayment) {
+      if (navigator.canPop()) navigator.pop();
+      navigator.pushNamed(AppRoutes.proposeBarter, arguments: listing);
+      return;
     }
 
     if (targetOrder == null && listing.id.isNotEmpty) {
@@ -235,25 +245,23 @@ class TalentPreviewCard extends StatelessWidget {
         '${listing.rating!.toStringAsFixed(1)} ★ (${listing.reviewCount} Ulasan)',
     ].join(' · ');
 
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        borderRadius: AppRadius.cardBr,
-        boxShadow: AppShadows.elevated,
-      ),
-      child: SakuCard(
-        elevated: false,
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return SakuGlassContainer(
+      radius: 20,
+      blur: 18,
+      tint: AppColors.glassFill,
+      borderColor: AppColors.glassBorder,
+      padding: const EdgeInsets.all(16),
+      boxShadow: AppShadows.clayElevated,
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 10,
         children: [
           Row(
             children: [
-              PhotoAvatar(
+              InitialsAvatar(
                 name: listing.providerName,
-                asset: DemoAssets.portraitFor(listing.providerName),
-                size: 40,
+                size: 42,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -334,12 +342,11 @@ class TalentPreviewCard extends StatelessWidget {
           ),
         ],
       ),
-      ),
     );
   }
 }
 
-/// Tombol bulat kecil di atas peta (recenter, dll).
+/// Tombol bulat kaca buram di atas peta (recenter, dll).
 class MapCircleButton extends StatelessWidget {
   const MapCircleButton({
     super.key,
@@ -354,11 +361,12 @@ class MapCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.cardSurface,
-      shape: const CircleBorder(),
-      elevation: 2,
-      shadowColor: const Color(0x22000000),
+    return SakuGlassContainer(
+      radius: 999,
+      blur: 14,
+      tint: AppColors.glassFill,
+      borderColor: AppColors.glassBorder,
+      boxShadow: AppShadows.card,
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,

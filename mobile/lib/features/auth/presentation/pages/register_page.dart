@@ -4,6 +4,7 @@ import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/saku_buttons.dart';
@@ -79,6 +80,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (!mounted) return;
+      AccountFinanceStore.instance.resetForLogout();
       SakuMotion.tick();
       navigator.pushReplacementNamed(AppRoutes.profileSetup);
     } on ApiException catch (e) {

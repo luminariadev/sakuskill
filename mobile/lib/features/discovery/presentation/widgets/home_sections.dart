@@ -1,35 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../../../auth/data/auth_session.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_icon.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
 
-/// Header Beranda (Figma "5 · Beranda marketplace / Marketplace header"):
-/// "sakuskill." 23/800 · pill saldo emerald · avatar foto 36.
+/// Header Beranda: "sakuskill." 23/800 · pill saldo clay emerald · clay avatar 38.
 class MarketplaceHeader extends StatelessWidget {
   const MarketplaceHeader({
     super.key,
     required this.userName,
     required this.balance,
-    this.avatarAsset,
     this.onBalanceTap,
     this.onAvatarTap,
   });
 
   final String userName;
   final num balance;
-  final String? avatarAsset;
   final VoidCallback? onBalanceTap;
   final VoidCallback? onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 42,
+      height: 44,
       child: Row(
         children: [
           const Expanded(
@@ -53,13 +52,25 @@ class MarketplaceHeader extends StatelessWidget {
               onTap: onBalanceTap,
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFF0FDF8), Color(0xFFDDFBE9)],
+                  ),
                   borderRadius: AppRadius.pillBr,
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.22),
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
                   ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x18059669),
+                      offset: Offset(0, 3),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -93,7 +104,14 @@ class MarketplaceHeader extends StatelessWidget {
             child: PressableScale(
               scale: 0.94,
               onTap: onAvatarTap,
-              child: PhotoAvatar(name: userName, asset: avatarAsset, size: 36),
+              child: ValueListenableBuilder<String?>(
+                valueListenable: AuthSession.instance.photoUrlNotifier,
+                builder: (_, photoUrl, __) => InitialsAvatar(
+                  name: userName,
+                  size: 38,
+                  photoUrl: photoUrl,
+                ),
+              ),
             ),
           ),
         ],
@@ -102,8 +120,7 @@ class MarketplaceHeader extends StatelessWidget {
   }
 }
 
-/// Kolom pencarian pill (Figma "Search with map"): putih, border, tinggi 46,
-/// ikon cari 22 kiri, ikon pin emerald kanan (membuka peta).
+/// Kolom pencarian kapsul frosted glass-clay dengan tombol peta clay medallion.
 class SearchPill extends StatelessWidget {
   const SearchPill({
     super.key,
@@ -127,38 +144,54 @@ class SearchPill extends StatelessWidget {
         scale: 0.985,
         key: const Key('home-search-field'),
         onTap: onTap,
-        child: Container(
-          height: 46,
-          padding: const EdgeInsets.only(left: 14, right: 4),
-          decoration: BoxDecoration(
-            color: AppColors.cardSurface,
-            borderRadius: AppRadius.pillBr,
-            border: border ? Border.all(color: AppColors.borderLight) : null,
-            boxShadow: AppShadows.card,
-          ),
-          child: Row(
-            children: [
-              const SakuIcon(SakuIcons.search, size: 20, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  hint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 16 / 12,
-                    color: AppColors.textSecondary,
+        child: SakuGlassContainer(
+          radius: 999,
+          blur: 16,
+          tint: AppColors.glassFill,
+          borderColor: border ? AppColors.glassBorder : Colors.transparent,
+          padding: const EdgeInsets.only(left: 15, right: 6),
+          child: SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                const SakuIcon(
+                  SakuIcons.search,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    hint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 16 / 12.5,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
-              ),
-              if (onMapTap != null)
-                IconButton(
-                  tooltip: 'Lihat peta Cibiru',
-                  onPressed: onMapTap,
-                  icon: const SakuIcon(SakuIcons.pin, size: 20, color: AppColors.primary),
-                ),
-            ],
+                if (onMapTap != null)
+                  Tooltip(
+                    message: 'Lihat peta Cibiru',
+                    child: InkResponse(
+                      onTap: onMapTap,
+                      radius: 22,
+                      child: const ClayIconBadge(
+                        size: 34,
+                        radius: 17,
+                        tint: AppColors.primary,
+                        child: SakuIcon(
+                          SakuIcons.pin,
+                          size: 17,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -166,7 +199,7 @@ class SearchPill extends StatelessWidget {
   }
 }
 
-/// Banner gelap "Dana Aman Rekening Bersama Escrow".
+/// Banner gelap clay-glass "Dana Aman Rekening Bersama Escrow".
 class EscrowSecurityBanner extends StatelessWidget {
   const EscrowSecurityBanner({super.key});
 
@@ -181,9 +214,12 @@ class EscrowSecurityBanner extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [AppColors.deepCanvas, AppColors.deepForestAccent],
         ),
-        borderRadius: AppRadius.cardBr,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: AppShadows.elevated,
+        borderRadius: AppRadius.clayCardBr,
+        border: Border.all(
+          color: AppColors.accent.withValues(alpha: 0.22),
+          width: 1.2,
+        ),
+        boxShadow: AppShadows.clayElevated,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

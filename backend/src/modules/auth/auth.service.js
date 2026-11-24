@@ -14,6 +14,8 @@ class AuthService {
       peran: user.peran,
       status_verifikasi: user.status_verifikasi,
       deskripsi_profil: user.deskripsi_profil,
+      foto_profil: user.foto_profil || null,
+      foto_url: user.foto_profil || null,
       dibuat_pada: user.dibuat_pada,
       capabilities: {
         can_buy_services: true,

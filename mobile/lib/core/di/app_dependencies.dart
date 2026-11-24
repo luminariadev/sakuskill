@@ -76,6 +76,7 @@ class AppDependencies {
   factory AppDependencies.offline({
     secure.AuthSession? initialSession,
     AuthRepository? authRepository,
+    BarterRemoteDataSource? barterDataSource,
   }) {
     final store = secure.InMemorySessionStore(initialSession);
     final api = ApiClient(
@@ -97,7 +98,7 @@ class AppDependencies {
         local: const EscrowLocalDataSource(),
         forceLocal: true,
       ),
-      barterDataSource: BarterRemoteDataSource(),
+      barterDataSource: barterDataSource ?? BarterRemoteDataSource(),
     );
   }
 

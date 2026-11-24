@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const env = require('./config/env');
@@ -17,14 +19,28 @@ const reportsRoutes = require('./modules/reports/reports.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 
 const app = express();
+app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
 app.use(cors());
 app.use(globalRateLimiter);
 app.use(express.json({ limit: '2mb' }));
 app.use(requestLogger);
 
-// Health check root untuk Render / Cloud platforms
+// Root status & health check untuk Render / Cloud platforms
+app.get('/', (req, res) =>
+  res.json({
+    status: 'ok',
+    service: 'sakuskill-backend',
+    api: env.apiPrefix,
+    admin: '/admin/',
+    health: '/health',
+  })
+);
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'sakuskill-backend', timestamp: new Date().toISOString() }));
 
 // Registrasi seluruh modul endpoint SakuSkill
@@ -41,6 +57,23 @@ app.use(env.apiPrefix + '/payments', paymentsRoutes);
 app.use(env.apiPrefix + '/escrow', paymentsRoutes);
 app.use(env.apiPrefix + '/reports', reportsRoutes);
 app.use(env.apiPrefix + '/admin', adminRoutes);
+
+// Sajikan Web Admin Portal dalam 1 service yang sama di path /admin
+const adminDistPath = path.resolve(__dirname, '../../admin/dist');
+if (fs.existsSync(adminDistPath)) {
+  app.use('/admin', (req, res, next) => {
+    const cleanUrl = (req.originalUrl || '').split('?')[0];
+    if (cleanUrl === '/admin') {
+      res.set('Cache-Control', 'no-store');
+      return res.redirect(302, '/admin/');
+    }
+    return next();
+  });
+  app.use('/admin', express.static(adminDistPath));
+  app.get('/admin/*', (req, res) => {
+    res.sendFile(path.join(adminDistPath, 'index.html'));
+  });
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);

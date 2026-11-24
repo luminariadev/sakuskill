@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/demo/demo_assets.dart';
-import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_screen.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
@@ -16,19 +15,10 @@ import '../widgets/discovery_filters.dart';
 
 /// Figma "10 · Detail layanan" — titik masuk ke Chat Diskusi dan
 /// Buat Pesanan (escrow) / Ajukan Barter.
-class ServiceDetailPage extends StatefulWidget {
+class ServiceDetailPage extends StatelessWidget {
   const ServiceDetailPage({super.key, required this.listing});
 
   final ServiceListing listing;
-
-  @override
-  State<ServiceDetailPage> createState() => _ServiceDetailPageState();
-}
-
-class _ServiceDetailPageState extends State<ServiceDetailPage> {
-  bool _saved = false;
-
-  ServiceListing get listing => widget.listing;
 
   String get _priceText {
     final price = listing.price;
@@ -71,30 +61,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
             color: AppColors.textPrimary,
           ),
         ),
-        Row(
-          spacing: 10,
-          children: [
-            _MetaAction(
-              icon: Icons.share_outlined,
-              label: 'Bagikan',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Tautan layanan disalin.')),
-              ),
-            ),
-            _MetaAction(
-              key: const Key('detail-save'),
-              icon: _saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-              label: _saved ? 'Tersimpan' : 'Simpan',
-              color: _saved ? AppColors.primary : AppColors.textSecondary,
-              selected: _saved,
-              onTap: () {
-                SakuMotion.tick();
-                setState(() => _saved = !_saved);
-              },
-            ),
-          ],
-        ),
-        _Gallery(listing: listing),
+        _ServiceClayHero(listing: listing),
         Text(
           listing.title,
           style: const TextStyle(
@@ -118,13 +85,12 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           ),
         ),
         SakuCard(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              PhotoAvatar(
+              InitialsAvatar(
                 name: listing.providerName,
-                asset: DemoAssets.portraitFor(listing.providerName),
-                size: 42,
+                size: 44,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -190,16 +156,33 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
         if (!listing.isRequest && listing.offerType.acceptsBarter)
           InfoBox(
             tone: SakuTone.barter,
-            child: Text(
-              listing.barterWant != null
-                  ? 'Menerima Barter dengan Jasa ${listing.barterWant}'
-                  : 'Menerima Barter dengan keahlian Anda',
-              style: const TextStyle(
-                fontSize: 12,
-                height: 17 / 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.barterText,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [
+                Text(
+                  listing.barterWant != null
+                      ? 'Menerima Barter dengan Jasa ${listing.barterWant}'
+                      : 'Menerima Barter dengan keahlian Anda (tanpa uang tunai)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 17 / 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.barterText,
+                  ),
+                ),
+                if (listing.offerType.acceptsPayment)
+                  SakuButton(
+                    key: const Key('detail-barter'),
+                    label: 'Ajukan Barter (Rp 0)',
+                    variant: SakuButtonVariant.barter,
+                    height: 42,
+                    onPressed: () => Navigator.of(context).pushNamed(
+                      AppRoutes.proposeBarter,
+                      arguments: listing,
+                    ),
+                  ),
+              ],
             ),
           ),
       ],
@@ -207,193 +190,162 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   }
 }
 
-class _MetaAction extends StatelessWidget {
-  const _MetaAction({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color = AppColors.textSecondary,
-    this.selected = false,
-  });
+/// Ringkasan hero claymorphism kategori layanan (tanpa foto/gambar eksternal).
+class _ServiceClayHero extends StatelessWidget {
+  const _ServiceClayHero({required this.listing});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
-  final bool selected;
+  final ServiceListing listing;
+
+  Color _accentColor() {
+    if (!listing.isRequest && !listing.offerType.acceptsPayment) {
+      return AppColors.barter;
+    }
+    if (listing.isRequest) return AppColors.escrow;
+    return switch (listing.category) {
+      'Desain' => AppColors.primary,
+      'Jasa Teknis' => AppColors.escrow,
+      'Fotografi' => AppColors.warningText,
+      'Bimbingan Belajar' => const Color(0xFF0D9488),
+      _ => AppColors.primary,
+    };
+  }
+
+  static String _iconKey(String category) => switch (category) {
+        'Desain' => 'design',
+        'Jasa Teknis' => 'tech',
+        'Fotografi' => 'photo',
+        'Bimbingan Belajar' => 'tutor',
+        _ => '',
+      };
 
   @override
   Widget build(BuildContext context) {
-    return PressableScale(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: SakuMotion.base,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primarySurface : AppColors.cardSurface,
-          borderRadius: AppRadius.pillBr,
-          border: Border.all(
-            color: selected
-                ? AppColors.primary.withValues(alpha: 0.35)
-                : AppColors.borderLight,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.5,
-                height: 15 / 11.5,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
+    final tint = _accentColor();
+    final modeLabel = listing.isRequest
+        ? 'Kebutuhan Proyek'
+        : !listing.offerType.acceptsPayment
+            ? 'Smart Barter Rp 0'
+            : 'Escrow Terproteksi';
+    final d = listing.distanceMeters;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(tint, Colors.white, 0.90)!,
+            Color.lerp(tint, Colors.white, 0.80)!,
           ],
         ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.92),
+          width: 1.5,
+        ),
+        boxShadow: AppShadows.clayElevated,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 12,
+        children: [
+          Row(
+            children: [
+              ClayIconBadge(
+                size: 54,
+                radius: 18,
+                tint: tint,
+                icon: categoryIcon(_iconKey(listing.category)),
+                iconSize: 26,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _HeroGlassPill(label: modeLabel, tint: tint),
+                    _HeroGlassPill(
+                      label: listing.category,
+                      tint: AppColors.textPrimary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (listing.deliveryDays != null)
+                _HeroGlassPill(
+                  icon: Icons.schedule_rounded,
+                  label: 'Estimasi ${listing.deliveryDays} Hari',
+                  tint: tint,
+                ),
+              if (d != null)
+                _HeroGlassPill(
+                  icon: Icons.location_on_outlined,
+                  label: '${compactDistance(d)} Cibiru',
+                  tint: AppColors.textSecondary,
+                ),
+              if (listing.rating != null)
+                _HeroGlassPill(
+                  icon: Icons.star_rounded,
+                  label: '${listing.rating!.toStringAsFixed(1)} (${listing.reviewCount})',
+                  tint: AppColors.warningText,
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Slider portofolio 176 px beradius 14 + indikator titik (● ○ ○) yang bergeser halus.
-class _Gallery extends StatefulWidget {
-  const _Gallery({required this.listing});
+class _HeroGlassPill extends StatelessWidget {
+  const _HeroGlassPill({
+    required this.label,
+    required this.tint,
+    this.icon,
+  });
 
-  final ServiceListing listing;
-
-  @override
-  State<_Gallery> createState() => _GalleryState();
-}
-
-class _GalleryState extends State<_Gallery> {
-  int _page = 0;
+  final String label;
+  final Color tint;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    final images = widget.listing.galleryAssets.isNotEmpty
-        ? widget.listing.galleryAssets
-        : [if (widget.listing.coverAsset != null) widget.listing.coverAsset!];
-
-    if (images.isEmpty) {
-      return ClipRRect(
-        borderRadius: AppRadius.cardBr,
-        child: Container(
-          height: 176,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.mediaGreen, AppColors.deepCanvas],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.78),
+        borderRadius: AppRadius.pillBr,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.94),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: tint),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: tint,
             ),
           ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -28,
-                top: -28,
-                child: Container(
-                  width: 130,
-                  height: 130,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      width: 18,
-                    ),
-                  ),
-                ),
-              ),
-              Center(
-                child: Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  child: Icon(
-                    categoryIcon(''),
-                    size: 32,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 12,
-                bottom: 12,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    borderRadius: AppRadius.pillBr,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Text(
-                    widget.listing.category,
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      spacing: 12,
-      children: [
-        ClipRRect(
-          borderRadius: AppRadius.cardBr,
-          child: SizedBox(
-            height: 176,
-            child: PageView.builder(
-              itemCount: images.length,
-              onPageChanged: (i) => setState(() => _page = i),
-              itemBuilder: (_, i) => Semantics(
-                image: true,
-                label: 'Foto portofolio ${i + 1} dari ${images.length}',
-                child: Image.asset(images[i], fit: BoxFit.cover),
-              ),
-            ),
-          ),
-        ),
-        if (images.length > 1)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: 6,
-            children: [
-              for (var i = 0; i < images.length; i++)
-                AnimatedContainer(
-                  duration: SakuMotion.base,
-                  curve: SakuMotion.curve,
-                  width: i == _page ? 16 : 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: i == _page ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppColors.primary, width: 1.2),
-                  ),
-                ),
-            ],
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

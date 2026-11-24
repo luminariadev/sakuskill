@@ -1,18 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/demo/demo_data.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/motion/saku_motion.dart';
 import '../../../../core/navigation/app_router.dart';
+import '../../../../core/state/account_finance_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimens.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/initials_avatar.dart';
 import '../../../../core/widgets/saku_buttons.dart';
 import '../../../../core/widgets/saku_surfaces.dart';
-import '../../../../core/widgets/saku_transaction.dart';
 import '../../../auth/data/auth_session.dart';
-import '../../../escrow/data/datasources/escrow_remote_data_source.dart';
+import '../../../barter/data/models/barter_model.dart';
 import '../../../escrow/data/models/escrow_order_model.dart';
 import '../../../escrow/presentation/pages/incoming_order_page.dart';
 
@@ -26,8 +29,10 @@ class ActivityPage extends StatefulWidget {
 
 class _ActivityPageState extends State<ActivityPage> {
   bool _loadingOrders = false;
+  bool _initialized = false;
   List<EscrowOrderModel> _customerOrders = const [];
   List<EscrowOrderModel> _providerOrders = const [];
+  List<BarterAgreementModel> _liveBarters = const [];
   Timer? _clockTimer;
   Timer? _pollTimer;
   String _liveClock = formatClockSeconds(DateTime.now());
@@ -35,11 +40,18 @@ class _ActivityPageState extends State<ActivityPage> {
   @override
   void initState() {
     super.initState();
-    _loadOrders();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _liveClock = formatClockSeconds(DateTime.now()));
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    _loadOrders();
     _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted) return;
       _loadOrders(silent: true);
@@ -54,26 +66,45 @@ class _ActivityPageState extends State<ActivityPage> {
   }
 
   Future<void> _loadOrders({bool silent = false}) async {
+    if (AppConfig.useMockData) return;
     final token = AuthSession.instance.accessToken;
     if (token == null || token.isEmpty) return;
 
     if (!silent) setState(() => _loadingOrders = true);
-    final remote = EscrowRemoteDataSource(
-      tokenProvider: () async => AuthSession.instance.accessToken,
-    );
+    final deps = AppScope.of(context);
 
     try {
       final results = await Future.wait([
-        remote.fetchMyOrders(peran: 'pelanggan'),
-        remote.fetchMyOrders(peran: 'penyedia'),
+        deps.escrowRepository.fetchMyOrders(peran: 'pelanggan'),
+        deps.escrowRepository.fetchMyOrders(peran: 'penyedia'),
+        deps.barterDataSource
+            .listMyBarters()
+            .catchError((_) => const <BarterAgreementModel>[]),
       ]);
+
+      final custRes = results[0] as dynamic;
+      final provRes = results[1] as dynamic;
+      final barters = results[2] as List<BarterAgreementModel>;
       if (!mounted) return;
-      setState(() {
-        _customerOrders = results[0];
-        _providerOrders = results[1];
-      });
+
+      if (!custRes.isFallback && !provRes.isFallback) {
+        final custList = custRes.data as List<EscrowOrderModel>;
+        final provList = provRes.data as List<EscrowOrderModel>;
+
+        AccountFinanceStore.instance.syncFromOrders(
+          providerOrders: provList,
+          customerOrders: custList,
+          userId: AuthSession.instance.userId,
+        );
+
+        setState(() {
+          _customerOrders = custList;
+          _providerOrders = provList;
+          _liveBarters = barters;
+        });
+      }
     } catch (_) {
-      // Tetap pertahankan state terakhir jika server belum merespons
+      // Pertahankan state terakhir jika server belum merespons
     } finally {
       if (!silent && mounted) setState(() => _loadingOrders = false);
     }
@@ -81,7 +112,7 @@ class _ActivityPageState extends State<ActivityPage> {
 
   void _openOrder(EscrowOrderModel order, {required bool asProvider}) {
     final status = order.statusKode.toLowerCase();
-    final isPrePayment =
+    final isPrePayment = status == 'requested' ||
         status == 'submitted' ||
         status == 'diajukan' ||
         status == 'negotiating' ||
@@ -117,32 +148,17 @@ class _ActivityPageState extends State<ActivityPage> {
 
   @override
   Widget build(BuildContext context) {
-    const barter = DemoData.barter;
-    void go(String route) => Navigator.of(context).pushNamed(route);
+    void go(String route, {Object? arguments}) =>
+        Navigator.of(context).pushNamed(route, arguments: arguments);
 
     final hasLiveOrders =
         _customerOrders.isNotEmpty || _providerOrders.isNotEmpty;
 
-    // Hitung saldo tersedia dari order penyedia yang sudah selesai (completed)
-    final earnedBalance = _providerOrders
-        .where((o) => o.statusKode.toLowerCase() == 'completed')
-        .fold<int>(0, (sum, o) => sum + o.harga);
-
-    // Hitung total dana ditahan & jumlah transaksi berjalan dari order aktif
-    const terminalStatuses = {'completed', 'rejected', 'cancelled'};
-    final allLiveOrders = [..._providerOrders, ..._customerOrders];
-    final activeOrders = allLiveOrders
-        .where((o) => !terminalStatuses.contains(o.statusKode.toLowerCase()))
-        .toList();
-    final totalEscrowHeld = activeOrders
-        .where((o) => o.bolehLanjutInProgress)
-        .fold<int>(0, (sum, o) => sum + o.harga);
-    final activeCount = activeOrders.length;
-
     final items = <Widget>[
       const PageHeader(
         'Aktivitas Saya',
-        subtitle: 'Kelola pesanan jasa, pengerjaan proyek, dan barter di satu tempat.',
+        subtitle:
+            'Kelola pesanan jasa, pengerjaan proyek, dan barter di satu tempat.',
       ),
       Row(
         children: [
@@ -165,11 +181,17 @@ class _ActivityPageState extends State<ActivityPage> {
           ),
         ],
       ),
-      WalletSummaryCard(
-        balance: earnedBalance,
-        escrowHeld: totalEscrowHeld,
-        activeTransactions: activeCount,
-        onWithdraw: () => go(AppRoutes.wallet),
+      ListenableBuilder(
+        listenable: AccountFinanceStore.instance,
+        builder: (context, _) {
+          final finance = AccountFinanceStore.instance;
+          return WalletSummaryCard(
+            balance: finance.availableBalance,
+            escrowHeld: finance.escrowHeld,
+            activeTransactions: finance.activeOrderCount,
+            onWithdraw: () => go(AppRoutes.wallet),
+          );
+        },
       ),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -196,9 +218,7 @@ class _ActivityPageState extends State<ActivityPage> {
             roleBadge: 'PESANAN MASUK · PENYEDIA JASA',
             actionLabel: _actionTextFor(item, asProvider: true),
             onPrimaryTap: () => _openOrder(item, asProvider: true),
-            onChatTap: () =>
-                Navigator.of(context)
-                    .pushNamed(AppRoutes.orderChat, arguments: item),
+            onChatTap: () => go(AppRoutes.orderChat, arguments: item),
           ),
         for (final item in _customerOrders)
           _LiveOrderCard(
@@ -207,9 +227,7 @@ class _ActivityPageState extends State<ActivityPage> {
             roleBadge: 'PESANAN SAYA · PELANGGAN',
             actionLabel: _actionTextFor(item, asProvider: false),
             onPrimaryTap: () => _openOrder(item, asProvider: false),
-            onChatTap: () =>
-                Navigator.of(context)
-                    .pushNamed(AppRoutes.orderChat, arguments: item),
+            onChatTap: () => go(AppRoutes.orderChat, arguments: item),
           ),
       ] else
         const SakuCard(
@@ -222,102 +240,89 @@ class _ActivityPageState extends State<ActivityPage> {
           ),
         ),
       const SectionLabel('SMART BARTER · TUKAR KEAHLIAN'),
-      SakuCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 10,
-          children: [
-            PersonRow(
-              name: barter.partner,
-              subtitle: '${barter.mySkill} ⇄ ${barter.partnerSkill}',
-              asset: barter.partnerAsset,
-            ),
-            Text(
-              'Pengerjaan Bersama\nProgress Salma ${(barter.myProgress * 100).round()}% · '
-              'Rizkia ${(barter.partnerProgress * 100).round()}%',
-              style: const TextStyle(
-                fontSize: 12,
-                height: 17 / 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            Row(
+      if (!AppConfig.useMockData) ...[
+        if (_liveBarters.isEmpty)
+          SakuCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               spacing: 10,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 4,
-                    children: [
-                      Text(
-                        'Salma (${(barter.myProgress * 100).round()}%)',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.barterText,
-                        ),
-                      ),
-                      SakuProgressBar(
-                        value: barter.myProgress,
-                        color: AppColors.barter,
-                      ),
-                    ],
+                const Text(
+                  'Belum ada proyek Smart Barter aktif.\nAjukan pertukaran keahlian Rp 0 langsung dari halaman layanan yang mendukung Barter.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 18 / 13,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 4,
-                    children: [
-                      Text(
-                        'Rizkia (${(barter.partnerProgress * 100).round()}%)',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryPressed,
-                        ),
-                      ),
-                      SakuProgressBar(
-                        value: barter.partnerProgress,
-                        color: AppColors.primary,
-                      ),
-                    ],
-                  ),
+                SakuButton(
+                  label: 'Ajukan Penawaran Barter',
+                  variant: SakuButtonVariant.barter,
+                  onPressed: () => go(AppRoutes.proposeBarter),
                 ),
               ],
             ),
-            SakuButton(
-              label: 'Buka Ruang Barter',
-              variant: SakuButtonVariant.barter,
-              onPressed: () => go(AppRoutes.barterWorkroom),
+          )
+        else
+          for (final barter in _liveBarters)
+            _LiveBarterCard(
+              barter: barter,
+              onOpen: () => go(AppRoutes.barterWorkroom, arguments: barter),
             ),
-          ],
+      ] else
+        _DemoBarterPreviewCard(
+          onOpen: () => go(AppRoutes.barterWorkroom),
         ),
-      ),
       const SectionLabel('KELOLA & BANTUAN'),
-      _LinkStrip(
-        'Jasa Saya · Kelola layanan yang ditawarkan',
-        () => go(AppRoutes.myServices),
-      ),
-      _LinkStrip(
-        'Kontrak Barter Saya · Lihat riwayat',
-        () => go(AppRoutes.barterHistory),
-      ),
-      _LinkStrip(
-        'Sengketa & Mediasi Transaksi (0 Kasus Aktif)',
-        () => go(AppRoutes.complaint),
-      ),
-      _LinkStrip(
-        _providerOrders.isNotEmpty
-            ? 'Pesanan Masuk (${_providerOrders.length}) · Tinjau permintaan klien'
-            : 'Pesanan Masuk · Tinjau permintaan klien',
-        () {
-          if (_providerOrders.isNotEmpty) {
-            _openOrder(_providerOrders.first, asProvider: true);
-          } else {
-            go(AppRoutes.incomingOrders);
-          }
-        },
+      SakuCard(
+        radius: 22,
+        padding: EdgeInsets.zero,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Column(
+            children: [
+              _GroupedMenuItem(
+                icon: Icons.design_services_outlined,
+                tint: AppColors.primary,
+                title: 'Jasa Saya',
+                subtitle: 'Kelola layanan yang ditawarkan',
+                onTap: () => go(AppRoutes.myServices),
+              ),
+              const Divider(height: 1, indent: 66),
+              _GroupedMenuItem(
+                icon: Icons.swap_horiz_rounded,
+                tint: AppColors.barter,
+                title: 'Kontrak Barter Saya',
+                subtitle: 'Lihat riwayat & ketentuan barter',
+                onTap: () => go(AppRoutes.barterHistory),
+              ),
+              const Divider(height: 1, indent: 66),
+              _GroupedMenuItem(
+                icon: Icons.support_agent_rounded,
+                tint: AppColors.escrow,
+                title: 'Pusat Bantuan & Panduan',
+                subtitle: 'FAQ pengguna & status laporan komplain',
+                onTap: () => go(AppRoutes.helpCenter),
+              ),
+              const Divider(height: 1, indent: 66),
+              _GroupedMenuItem(
+                icon: Icons.inbox_outlined,
+                tint: AppColors.warningText,
+                title: _providerOrders.isNotEmpty
+                    ? 'Pesanan Masuk (${_providerOrders.length})'
+                    : 'Pesanan Masuk',
+                subtitle: 'Tinjau permintaan klien',
+                onTap: () {
+                  if (_providerOrders.isNotEmpty) {
+                    _openOrder(_providerOrders.first, asProvider: true);
+                  } else {
+                    go(AppRoutes.incomingOrders);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     ];
 
@@ -328,7 +333,7 @@ class _ActivityPageState extends State<ActivityPage> {
         child: RefreshIndicator(
           onRefresh: _loadOrders,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 116),
             children: [
               for (var i = 0; i < items.length; i++) ...[
                 if (i > 0) const SizedBox(height: 16),
@@ -343,7 +348,10 @@ class _ActivityPageState extends State<ActivityPage> {
 
   String _actionTextFor(EscrowOrderModel order, {required bool asProvider}) {
     final s = order.statusKode.toLowerCase();
-    if (s == 'submitted' || s == 'diajukan' || s == 'negotiating') {
+    if (s == 'requested' ||
+        s == 'submitted' ||
+        s == 'diajukan' ||
+        s == 'negotiating') {
       return asProvider ? 'Tinjau & Terima Pesanan' : 'Lihat Status Pengajuan';
     }
     if (s == 'accepted' || s == 'disepakati') {
@@ -355,6 +363,204 @@ class _ActivityPageState extends State<ActivityPage> {
       return 'Lihat Riwayat Pesanan';
     }
     return asProvider ? 'Buka Ruang Proyek' : 'Pantau Progres Pesanan';
+  }
+}
+
+class _LiveBarterCard extends StatelessWidget {
+  const _LiveBarterCard({
+    required this.barter,
+    required this.onOpen,
+  });
+
+  final BarterAgreementModel barter;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final myId = AuthSession.instance.userId;
+    final partnerName = myId == barter.pengajuId
+        ? barter.namaPenerima
+        : barter.namaPengaju;
+
+    return SakuCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: [
+          StatusStrip(
+            'SMART BARTER · ${barter.status.toUpperCase()}',
+            tone: SakuTone.barter,
+          ),
+          PersonRow(
+            name: partnerName.isEmpty ? 'Mitra Barter' : partnerName,
+            subtitle:
+                '${barter.deskripsiJasaPengaju} ⇄ ${barter.deskripsiJasaPenerima}',
+            leading: InitialsAvatar(
+              name: partnerName.isEmpty ? 'Mitra' : partnerName,
+              size: 40,
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _MilestoneTag(
+                label: 'Setuju 2 Pihak',
+                done: barter.setujuPengaju && barter.setujuPenerima,
+              ),
+              _MilestoneTag(
+                label: 'Pengaju Selesai',
+                done: barter.konfirmasiSelesaiPengaju,
+              ),
+              _MilestoneTag(
+                label: 'Penerima Selesai',
+                done: barter.konfirmasiSelesaiPenerima,
+              ),
+            ],
+          ),
+          SakuButton(
+            label: 'Buka Ruang Barter',
+            variant: SakuButtonVariant.barter,
+            onPressed: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DemoBarterPreviewCard extends StatelessWidget {
+  const _DemoBarterPreviewCard({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    const barter = DemoData.barter;
+    return SakuCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: [
+          PersonRow(
+            name: barter.partner,
+            subtitle: '${barter.mySkill} ⇄ ${barter.partnerSkill}',
+            leading: InitialsAvatar(name: barter.partner, size: 40),
+          ),
+          const Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _MilestoneTag(label: 'Ketentuan Disepakati', done: true),
+              _MilestoneTag(label: 'Pengerjaan Bersama', done: true),
+              _MilestoneTag(label: 'Konfirmasi 2 Pihak', done: false),
+            ],
+          ),
+          SakuButton(
+            label: 'Buka Ruang Barter',
+            variant: SakuButtonVariant.barter,
+            onPressed: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MilestoneTag extends StatelessWidget {
+  const _MilestoneTag({required this.label, required this.done});
+
+  final String label;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = done ? AppColors.barterSurface : AppColors.surfaceSubtle;
+    final fg = done ? AppColors.barterText : AppColors.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: AppRadius.pillBr,
+      ),
+      child: Text(
+        '${done ? '✓' : '○'} $label',
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupedMenuItem extends StatelessWidget {
+  const _GroupedMenuItem({
+    required this.icon,
+    required this.tint,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              ClayIconBadge(
+                size: 38,
+                radius: 12,
+                tint: tint,
+                icon: icon,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -430,6 +636,7 @@ class _LiveOrderCard extends StatelessWidget {
     final s = order.statusKode.toLowerCase();
     final isTerminated = s == 'cancelled' || s == 'rejected';
     final notice = _deadlineNotice();
+    final name = order.namaLawanTransaksi ?? 'Pengguna SakuSkill';
 
     return SakuCard(
       child: Column(
@@ -450,9 +657,9 @@ class _LiveOrderCard extends StatelessWidget {
             ),
           ),
           PersonRow(
-            name: order.namaLawanTransaksi ?? 'Pengguna SakuSkill',
+            name: name,
             subtitle: order.judulLayanan,
-            asset: DemoData.order.clientAsset,
+            leading: InitialsAvatar(name: name, size: 40),
           ),
           if (!isTerminated) MilestoneSteps(current: _milestoneStep()),
           if (notice != null)
@@ -473,28 +680,7 @@ class _LiveOrderCard extends StatelessWidget {
   }
 }
 
-class _LinkStrip extends StatelessWidget {
-  const _LinkStrip(this.text, this.onTap);
-
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      child: StatusStrip(
-        '$text  ›',
-        background: AppColors.cardSurface,
-        textColor: AppColors.textPrimary,
-        bordered: true,
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-/// Ringkasan dompet gelap (Figma "Wallet summary"): padding 18, saldo 28/800.
+/// Ringkasan dompet gelap (Figma "Wallet summary"): tersinkron penuh.
 class WalletSummaryCard extends StatelessWidget {
   const WalletSummaryCard({
     super.key,
@@ -520,9 +706,9 @@ class WalletSummaryCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [AppColors.deepCanvas, AppColors.deepForestAccent],
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: AppShadows.elevated,
+        boxShadow: AppShadows.clayElevated,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +765,7 @@ class WalletSummaryCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border:
                         Border.all(color: Colors.white.withValues(alpha: 0.08)),
                   ),
@@ -613,7 +799,7 @@ class WalletSummaryCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border:
                         Border.all(color: Colors.white.withValues(alpha: 0.08)),
                   ),
