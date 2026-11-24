@@ -9,6 +9,9 @@
 @Tags(['live'])
 library;
 
+import 'package:sakuskill/features/escrow/data/datasources/escrow_local_data_source.dart';
+import 'package:sakuskill/features/escrow/data/datasources/escrow_remote_data_source.dart';
+import 'package:sakuskill/features/escrow/domain/repositories/escrow_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sakuskill/core/config/app_config.dart';
 import 'package:sakuskill/core/di/app_dependencies.dart';
@@ -53,6 +56,11 @@ void main() {
       discoveryRepository: DiscoveryRepositoryImpl(
         remote: DiscoveryRemoteDataSource(api),
         local: const DiscoveryLocalDataSource(),
+      ),
+      escrowRepository: EscrowRepositoryImpl(
+        remote: EscrowRemoteDataSource(),
+        local: const EscrowLocalDataSource(),
+        forceLocal: true,
       ),
     );
   });

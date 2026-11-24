@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:sakuskill/features/escrow/data/datasources/escrow_local_data_source.dart';
+import 'package:sakuskill/features/escrow/data/datasources/escrow_remote_data_source.dart';
+import 'package:sakuskill/features/escrow/domain/repositories/escrow_repository_impl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -29,7 +32,8 @@ void main() {
 
   group('AuthSession JSON', () {
     test('round-trip', () {
-      final json = jsonDecode(jsonEncode(_salma.toJson())) as Map<String, dynamic>;
+      final json =
+          jsonDecode(jsonEncode(_salma.toJson())) as Map<String, dynamic>;
       expect(AuthSession.fromJson(json), _salma);
       expect(json['user']['status_verifikasi'], 'Terverifikasi');
     });
@@ -83,7 +87,9 @@ void main() {
           {SecureSessionStore.storageKey: '{bukan json'});
       final store = SecureSessionStore();
       expect(await store.load(), isNull);
-      expect(await const FlutterSecureStorage().read(key: SecureSessionStore.storageKey),
+      expect(
+          await const FlutterSecureStorage()
+              .read(key: SecureSessionStore.storageKey),
           isNull);
     });
 
@@ -141,6 +147,11 @@ void main() {
           remote: DiscoveryRemoteDataSource(api),
           local: const DiscoveryLocalDataSource(),
         ),
+        escrowRepository: EscrowRepositoryImpl(
+          remote: EscrowRemoteDataSource(),
+          local: const EscrowLocalDataSource(),
+          forceLocal: true,
+        ),
       );
 
       await expectLater(api.get('/me'), throwsA(isA<ApiException>()));
@@ -149,7 +160,8 @@ void main() {
       await deps.dispose();
     });
 
-    test('offline(initialSession) siap untuk tes layar yang butuh login', () async {
+    test('offline(initialSession) siap untuk tes layar yang butuh login',
+        () async {
       final deps = AppDependencies.offline(initialSession: _salma);
       await deps.init();
       expect(deps.session.session.value?.user.firstName, 'Salma');
